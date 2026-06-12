@@ -1,5 +1,7 @@
 import time
 import hashlib
+import random
+import threading
 import urllib.error
 
 from flask import Flask, request, jsonify, render_template
@@ -21,6 +23,9 @@ from arcgis import (
 app = Flask(__name__)
 
 inicio = time.time()
+_battery_levels_by_device: dict[str, float] = {}
+_battery_lock = threading.Lock()
+MAX_BATTERY_SCORE = 50.0
 
 
 # ---------------------------------------------------------------------------
@@ -37,6 +42,73 @@ def get_device_info(data: dict) -> tuple[str, str, str]:
         device_id   = hashlib.sha256(fingerprint.encode("utf-8")).hexdigest()[:16]
 
     return device_id, device_ip, user_agent
+
+
+def clamp(value: float, minimum: float, maximum: float) -> float:
+    return max(minimum, min(maximum, value))
+
+
+def get_next_battery_level(device_id: str) -> float:
+    with _battery_lock:
+        current_level = _battery_levels_by_device.get(device_id)
+
+        if current_level is None:
+            current_level = random.uniform(0.0, 100.0)
+        else:
+            current_level += random.uniform(-5.0, 5.0)
+
+        current_level = clamp(current_level, 0.0, 100.0)
+        _battery_levels_by_device[device_id] = current_level
+        return current_level
+
+
+def get_participant_position(participante: str) -> int | None:
+    try:
+        return int(participante.rsplit("_", 1)[1])
+    except (IndexError, TypeError, ValueError):
+        return None
+
+
+def get_battery_score(nivel_bateria: float) -> float:
+    with _battery_lock:
+        highest_battery = max(_battery_levels_by_device.values(), default=0.0)
+
+    if highest_battery <= 0:
+        return 0.0
+
+    return clamp((nivel_bateria / highest_battery) * MAX_BATTERY_SCORE, 0.0, MAX_BATTERY_SCORE)
+
+
+def get_battery_rank(device_id: str) -> int | None:
+    with _battery_lock:
+        battery_levels = dict(_battery_levels_by_device)
+
+    highest_battery = max(battery_levels.values(), default=0.0)
+
+    def score_from_snapshot(level: float) -> float:
+        if highest_battery <= 0:
+            return 0.0
+        return clamp((level / highest_battery) * MAX_BATTERY_SCORE, 0.0, MAX_BATTERY_SCORE)
+
+    with participants_lock:
+        participant_names = {
+            participant_device_id: entry.get("nombre") if isinstance(entry, dict) else entry
+            for participant_device_id, entry in participants_cache.items()
+        }
+
+    ranked_devices = sorted(
+        battery_levels,
+        key=lambda participant_device_id: (
+            -score_from_snapshot(battery_levels[participant_device_id]),
+            get_participant_position(participant_names.get(participant_device_id, "")) or 999999,
+            participant_device_id,
+        ),
+    )
+
+    try:
+        return ranked_devices.index(device_id) + 1
+    except ValueError:
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -105,6 +177,11 @@ def gps():
             "msg":    f"Ya se alcanzó el límite de {MAX_PARTICIPANTES} participantes.",
         }), 403
 
+    nivel_bateria = get_next_battery_level(device_id)
+    posicion_inicial = get_participant_position(participante)
+    puntaje = get_battery_score(nivel_bateria)
+    posicion = get_battery_rank(device_id)
+
     feature = {
         "type": "Feature",
         "geometry": {
@@ -117,6 +194,10 @@ def gps():
             "altitude":            data.get("altitude"),
             "altitude_accuracy":   data.get("altitude_accuracy"),
             "heading":             data.get("heading"),
+            "nivel_bateria":       nivel_bateria,
+            "posicion_inicial":    posicion_inicial,
+            "posicion":            posicion,
+            "puntaje":             puntaje,
 
             # Velocidad (sensor GPS o calculada por Haversine en el cliente)
             "speed_mps":           data.get("speed_mps"),
@@ -153,6 +234,10 @@ def gps():
         f"{data['latitude']}, {data['longitude']} "
         f"vel={data.get('speed_kmh', 'N/A')} km/h ({data.get('speed_source', '')}) "
         f"accel={data.get('acceleration_mps2', '-')} m/s2 "
+        f"bateria={nivel_bateria:.2f}% "
+        f"posicion_inicial={posicion_inicial} "
+        f"posicion={posicion} "
+        f"puntaje={puntaje:.2f} "
         f"(+/-{data.get('accuracy', '')}m)"
     )
 
@@ -176,6 +261,10 @@ def gps():
     response = {
         "status":                 "ok",
         "participante":           participante,
+        "nivel_bateria":          nivel_bateria,
+        "posicion_inicial":       posicion_inicial,
+        "posicion":               posicion,
+        "puntaje":                puntaje,
         "arcgis_sent":            arcgis_sent,
         "arcgis_skipped_throttle": arcgis_skipped_throttle,
     }

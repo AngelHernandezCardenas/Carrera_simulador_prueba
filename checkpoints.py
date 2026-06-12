@@ -7,9 +7,9 @@ import math
 # Cambia lat/lon por las coordenadas reales de tu carrera.
 # radio_m es el radio de deteccion en metros para marcar el checkpoint.
 CHECKPOINTS = [
-    {"id": 1, "nombre": "Checkpoint 1", "lat": 25.000000, "lon": -97.000000, "radio_m": 5.0},
-    {"id": 2, "nombre": "Checkpoint 2", "lat": 25.000000, "lon": -97.000000, "radio_m": 5.0},
-    {"id": 3, "nombre": "Checkpoint 3", "lat": 25.000000, "lon": -97.000000, "radio_m": 5.0},
+    {"id": 1, "nombre": "Checkpoint 1", "lat": 25.651796, "lon": -100.288868, "radio_m": 5.0},
+    {"id": 2, "nombre": "Checkpoint 2", "lat": 25.650694, "lon": -100.288201, "radio_m": 5.0},
+    {"id": 3, "nombre": "Checkpoint 3", "lat": 25.649087, "lon": -100.290241, "radio_m": 5.0},
 ]
 
 MAX_CHECKPOINT_SCORE = 50.0

@@ -112,7 +112,7 @@ def gps():
             "coordinates": [data["longitude"], data["latitude"]],
         },
         "properties": {
-            "timestamp":           time.strftime("%Y-%m-%d %H:%M:%S"),
+            "Date_GPS":            time.strftime("%Y-%m-%d %H:%M:%S"),
             "accuracy":            data.get("accuracy"),
             "altitude":            data.get("altitude"),
             "altitude_accuracy":   data.get("altitude_accuracy"),

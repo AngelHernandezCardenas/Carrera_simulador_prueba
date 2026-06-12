@@ -78,6 +78,8 @@ logs/
 log/
 *.out
 debug.*
+cloudflared_qr.html
+cloudflared_url.txt
 
 # ──────────────────────────────────────────
 # Python — entorno virtual y caché

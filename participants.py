@@ -23,6 +23,12 @@ def save_participants(participants: dict) -> None:
         json.dump(participants, f, indent=2)
 
 
+def reset_participants() -> None:
+    """Reinicia los participantes al levantar el servidor."""
+    participants_cache.clear()
+    save_participants(participants_cache)
+
+
 # ---------------------------------------------------------------------------
 # Migración de formato antiguo
 # ---------------------------------------------------------------------------

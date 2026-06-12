@@ -8,7 +8,7 @@ from flask import Flask, request, jsonify, render_template
 
 from config import MAX_PARTICIPANTES, DURACION, participants_lock
 from geojson_store import append_feature
-from participants import participants_cache, get_or_create_participant, save_participants
+from participants import participants_cache, get_or_create_participant, reset_participants, save_participants
 from checkpoints import actualizar_estado_corredor, clasificar_corredores
 from arcgis import (
     arcgis_enabled,
@@ -22,6 +22,8 @@ from arcgis import (
 )
 
 app = Flask(__name__)
+
+reset_participants()
 
 inicio = time.time()
 _battery_levels_by_device: dict[str, float] = {}

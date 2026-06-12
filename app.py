@@ -9,6 +9,7 @@ from flask import Flask, request, jsonify, render_template
 from config import MAX_PARTICIPANTES, DURACION, participants_lock
 from geojson_store import append_feature
 from participants import participants_cache, get_or_create_participant, save_participants
+from checkpoints import actualizar_estado_corredor, clasificar_corredores
 from arcgis import (
     arcgis_enabled,
     send_feature_to_arcgis,
@@ -111,6 +112,14 @@ def get_battery_rank(device_id: str) -> int | None:
         return None
 
 
+def get_checkpoint_rank_from_snapshot(device_id: str, runners_snapshot: dict) -> int | None:
+    ranked_runners = clasificar_corredores(runners_snapshot)
+    for index, runner in enumerate(ranked_runners, start=1):
+        if runner.get("device_id") == device_id:
+            return index
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Rutas
 # ---------------------------------------------------------------------------
@@ -177,16 +186,50 @@ def gps():
             "msg":    f"Ya se alcanzó el límite de {MAX_PARTICIPANTES} participantes.",
         }), 403
 
+    latitude = float(data["latitude"])
+    longitude = float(data["longitude"])
+
     nivel_bateria = get_next_battery_level(device_id)
     posicion_inicial = get_participant_position(participante)
-    puntaje = get_battery_score(nivel_bateria)
-    posicion = get_battery_rank(device_id)
+    puntaje_bateria = get_battery_score(nivel_bateria)
+    posicion_bateria = get_battery_rank(device_id)
+
+    with participants_lock:
+        participant_entry = participants_cache[device_id]
+        participant_entry["device_id"] = device_id
+        participant_entry["nombre"] = participante
+        actualizar_estado_corredor(participant_entry, latitude, longitude)
+        save_participants(participants_cache)
+
+        checkpoint_state = {
+            "checkpoints_visitados": participant_entry.get("checkpoints_visitados", []),
+            "cantidad_checkpoints_visitados": participant_entry.get("cantidad_checkpoints_visitados", 0),
+            "checkpoint_pendiente_mas_cercano": participant_entry.get("checkpoint_pendiente_mas_cercano"),
+            "checkpoint_pendiente_mas_cercano_id": participant_entry.get("checkpoint_pendiente_mas_cercano_id"),
+            "distancia_checkpoint_pendiente_mas_cercano_m": participant_entry.get("distancia_checkpoint_pendiente_mas_cercano_m"),
+            "puntuacion_checkpoints": participant_entry.get("puntuacion_checkpoints", 0.0),
+            "puntaje_checkpoints": participant_entry.get("puntaje_checkpoints", 0.0),
+            "estado": participant_entry.get("estado", "corriendo"),
+        }
+        runners_snapshot = {
+            runner_device_id: {
+                **entry,
+                "device_id": runner_device_id,
+            }
+            for runner_device_id, entry in participants_cache.items()
+            if isinstance(entry, dict)
+        }
+
+    posicion_checkpoints = get_checkpoint_rank_from_snapshot(device_id, runners_snapshot)
+    puntaje_checkpoints = checkpoint_state["puntaje_checkpoints"]
+    puntaje = round(puntaje_bateria + puntaje_checkpoints, 2)
+    posicion = posicion_checkpoints
 
     feature = {
         "type": "Feature",
         "geometry": {
             "type":        "Point",
-            "coordinates": [data["longitude"], data["latitude"]],
+            "coordinates": [longitude, latitude],
         },
         "properties": {
             "timestamp":           time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -197,7 +240,21 @@ def gps():
             "nivel_bateria":       nivel_bateria,
             "posicion_inicial":    posicion_inicial,
             "posicion":            posicion,
+            "posicion_bateria":    posicion_bateria,
+            "posicion_checkpoints": posicion_checkpoints,
+            "puntaje_bateria":     puntaje_bateria,
+            "puntaje_checkpoints":  puntaje_checkpoints,
             "puntaje":             puntaje,
+            "puntuacion_checkpoints": checkpoint_state["puntuacion_checkpoints"],
+            "checkpoints_visitados": checkpoint_state["checkpoints_visitados"],
+            "checkpoints_visitados_txt": ",".join(
+                str(checkpoint_id) for checkpoint_id in checkpoint_state["checkpoints_visitados"]
+            ),
+            "cantidad_checkpoints_visitados": checkpoint_state["cantidad_checkpoints_visitados"],
+            "checkpoint_pendiente_mas_cercano": checkpoint_state["checkpoint_pendiente_mas_cercano"],
+            "checkpoint_pendiente_mas_cercano_id": checkpoint_state["checkpoint_pendiente_mas_cercano_id"],
+            "distancia_checkpoint_pendiente_mas_cercano_m": checkpoint_state["distancia_checkpoint_pendiente_mas_cercano_m"],
+            "estado":              checkpoint_state["estado"],
 
             # Velocidad (sensor GPS o calculada por Haversine en el cliente)
             "speed_mps":           data.get("speed_mps"),
@@ -237,6 +294,8 @@ def gps():
         f"bateria={nivel_bateria:.2f}% "
         f"posicion_inicial={posicion_inicial} "
         f"posicion={posicion} "
+        f"estado={checkpoint_state['estado']} "
+        f"checkpoints={checkpoint_state['cantidad_checkpoints_visitados']} "
         f"puntaje={puntaje:.2f} "
         f"(+/-{data.get('accuracy', '')}m)"
     )
@@ -264,7 +323,17 @@ def gps():
         "nivel_bateria":          nivel_bateria,
         "posicion_inicial":       posicion_inicial,
         "posicion":               posicion,
+        "posicion_bateria":       posicion_bateria,
+        "posicion_checkpoints":    posicion_checkpoints,
+        "puntaje_bateria":        puntaje_bateria,
+        "puntaje_checkpoints":     puntaje_checkpoints,
         "puntaje":                puntaje,
+        "puntuacion_checkpoints":  checkpoint_state["puntuacion_checkpoints"],
+        "checkpoints_visitados":   checkpoint_state["checkpoints_visitados"],
+        "cantidad_checkpoints_visitados": checkpoint_state["cantidad_checkpoints_visitados"],
+        "checkpoint_pendiente_mas_cercano": checkpoint_state["checkpoint_pendiente_mas_cercano"],
+        "distancia_checkpoint_pendiente_mas_cercano_m": checkpoint_state["distancia_checkpoint_pendiente_mas_cercano_m"],
+        "estado":                 checkpoint_state["estado"],
         "arcgis_sent":            arcgis_sent,
         "arcgis_skipped_throttle": arcgis_skipped_throttle,
     }

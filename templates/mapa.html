@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <title>Rastreador de Carrera en Vivo</title>
+
+    <style>
+        * { box-sizing: border-box; }
+
+        html, body, #viewDiv {
+            padding: 0;
+            margin: 0;
+            height: 100%;
+            width: 100%;
+            background-color: #0d1117;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        /* ── Panel lateral ── */
+        #panel {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            z-index: 99;
+            width: 260px;
+            background: rgba(13, 17, 23, 0.88);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 14px;
+            padding: 14px;
+            color: #e6edf3;
+            max-height: calc(100vh - 32px);
+            overflow-y: auto;
+        }
+
+        #panel h3 {
+            margin: 0 0 10px 0;
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #58a6ff;
+        }
+
+        .corredor-card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 10px;
+            padding: 9px 10px;
+            margin-bottom: 7px;
+            font-size: 12px;
+            transition: background 0.2s;
+        }
+
+        .corredor-card:hover { background: rgba(88,166,255,0.08); }
+
+        .corredor-nombre {
+            font-weight: 700;
+            font-size: 13px;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            box-shadow: 0 0 6px currentColor;
+        }
+
+        .corredor-datos { color: #8b949e; line-height: 1.55; }
+        .corredor-datos span { color: #e6edf3; font-weight: 600; }
+
+        /* ── Badge de estado ── */
+        #statusBadge {
+            position: absolute;
+            bottom: 22px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 99;
+            background: rgba(13,17,23,0.9);
+            border: 1px solid rgba(88,166,255,0.3);
+            border-radius: 20px;
+            padding: 6px 16px;
+            font-size: 12px;
+            color: #58a6ff;
+            letter-spacing: 0.04em;
+            backdrop-filter: blur(8px);
+        }
+
+        /* ── Scrollbar ── */
+        #panel::-webkit-scrollbar { width: 4px; }
+        #panel::-webkit-scrollbar-track { background: transparent; }
+        #panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
+    </style>
+
+    <link rel="stylesheet" href="https://js.arcgis.com/4.29/esri/themes/dark/main.css" />
+    <script src="https://js.arcgis.com/4.29/"></script>
+
+    <script>
+        require([
+            "esri/Map",
+            "esri/views/MapView",
+            "esri/layers/GraphicsLayer",
+            "esri/Graphic",
+            "esri/geometry/Point",
+            "esri/tasks/QueryTask",
+            "esri/tasks/support/Query"
+        ], function (Map, MapView, GraphicsLayer, Graphic, Point, QueryTask, Query) {
+
+            // URL inyectada por Flask desde ARCGIS_FEATURE_LAYER_URL en .env
+            const FEATURE_LAYER_URL = "{{ arcgis_url }}";
+
+            // Coincide con ARCGIS_THROTTLE_SECONDS = 5 (config.py)
+            // El servidor actualiza ArcGIS cada 5 s → consultamos cada 5 s
+            const INTERVALO_CONSULTA_MS = 5000;
+
+            // Duración de la animación: 4500 ms (un poco menos que el intervalo)
+            const DURACION_ANIMACION_MS = 4500;
+
+            // MAX_PARTICIPANTES = 20 (config.py)
+            // Nombres generados como participante_01 … participante_20 (participants.py)
+            const MAX_PARTICIPANTES = 20;
+
+            // Paleta de colores: un color distinto por participante
+            // (hasta 20 colores cíclicos, sin repetir dentro del rango real)
+            const COLORES_PARTICIPANTES = [
+                [37, 99, 235],   // azul
+                [220, 38,  38],  // rojo
+                [5,  150,  105], // verde
+                [234,179,   8],  // amarillo
+                [168, 85, 247],  // morado
+                [249,115,  22],  // naranja
+                [236, 72, 153],  // rosa
+                [14, 165, 233],  // celeste
+                [132,204,  22],  // lima
+                [20, 184, 166],  // turquesa
+                [239, 68, 68],   // rojo claro
+                [59, 130, 246],  // azul claro
+                [16, 185, 129],  // esmeralda
+                [245, 158, 11],  // ámbar
+                [139, 92, 246],  // violeta
+                [251, 146, 60],  // melocotón
+                [244, 114, 182], // rosa claro
+                [56, 189, 248],  // cielo
+                [163, 230, 53],  // amarillo-verde
+                [52, 211, 153],  // menta
+            ];
+
+            // Centro inicial del mapa (Longitud, Latitud)
+            // Ajusta a tu zona de carrera
+            const CENTRO_INICIAL = [-97.45, 20.53];
+
+            // ─────────────────────────────────────────────────────────────────
+            // 2. MAPA Y VISTA
+            // ─────────────────────────────────────────────────────────────────
+
+            const map = new Map({ basemap: "dark-gray-vector" });
+
+            const view = new MapView({
+                container: "viewDiv",
+                map: map,
+                center: CENTRO_INICIAL,
+                zoom: 14
+            });
+
+            const graphicsLayer = new GraphicsLayer();
+            map.add(graphicsLayer);
+
+            const queryTask = new QueryTask({ url: FEATURE_LAYER_URL });
+
+            // Estado de los participantes en memoria
+            // Clave: nombre del participante (ej. "participante_01")
+            const corredores = {};
+
+            // Índice de color por orden de aparición
+            let colorIndex = 0;
+
+            // ─────────────────────────────────────────────────────────────────
+            // 3. CONSULTA AL FEATURE LAYER
+            //    Campos reales definidos en app.py → /gps → feature["properties"]
+            // ─────────────────────────────────────────────────────────────────
+
+            function actualizarPosiciones() {
+                const query = new Query();
+                query.where = "1=1";  // Traer todos los participantes activos
+                query.outFields = [
+                    "participante",    // nombre asignado: participante_01 … participante_20
+                    "device_label",    // ej. "Linux-abc12345"
+                    "speed_kmh",       // velocidad en km/h (calculada por cliente o GPS)
+                    "speed_source",    // "gps_sensor" | "calculated_gps_distance_time"
+                    "accuracy",        // precisión GPS en metros
+                    "heading",         // rumbo en grados
+                    "altitude",        // altitud en metros
+                    "accel_magnitude", // magnitud del acelerómetro sin gravedad
+                    "timestamp"        // timestamp del servidor "YYYY-MM-DD HH:MM:SS"
+                ];
+                query.returnGeometry = true;
+                // Sistema de referencia coincide con arcgis.py → wkid: 4326 (WGS84)
+                query.outSpatialReference = { wkid: 4326 };
+
+                queryTask.execute(query).then(function (results) {
+                    setStatus("Activo — " + results.features.length + " participante(s) en mapa");
+
+                    results.features.forEach(function (feature) {
+                        // Campo real en app.py: properties["participante"]
+                        const id = feature.attributes.participante || feature.attributes.Participante;
+                        if (!id) return;
+
+                        const nuevaPos = feature.geometry;
+                        const attrs    = feature.attributes;
+
+                        if (!corredores[id]) {
+                            // ── Primera aparición: crear gráfico ──
+                            const color = COLORES_PARTICIPANTES[colorIndex % MAX_PARTICIPANTES];
+                            colorIndex++;
+
+                            const graphic = new Graphic({
+                                geometry: nuevaPos,
+                                symbol: {
+                                    type: "simple-marker",
+                                    color: color,
+                                    outline: { color: [255, 255, 255, 0.9], width: 2 },
+                                    size: "14px"
+                                },
+                                attributes: attrs
+                            });
+
+                            graphicsLayer.add(graphic);
+
+                            corredores[id] = {
+                                graphic: graphic,
+                                color: color,
+                                attrs: attrs
+                            };
+
+                            agregarCardPanel(id, color, attrs);
+
+                        } else {
+                            // ── Ya existe: animar hacia la nueva posición ──
+                            animarPunto(corredores[id], nuevaPos);
+                            corredores[id].attrs = attrs;
+                            actualizarCardPanel(id, attrs);
+                        }
+                    });
+
+                }).catch(function (error) {
+                    console.error("[ArcGIS] Error al consultar Feature Layer:", error);
+                    setStatus("Error al conectar con ArcGIS FeatureLayer");
+                });
+            }
+
+            // ─────────────────────────────────────────────────────────────────
+            // 4. MOTOR DE INTERPOLACIÓN
+            //    Anima el punto gráfico entre su posición actual y la nueva
+            // ─────────────────────────────────────────────────────────────────
+
+            function animarPunto(corredorState, posFinal) {
+                const graphic    = corredorState.graphic;
+                const posInicial = graphic.geometry;
+
+                // Sin movimiento real → no animar
+                if (posInicial.x === posFinal.x && posInicial.y === posFinal.y) return;
+
+                const startTime = performance.now();
+
+                function step(currentTime) {
+                    const elapsed  = currentTime - startTime;
+                    const progress = Math.min(elapsed / DURACION_ANIMACION_MS, 1);
+
+                    // Interpolación lineal
+                    const currentX = posInicial.x + (posFinal.x - posInicial.x) * progress;
+                    const currentY = posInicial.y + (posFinal.y - posInicial.y) * progress;
+
+                    graphic.geometry = new Point({
+                        x: currentX,
+                        y: currentY,
+                        spatialReference: { wkid: 4326 }  // ← arcgis.py wkid: 4326
+                    });
+
+                    if (progress < 1) {
+                        requestAnimationFrame(step);
+                    } else {
+                        graphic.geometry = posFinal;
+                    }
+                }
+
+                requestAnimationFrame(step);
+            }
+
+            // ─────────────────────────────────────────────────────────────────
+            // 5. PANEL LATERAL — Tarjetas por participante
+            // ─────────────────────────────────────────────────────────────────
+
+            function agregarCardPanel(id, color, attrs) {
+                const panel = document.getElementById("listaCorredores");
+                const css   = `rgb(${color[0]},${color[1]},${color[2]})`;
+
+                const card = document.createElement("div");
+                card.className = "corredor-card";
+                card.id = "card-" + id;
+                card.innerHTML = `
+                    <div class="corredor-nombre">
+                        <span class="dot" style="background:${css};color:${css}"></span>
+                        ${id}
+                    </div>
+                    <div class="corredor-datos" id="datos-${id}">
+                        ${buildDatosHTML(attrs)}
+                    </div>`;
+
+                // Clic → centrar mapa en el corredor
+                card.addEventListener("click", function () {
+                    if (corredores[id] && corredores[id].graphic.geometry) {
+                        view.goTo({ target: corredores[id].graphic.geometry, zoom: 16 });
+                    }
+                });
+
+                panel.appendChild(card);
+            }
+
+            function actualizarCardPanel(id, attrs) {
+                const el = document.getElementById("datos-" + id);
+                if (el) el.innerHTML = buildDatosHTML(attrs);
+            }
+
+            function buildDatosHTML(attrs) {
+                // Campos reales de app.py
+                const vel    = attrs.speed_kmh != null ? Number(attrs.speed_kmh).toFixed(1) + " km/h" : "--";
+                const prec   = attrs.accuracy   != null ? "±" + Number(attrs.accuracy).toFixed(0) + " m" : "--";
+                const alt    = attrs.altitude   != null ? Number(attrs.altitude).toFixed(1) + " m" : "--";
+                const accel  = attrs.accel_magnitude != null ? Number(attrs.accel_magnitude).toFixed(2) + " m/s²" : "--";
+                const label  = attrs.device_label || "--";
+                const ts     = attrs.timestamp   || "--";
+                return `Vel: <span>${vel}</span> &nbsp; Prec: <span>${prec}</span><br>
+                        Alt: <span>${alt}</span> &nbsp; Acel: <span>${accel}</span><br>
+                        Disp: <span>${label}</span><br>
+                        Últ. dato: <span>${ts}</span>`;
+            }
+
+            // ─────────────────────────────────────────────────────────────────
+            // 6. BADGE DE ESTADO
+            // ─────────────────────────────────────────────────────────────────
+
+            function setStatus(msg) {
+                document.getElementById("statusBadge").textContent = msg;
+            }
+
+            // ─────────────────────────────────────────────────────────────────
+            // 7. CICLO DE ACTUALIZACIÓN
+            //    Cada 5 s — igual que ARCGIS_THROTTLE_SECONDS en config.py
+            // ─────────────────────────────────────────────────────────────────
+
+            setStatus("Conectando con ArcGIS...");
+            setInterval(actualizarPosiciones, INTERVALO_CONSULTA_MS);
+            actualizarPosiciones(); // Llamada inmediata al cargar
+        });
+    </script>
+</head>
+
+<body>
+    <div id="viewDiv"></div>
+
+    <!-- Panel lateral con lista de corredores -->
+    <div id="panel">
+        <h3>🏃 Corredores en vivo</h3>
+        <div id="listaCorredores"></div>
+    </div>
+
+    <!-- Badge de estado inferior -->
+    <div id="statusBadge">Conectando...</div>
+</body>
+
+</html>

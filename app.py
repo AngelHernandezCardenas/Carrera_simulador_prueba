@@ -48,6 +48,11 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/mapa")
+def mapa():
+    return render_template("mapa.html", arcgis_url=ARCGIS_FEATURE_LAYER_URL)
+
+
 @app.route("/registrar", methods=["POST"])
 def registrar():
     data = request.json or {}

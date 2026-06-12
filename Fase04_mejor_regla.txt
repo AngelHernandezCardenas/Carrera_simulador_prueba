@@ -1,0 +1,5 @@
+Fase 4 - Mejor hiper-heuristica
+mul(PW, add(div(W, mul(P, W)), 0.48932813134121655))
+
+Fitness: 1079.8235
+Nodos: 9  |  Altura: 4

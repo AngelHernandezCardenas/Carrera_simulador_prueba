@@ -90,7 +90,7 @@ Magnitud: --</div>
         <div class="card full">
             <div class="label">Aceleración</div>
             <div class="value" id="aceleracionReal">-- m/s²</div>
-            <div class="small">Sensor del teléfono</div>
+            <div class="small">Velocidad / tiempo, 3 muestras</div>
         </div>
     </div>
 
@@ -101,8 +101,11 @@ Magnitud: --</div>
     let activo = false;
     let participante = null;
     let ultimoPunto = null;
+    let historialVelocidad = [];
+    let accelEventReceived = false;
 
     const DEVICE_ID_KEY = "gps_tracker_device_id";
+    const ACCELERATION_SAMPLE_WINDOW = 3;
 
     let accelData = {
         gx: null, gy: null, gz: null, g_magnitude: null,
@@ -128,6 +131,21 @@ Magnitud: --</div>
     function calcularMagnitud(x, y, z) {
         if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) return null;
         return Math.sqrt(x * x + y * y + z * z);
+    }
+
+    function mensajeAyudaAcelerometro() {
+        const secureHelp = window.isSecureContext
+            ? ""
+            : "\n\nAbre la app con HTTPS. En HTTP por IP local, Brave/Chrome suelen bloquear sensores.";
+
+        return (
+            "No llegaron datos del acelerómetro.\n\n" +
+            "En Brave revisa:\n" +
+            "1. Toca el icono de Brave/Shields junto a la URL y desactiva Shields para este sitio.\n" +
+            "2. En el candado o ajustes del sitio, permite Sensores de movimiento.\n" +
+            "3. Recarga la página y toca otra vez Activar acelerómetro manual." +
+            secureHelp
+        );
     }
 
     function toRad(deg) { return deg * Math.PI / 180; }
@@ -165,14 +183,19 @@ Magnitud: --</div>
         accelData.gy          = numOrNull(ag.y);
         accelData.gz          = numOrNull(ag.z);
         accelData.g_magnitude = calcularMagnitud(accelData.gx, accelData.gy, accelData.gz);
-        accelData.acceleration_mps2 = accelData.g_magnitude;
 
         accelData.interval_ms         = numOrNull(event.interval);
         accelData.sensor_timestamp_ms = Date.now();
         accelData.supported           = true;
         accelData.permission_state    = "granted";
+        accelEventReceived            = Number.isFinite(accelData.g_magnitude);
 
         actualizarPanelAcelerometro();
+
+        if (accelEventReceived) {
+            document.getElementById("sensorBtn").textContent = "Acelerómetro activo";
+            document.getElementById("sensorBtn").disabled = true;
+        }
     }
 
     async function activarSensores() {
@@ -184,6 +207,14 @@ Magnitud: --</div>
         }
 
         try {
+            if (!window.isSecureContext) {
+                log(
+                    "El acelerómetro puede estar bloqueado porque esta página no está en HTTPS.\n" +
+                    "Aun así intentaré activarlo. Si no funciona, abre la app con HTTPS.",
+                    "error"
+                );
+            }
+
             // iOS requiere permiso explícito dentro de un gesto del usuario
             if (typeof DeviceMotionEvent.requestPermission === "function") {
                 const permiso = await DeviceMotionEvent.requestPermission();
@@ -200,10 +231,20 @@ Magnitud: --</div>
             window.addEventListener("devicemotion", onDeviceMotion);
 
             accelData.supported = true;
-            document.getElementById("sensorBtn").textContent = "Acelerómetro activo";
-            document.getElementById("sensorBtn").disabled = true;
+            accelEventReceived = false;
+            document.getElementById("sensorBtn").textContent = "Esperando acelerómetro...";
+            document.getElementById("sensorBtn").disabled = false;
 
-            log("Acelerómetro activado. Ahora puedes iniciar la captura.", "ok");
+            log("Permiso solicitado. Mueve el celular para confirmar lectura del acelerómetro.", "ok");
+
+            setTimeout(() => {
+                if (!accelEventReceived) {
+                    accelData.permission_state = "blocked_or_no_data";
+                    document.getElementById("sensorBtn").textContent = "Reintentar acelerómetro";
+                    document.getElementById("sensorBtn").disabled = false;
+                    log(mensajeAyudaAcelerometro(), "error");
+                }
+            }, 3000);
         } catch (error) {
             accelData.permission_state = "error";
             log("No se pudo activar el acelerómetro:\n" + error.message, "error");
@@ -218,6 +259,7 @@ Magnitud: --</div>
         const nowMs = Date.now();
         let speedMps = null;
         let speedSource = "none";
+        let accelerationMps2 = null;
 
         if (pos.coords.speed !== null && Number.isFinite(pos.coords.speed)) {
             speedMps    = pos.coords.speed;
@@ -231,12 +273,29 @@ Magnitud: --</div>
             }
         }
 
-        ultimoPunto = { lat, lon, timestamp_ms: nowMs };
+        if (Number.isFinite(speedMps)) {
+            const previousSamplesNeeded = ACCELERATION_SAMPLE_WINDOW - 1;
+            if (historialVelocidad.length >= previousSamplesNeeded) {
+                const reference = historialVelocidad[0];
+                const dt = (nowMs - reference.timestamp_ms) / 1000;
+                if (dt > 0 && Number.isFinite(reference.speed_mps)) {
+                    accelerationMps2 = (speedMps - reference.speed_mps) / dt;
+                }
+            }
+
+            historialVelocidad.push({ speed_mps: speedMps, timestamp_ms: nowMs });
+            while (historialVelocidad.length > previousSamplesNeeded) {
+                historialVelocidad.shift();
+            }
+        }
+
+        ultimoPunto = { lat, lon, timestamp_ms: nowMs, speed_mps: speedMps };
 
         return {
             speed_mps:    speedMps,
             speed_kmh:    Number.isFinite(speedMps) ? speedMps * 3.6 : null,
-            speed_source: speedSource
+            speed_source: speedSource,
+            acceleration_mps2: accelerationMps2
         };
     }
 
@@ -314,6 +373,7 @@ Magnitud: --</div>
 
         activo      = true;
         ultimoPunto = null;
+        historialVelocidad = [];
         document.getElementById("btn").textContent = "Detener captura";
         log("Obteniendo ubicación y acelerómetro...");
         capturar();
@@ -331,18 +391,21 @@ Magnitud: --</div>
                 const heading         = pos.coords.heading;
 
                 const speed = calcularVelocidad(pos, lat, lon);
+                accelData.acceleration_mps2 = speed.acceleration_mps2;
 
                 // Actualizar paneles visuales
                 document.getElementById("velocidad").textContent      = `${fmt(speed.speed_kmh, 2)} km/h`;
                 document.getElementById("velocidadFuente").textContent = `Fuente: ${speed.speed_source}`;
                 document.getElementById("precision").textContent       = `±${fmt(acc, 0)} m`;
                 document.getElementById("hora").textContent            = `Hora: ${new Date().toLocaleTimeString()}`;
+                actualizarPanelAcelerometro();
 
                 log(
                     `Ubicación obtenida\n` +
                     `Participante: ${participante}\n` +
                     `Lat: ${lat.toFixed(6)}\nLon: ${lon.toFixed(6)}\n` +
                     `Velocidad: ${fmt(speed.speed_kmh, 2)} km/h (${fmt(speed.speed_mps, 2)} m/s)\n` +
+                    `Aceleración: ${fmt(speed.acceleration_mps2, 3)} m/s²\n` +
                     `Acelerómetro: ${accelData.permission_state}\n` +
                     `Precisión: ±${fmt(acc, 0)} m\n` +
                     `Hora: ${new Date().toLocaleTimeString()}`,

@@ -91,7 +91,9 @@ Magnitud: --</div>
     <div id="estado">Esperando...</div>
 
 <script>
-    let intervalo = null;
+    let watchId = null;
+    const silentAudio = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=");
+    silentAudio.loop = true;
     let activo = false;
     let participante = null;
     let ultimoPunto = null;
@@ -289,9 +291,7 @@ Magnitud: --</div>
         }
 
         if (activo) {
-            clearInterval(intervalo);
-            activo = false;
-            document.getElementById("btn").textContent = "Iniciar captura";
+            detenerCaptura();
             log("Captura detenida.");
             return;
         }
@@ -301,108 +301,121 @@ Magnitud: --</div>
             await activarSensores();
         }
 
+        // Hack de audio en segundo plano
+        try {
+            await silentAudio.play();
+        } catch (e) {
+            console.warn("Audio silencioso bloqueado:", e);
+        }
+
         activo      = true;
         ultimoPunto = null;
         document.getElementById("btn").textContent = "Detener captura";
         log("Obteniendo ubicación y acelerómetro...");
-        capturar();
-        intervalo = setInterval(capturar, 1000);
-    }
-
-    function capturar() {
-        navigator.geolocation.getCurrentPosition(
-            async function(pos) {
-                const lat             = pos.coords.latitude;
-                const lon             = pos.coords.longitude;
-                const acc             = pos.coords.accuracy;
-                const altitude        = pos.coords.altitude;
-                const altitudeAccuracy = pos.coords.altitudeAccuracy;
-                const heading         = pos.coords.heading;
-
-                const speed = calcularVelocidad(pos, lat, lon);
-
-                // Actualizar paneles visuales
-                document.getElementById("velocidad").textContent      = `${fmt(speed.speed_kmh, 2)} km/h`;
-                document.getElementById("velocidadFuente").textContent = `Fuente: ${speed.speed_source}`;
-                document.getElementById("precision").textContent       = `±${fmt(acc, 0)} m`;
-                document.getElementById("hora").textContent            = `Hora: ${new Date().toLocaleTimeString()}`;
-
-                log(
-                    `Ubicación obtenida\n` +
-                    `Participante: ${participante}\n` +
-                    `Lat: ${lat.toFixed(6)}\nLon: ${lon.toFixed(6)}\n` +
-                    `Velocidad: ${fmt(speed.speed_kmh, 2)} km/h (${fmt(speed.speed_mps, 2)} m/s)\n` +
-                    `Acelerómetro: ${accelData.permission_state}\n` +
-                    `Precisión: ±${fmt(acc, 0)} m\n` +
-                    `Hora: ${new Date().toLocaleTimeString()}`,
-                    "ok"
-                );
-
-                try {
-                    const deviceId = getDeviceId();
-                    const resp = await fetch("/gps", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            latitude:  lat,
-                            longitude: lon,
-                            accuracy:  acc,
-                            altitude:  altitude,
-                            altitude_accuracy: altitudeAccuracy,
-                            heading:   heading,
-
-                            speed_mps:    speed.speed_mps,
-                            speed_kmh:    speed.speed_kmh,
-                            speed_source: speed.speed_source,
-
-                            accel_gx:          accelData.gx,
-                            accel_gy:          accelData.gy,
-                            accel_gz:          accelData.gz,
-                            accel_g_magnitude: accelData.g_magnitude,
-
-                            accel_interval_ms:       accelData.interval_ms,
-                            accel_supported:         accelData.supported,
-                            accel_permission_state:  accelData.permission_state,
-                            sensor_timestamp_ms:     accelData.sensor_timestamp_ms,
-                            client_timestamp_ms:     Date.now(),
-
-                            device_id:    deviceId,
-                            device_label: getDeviceLabel(deviceId)
-                        })
-                    });
-                    const data = await resp.json();
-
-                    if (!resp.ok && data.status !== "limite_participantes") {
-                        throw new Error(data.msg || `Error del servidor: ${resp.status}`);
-                    }
-
-                    if (data.status === "cerrado") {
-                        clearInterval(intervalo);
-                        activo = false;
-                        document.getElementById("btn").textContent = "Iniciar captura";
-                        log("Sesión terminada por el servidor (límite de tiempo alcanzado).", "error");
-                    } else if (data.status === "limite_participantes") {
-                        clearInterval(intervalo);
-                        activo = false;
-                        document.getElementById("btn").textContent = "Iniciar captura";
-                        log(data.msg, "error");
-                    } else if (data.participante) {
-                        participante = data.participante;
-                    }
-                } catch(e) {
-                    log("Datos obtenidos pero error al enviar al servidor:\n" + e.message, "error");
-                }
-            },
-            function(error) {
-                const mensajes = {
-                    1: "Permiso denegado por el usuario.",
-                    2: "Posición no disponible (GPS apagado o sin señal).",
-                    3: "Tiempo de espera agotado."
-                };
-                log(`Error GPS (código ${error.code}):\n` + (mensajes[error.code] || error.message), "error");
-            },
+        
+        watchId = navigator.geolocation.watchPosition(
+            onPositionSuccess,
+            onPositionError,
             { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
         );
+    }
+
+    function detenerCaptura() {
+        if (watchId !== null) {
+            navigator.geolocation.clearWatch(watchId);
+            watchId = null;
+        }
+        silentAudio.pause();
+        activo = false;
+        document.getElementById("btn").textContent = "Iniciar captura";
+    }
+
+    async function onPositionSuccess(pos) {
+        const lat             = pos.coords.latitude;
+        const lon             = pos.coords.longitude;
+        const acc             = pos.coords.accuracy;
+        const altitude        = pos.coords.altitude;
+        const altitudeAccuracy = pos.coords.altitudeAccuracy;
+        const heading         = pos.coords.heading;
+
+        const speed = calcularVelocidad(pos, lat, lon);
+
+        // Actualizar paneles visuales
+        document.getElementById("velocidad").textContent      = `${fmt(speed.speed_kmh, 2)} km/h`;
+        document.getElementById("velocidadFuente").textContent = `Fuente: ${speed.speed_source}`;
+        document.getElementById("precision").textContent       = `±${fmt(acc, 0)} m`;
+        document.getElementById("hora").textContent            = `Hora: ${new Date().toLocaleTimeString()}`;
+
+        log(
+            `Ubicación obtenida\n` +
+            `Participante: ${participante}\n` +
+            `Lat: ${lat.toFixed(6)}\nLon: ${lon.toFixed(6)}\n` +
+            `Velocidad: ${fmt(speed.speed_kmh, 2)} km/h (${fmt(speed.speed_mps, 2)} m/s)\n` +
+            `Acelerómetro: ${accelData.permission_state}\n` +
+            `Precisión: ±${fmt(acc, 0)} m\n` +
+            `Hora: ${new Date().toLocaleTimeString()}`,
+            "ok"
+        );
+
+        try {
+            const deviceId = getDeviceId();
+            const resp = await fetch("/gps", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    latitude:  lat,
+                    longitude: lon,
+                    accuracy:  acc,
+                    altitude:  altitude,
+                    altitude_accuracy: altitudeAccuracy,
+                    heading:   heading,
+
+                    speed_mps:    speed.speed_mps,
+                    speed_kmh:    speed.speed_kmh,
+                    speed_source: speed.speed_source,
+
+                    accel_gx:          accelData.gx,
+                    accel_gy:          accelData.gy,
+                    accel_gz:          accelData.gz,
+                    accel_g_magnitude: accelData.g_magnitude,
+
+                    accel_interval_ms:       accelData.interval_ms,
+                    accel_supported:         accelData.supported,
+                    accel_permission_state:  accelData.permission_state,
+                    sensor_timestamp_ms:     accelData.sensor_timestamp_ms,
+                    client_timestamp_ms:     Date.now(),
+
+                    device_id:    deviceId,
+                    device_label: getDeviceLabel(deviceId)
+                })
+            });
+            const data = await resp.json();
+
+            if (!resp.ok && data.status !== "limite_participantes") {
+                throw new Error(data.msg || `Error del servidor: ${resp.status}`);
+            }
+
+            if (data.status === "cerrado") {
+                detenerCaptura();
+                log("Sesión terminada por el servidor (límite de tiempo alcanzado).", "error");
+            } else if (data.status === "limite_participantes") {
+                detenerCaptura();
+                log(data.msg, "error");
+            } else if (data.participante) {
+                participante = data.participante;
+            }
+        } catch(e) {
+            log("Datos obtenidos pero error al enviar al servidor:\n" + e.message, "error");
+        }
+    }
+
+    function onPositionError(error) {
+        const mensajes = {
+            1: "Permiso denegado por el usuario.",
+            2: "Posición no disponible (GPS apagado o sin señal).",
+            3: "Tiempo de espera agotado."
+        };
+        log(`Error GPS (código ${error.code}):\n` + (mensajes[error.code] || error.message), "error");
     }
 
     // Iniciar al cargar la página

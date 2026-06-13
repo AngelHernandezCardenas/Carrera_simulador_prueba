@@ -108,12 +108,6 @@ def gps():
             "speed_kmh":           data.get("speed_kmh"),
             "speed_source":        data.get("speed_source"),
 
-            # Acelerómetro sin gravedad
-            "accel_x":             data.get("accel_x"),
-            "accel_y":             data.get("accel_y"),
-            "accel_z":             data.get("accel_z"),
-            "accel_magnitude":     data.get("accel_magnitude"),
-
             # Acelerómetro con gravedad
             "accel_gx":            data.get("accel_gx"),
             "accel_gy":            data.get("accel_gy"),

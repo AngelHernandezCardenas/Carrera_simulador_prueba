@@ -80,14 +80,6 @@
         </div>
 
         <div class="card full">
-            <div class="label">Acelerómetro sin gravedad</div>
-            <div class="small" id="acel">X: --
-Y: --
-Z: --
-Magnitud: --</div>
-        </div>
-
-        <div class="card full">
             <div class="label">Acelerómetro con gravedad</div>
             <div class="small" id="acelG">X: --
 Y: --
@@ -107,7 +99,6 @@ Magnitud: --</div>
     const DEVICE_ID_KEY = "gps_tracker_device_id";
 
     let accelData = {
-        x: null, y: null, z: null, magnitude: null,
         gx: null, gy: null, gz: null, g_magnitude: null,
         interval_ms: null,
         sensor_timestamp_ms: null,
@@ -150,12 +141,6 @@ Magnitud: --</div>
     // -------------------------------------------------------------------------
 
     function actualizarPanelAcelerometro() {
-        document.getElementById("acel").textContent =
-            `X: ${fmt(accelData.x, 3)} m/s²\n` +
-            `Y: ${fmt(accelData.y, 3)} m/s²\n` +
-            `Z: ${fmt(accelData.z, 3)} m/s²\n` +
-            `Magnitud: ${fmt(accelData.magnitude, 3)} m/s²`;
-
         document.getElementById("acelG").textContent =
             `X: ${fmt(accelData.gx, 3)} m/s²\n` +
             `Y: ${fmt(accelData.gy, 3)} m/s²\n` +
@@ -164,13 +149,7 @@ Magnitud: --</div>
     }
 
     function onDeviceMotion(event) {
-        const a  = event.acceleration || {};
         const ag = event.accelerationIncludingGravity || {};
-
-        accelData.x         = numOrNull(a.x);
-        accelData.y         = numOrNull(a.y);
-        accelData.z         = numOrNull(a.z);
-        accelData.magnitude = calcularMagnitud(accelData.x, accelData.y, accelData.z);
 
         accelData.gx          = numOrNull(ag.x);
         accelData.gy          = numOrNull(ag.y);
@@ -375,11 +354,6 @@ Magnitud: --</div>
                             speed_mps:    speed.speed_mps,
                             speed_kmh:    speed.speed_kmh,
                             speed_source: speed.speed_source,
-
-                            accel_x:         accelData.x,
-                            accel_y:         accelData.y,
-                            accel_z:         accelData.z,
-                            accel_magnitude: accelData.magnitude,
 
                             accel_gx:          accelData.gx,
                             accel_gy:          accelData.gy,

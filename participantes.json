@@ -2,18 +2,14 @@
   "a0f79cdd-f50d-485f-818e-270e91577b30": {
     "nombre": "participante_01"
   },
-  "participante_01": {
-    "arcgis_object_id": 3030
-  },
+  "participante_01": {},
   "a9eb84ed-0339-48fb-b3e5-c8bac267e3f8": {
     "nombre": "participante_03"
   },
   "0cfd4761-979f-4c1e-a1e9-68bda3718dde": {
     "nombre": "participante_04"
   },
-  "participante_04": {
-    "arcgis_object_id": 3031
-  },
+  "participante_04": {},
   "fe45613c-5c6e-4637-b946-ef2de8337062": {
     "nombre": "participante_06"
   },
@@ -26,10 +22,15 @@
   "68f150d1-be5c-4bdb-8a0a-f4a35e7c9318": {
     "nombre": "participante_09"
   },
-  "participante_09": {
-    "arcgis_object_id": 3032
-  },
+  "participante_09": {},
   "7c2c2c62-4d50-45d9-98a6-bb4bf8cb6622": {
     "nombre": "participante_11"
+  },
+  "9a9febaa-d632-4ec6-958a-ca2fdb65e682": {
+    "nombre": "participante_12"
+  },
+  "participante_12": {},
+  "3fee2527-647d-418c-b452-41e1541918b6": {
+    "nombre": "participante_14"
   }
 }

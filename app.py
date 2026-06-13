@@ -3,22 +3,13 @@ import hashlib
 import urllib.error
 
 from flask import Flask, request, jsonify, render_template
-
+from flask_socketio import SocketIO
 from config import MAX_PARTICIPANTES, DURACION, participants_lock
 from geojson_store import append_feature
 from participants import participants_cache, get_or_create_participant, save_participants
-from arcgis import (
-    arcgis_enabled,
-    send_feature_to_arcgis,
-    should_send_to_arcgis,
-    ARCGIS_FEATURE_LAYER_URL,
-    ARCGIS_TOKEN,
-    ARCGIS_CLIENT_ID,
-    ARCGIS_CLIENT_SECRET,
-    ARCGIS_THROTTLE_SECONDS,
-)
 
 app = Flask(__name__)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 inicio = time.time()
 
@@ -48,6 +39,11 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/mapa")
+def mapa():
+    return render_template("mapa.html")
+
+
 @app.route("/registrar", methods=["POST"])
 def registrar():
     data = request.json or {}
@@ -69,17 +65,6 @@ def registrar():
         "device_label":      data.get("device_label") or f"Dispositivo-{device_id[:8]}",
         "device_ip":         device_ip,
         "device_user_agent": user_agent,
-    })
-
-
-@app.route("/arcgis/status")
-def arcgis_status():
-    return jsonify({
-        "enabled":                     arcgis_enabled(),
-        "feature_layer_url_configured": bool(ARCGIS_FEATURE_LAYER_URL),
-        "auth_configured":              bool(ARCGIS_TOKEN or (ARCGIS_CLIENT_ID and ARCGIS_CLIENT_SECRET)),
-        "auth_mode":                    "token" if ARCGIS_TOKEN else ("oauth2" if ARCGIS_CLIENT_ID and ARCGIS_CLIENT_SECRET else "none"),
-        "throttle_seconds":             ARCGIS_THROTTLE_SECONDS,
     })
 
 
@@ -156,38 +141,21 @@ def gps():
     print(
         f"[GPS] {participante} {feature['properties']['device_label']} "
         f"{data['latitude']}, {data['longitude']} "
-        f"vel={data.get('speed_kmh', 'N/A')} km/h ({data.get('speed_source', '')}) "
-        f"accel=({data.get('accel_x', '-')}, {data.get('accel_y', '-')}, {data.get('accel_z', '-')}) "
-        f"(+/-{data.get('accuracy', '')}m)"
     )
 
-    # Enviar a ArcGIS con throttling (1 punto fijo por participante)
-    arcgis_sent            = False
-    arcgis_skipped_throttle = False
-    arcgis_error           = None
+    # Emitir el punto a través de WebSockets para el mapa en tiempo real
+    socketio.emit('nueva_posicion', {
+        'participante': participante,
+        'latitude': data["latitude"],
+        'longitude': data["longitude"],
+        'velocidad': data.get("speed_kmh", 0)
+    })
 
-    if should_send_to_arcgis(participante):
-        try:
-            arcgis_response = send_feature_to_arcgis(feature, participante, participants_cache, save_participants)
-            arcgis_sent = bool(arcgis_response.get("enabled"))
-            if arcgis_sent:
-                print(f"[ArcGIS] {arcgis_response.get('action')} -> {participante} (OBJECTID={arcgis_response.get('object_id')})")
-        except (urllib.error.URLError, TimeoutError, RuntimeError, KeyError, ValueError) as exc:
-            arcgis_error = str(exc)
-            print(f"[ArcGIS] Error al enviar punto de {participante}: {arcgis_error}")
-    else:
-        arcgis_skipped_throttle = True
+    return jsonify({
+        "status": "ok",
+        "participante": participante
+    })
 
-    response = {
-        "status":                 "ok",
-        "participante":           participante,
-        "arcgis_sent":            arcgis_sent,
-        "arcgis_skipped_throttle": arcgis_skipped_throttle,
-    }
-    if arcgis_error:
-        response["arcgis_error"] = arcgis_error
-
-    return jsonify(response)
 
 
 # ---------------------------------------------------------------------------
@@ -195,4 +163,4 @@ def gps():
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=False, threaded=True)
+    socketio.run(app, host="0.0.0.0", port=5000, debug=False)

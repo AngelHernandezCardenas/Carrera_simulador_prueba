@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="utf-8">
     <title>Carrera Tracker - Tiempo Real</title>
@@ -8,15 +9,25 @@
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 
     <style>
-        body, html { margin: 0; padding: 0; height: 100%; }
-        #map { width: 100%; height: 100vh; }
-        
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+        }
+
+        #map {
+            width: 100%;
+            height: 100vh;
+        }
+
         /* LA MAGIA: Esto hace que los iconos se deslicen suavemente y no salten */
         .leaflet-marker-icon {
             transition: transform 1s linear;
         }
     </style>
 </head>
+
 <body>
     <div id="map"></div>
 
@@ -31,20 +42,22 @@
 
         const corredores = {}; // Aquí guardamos los marcadores de los 15 participantes
 
-        // 2. Conectarse a tu servidor Flask a través de tu túnel de Cloudflare
-        // REEMPLAZA ESTO CON TU URL DE TRYCLOUDFLARE
-        const socket = io("https://tu-tunel.trycloudflare.com");
+        // 2. Conectarse al servidor Flask (usa la misma URL que la página actual)
+        const socket = io({
+            path: '/socket.io',
+            transports: ['polling', 'websocket']
+        });
 
         // 3. Escuchar el evento que manda Flask en el mismo milisegundo que ocurre
-        socket.on('nueva_posicion', function(data) {
+        socket.on('nueva_posicion', function (data) {
             console.log("Datos recibidos:", data);
-            
+
             const latLng = [data.latitude, data.longitude];
 
             // Si el corredor ya está en el mapa, movemos su punto
             if (corredores[data.participante]) {
                 corredores[data.participante].setLatLng(latLng);
-            } 
+            }
             // Si es nuevo, le creamos su marcador
             else {
                 const marker = L.marker(latLng).addTo(map);
@@ -54,4 +67,5 @@
         });
     </script>
 </body>
+
 </html>

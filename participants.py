@@ -62,5 +62,6 @@ def get_or_create_participant(device_id: str) -> str | None:
 # Inicialización al importar
 # ---------------------------------------------------------------------------
 
-participants_cache.update(load_participants())
-_migrar_participantes_si_necesario()
+# Reiniciar siempre los participantes al arrancar el servidor
+participants_cache.clear()
+save_participants(participants_cache)

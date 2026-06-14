@@ -2,7 +2,7 @@ import time
 import hashlib
 import urllib.error
 
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, send_from_directory
 from flask_socketio import SocketIO
 from config import MAX_PARTICIPANTES, DURACION, participants_lock
 from geojson_store import append_feature
@@ -42,6 +42,16 @@ def index():
 @app.route("/mapa")
 def mapa():
     return render_template("mapa.html")
+
+
+@app.route("/sw.js")
+def service_worker():
+    return send_from_directory("static", "sw.js")
+
+
+@app.route("/manifest.json")
+def manifest():
+    return send_from_directory("static", "manifest.json")
 
 
 @app.route("/registrar", methods=["POST"])

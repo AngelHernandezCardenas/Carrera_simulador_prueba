@@ -8,10 +8,23 @@ from config import MAX_PARTICIPANTES, DURACION, participants_lock
 from geojson_store import append_feature
 from participants import participants_cache, get_or_create_participant, save_participants
 
+import math
+
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 inicio = time.time()
+
+# Diccionario en memoria para las estadisticas de la carrera
+runners_stats = {}
+
+def haversine(lat1, lon1, lat2, lon2):
+    R = 6371.0 # Radio de la Tierra en km
+    dLat = math.radians(lat2 - lat1)
+    dLon = math.radians(lon2 - lon1)
+    a = math.sin(dLat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dLon/2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    return R * c
 
 
 # ---------------------------------------------------------------------------
@@ -142,17 +155,45 @@ def gps():
     # Guardar SIEMPRE en GeoJSON local (historial completo)
     append_feature(feature)
 
+    # Actualizar estadisticas en memoria
+    lat = data["latitude"]
+    lon = data["longitude"]
+    # Sanitizar velocidad por si el cliente envia 'null'
+    vel = data.get("speed_kmh")
+    vel = float(vel) if vel is not None else 0.0
+
+    if participante not in runners_stats:
+        runners_stats[participante] = {
+            "distancia_km": 0.0,
+            "max_speed": vel,
+            "last_coord": (lat, lon)
+        }
+    else:
+        stats = runners_stats[participante]
+        last_lat, last_lon = stats["last_coord"]
+        dist_incremental = haversine(last_lat, last_lon, lat, lon)
+        
+        # Ignorar "saltos" anomalos grandes (ej. > 1km en un segundo) si fuera necesario, aqui lo sumamos normal
+        if dist_incremental > 0.001: # Mas de 1 metro
+            stats["distancia_km"] += dist_incremental
+            stats["last_coord"] = (lat, lon)
+        
+        if vel > stats["max_speed"]:
+            stats["max_speed"] = vel
+
     print(
         f"[GPS] {participante} {feature['properties']['device_label']} "
-        f"{data['latitude']}, {data['longitude']} "
+        f"{lat}, {lon} | Distancia: {runners_stats[participante]['distancia_km']:.3f} km"
     )
 
-    # Emitir el punto a través de WebSockets para el mapa en tiempo real
+    # Emitir el punto a través de WebSockets para el mapa y la tabla
     socketio.emit('nueva_posicion', {
         'participante': participante,
-        'latitude': data["latitude"],
-        'longitude': data["longitude"],
-        'velocidad': data.get("speed_kmh", 0)
+        'latitude': lat,
+        'longitude': lon,
+        'velocidad': vel,
+        'distancia_km': runners_stats[participante]['distancia_km'],
+        'max_speed': runners_stats[participante]['max_speed']
     })
 
     return jsonify({

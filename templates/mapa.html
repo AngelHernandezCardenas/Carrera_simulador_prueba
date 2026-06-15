@@ -48,12 +48,13 @@
             z-index: 1;
         }
 
-        /* Interfaz tipo Glassmorphism */
+        /* Interfaz tipo Glassmorphism - Panel Lateral Animado */
         .dashboard {
             position: absolute;
             top: 20px;
             left: 20px;
             width: 320px;
+            height: calc(100vh - 40px);
             max-height: calc(100vh - 40px);
             z-index: 1000;
             background: var(--panel-bg);
@@ -65,6 +66,35 @@
             flex-direction: column;
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
             overflow: hidden;
+            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+        }
+
+        .dashboard.collapsed {
+            width: 80px;
+            cursor: pointer;
+        }
+
+        .dashboard.expanded {
+            width: 60vw;
+            cursor: default;
+        }
+        
+        .dashboard.collapsed .header-title-row h1,
+        .dashboard.collapsed .stats,
+        .dashboard.collapsed .runner-details,
+        .dashboard.collapsed .table-header,
+        .dashboard.collapsed #btn-theme,
+        .dashboard.collapsed #btn-3d {
+            display: none;
+        }
+
+        .dashboard.expanded .runner-info {
+            width: 100%;
+            display: grid;
+            grid-template-columns: 50px 2fr 1fr 1fr 1fr;
+            align-items: center;
+            gap: 15px;
         }
 
         .header {
@@ -213,11 +243,32 @@
             display: flex;
             flex-direction: column;
         }
+        
+        .dashboard.expanded .runner-details {
+            flex-direction: row;
+            display: contents; /* Para que los hijos usen el CSS Grid de .runner-info */
+        }
 
         .runner-name {
             font-size: 14px;
             font-weight: 600;
             color: #ffffff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .runner-stat-col {
+            display: flex;
+            flex-direction: column;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .runner-stat-col span {
+            color: var(--success);
+            font-weight: 600;
+            font-size: 15px;
         }
 
         .runner-speed {
@@ -229,6 +280,24 @@
         .runner-speed span {
             color: var(--success);
             font-weight: 600;
+        }
+
+        /* Tabla Header cuando está expandida */
+        .table-header {
+            display: none;
+            padding: 10px 14px 0 14px;
+            grid-template-columns: 50px 2fr 1fr 1fr 1fr;
+            gap: 15px;
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-weight: 600;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+        }
+
+        .dashboard.expanded .table-header {
+            display: grid;
         }
 
         /* MapLibre custom marker */
@@ -291,15 +360,15 @@
 <body>
     <div id="map"></div>
 
-    <div class="dashboard">
+    <div class="dashboard collapsed" id="dashboard">
         <div class="header">
             <div class="header-title-row">
                 <h1>
                     <div class="status-dot"></div> Telemetria
                 </h1>
-                <div style="display: flex; gap: 8px;">
-                    <button id="btn-theme" class="btn-3d" onclick="toggleTheme()">☀️ Día</button>
-                    <button id="btn-3d" class="btn-3d active" onclick="toggle3D()">3D: ON</button>
+                <div style="display: flex; gap: 8px;" id="header-buttons">
+                    <button id="btn-theme" class="btn-3d" onclick="event.stopPropagation(); toggleTheme()">☀️ Día</button>
+                    <button id="btn-3d" class="btn-3d active" onclick="event.stopPropagation(); toggle3D()">3D: ON</button>
                 </div>
             </div>
             <div class="stats">
@@ -308,10 +377,17 @@
                     <div class="stat-value" id="total-runners">0</div>
                 </div>
                 <div class="stat-box">
-                    <div class="stat-label">Velocidad Max</div>
-                    <div class="stat-value" id="max-speed">0.0</div>
+                    <div class="stat-label">Líder (Km)</div>
+                    <div class="stat-value" id="lider-distancia">0.00</div>
                 </div>
             </div>
+        </div>
+        <div class="table-header">
+            <div>Pos</div>
+            <div>Corredor</div>
+            <div>Distancia (Km)</div>
+            <div>Vel. Actual (Km/h)</div>
+            <div>Vel. Máx (Km/h)</div>
         </div>
         <div class="runners-list" id="runners-list">
         </div>
@@ -372,6 +448,21 @@
         }
 
         let followingRunnerId = null;
+
+        const dashboard = document.getElementById('dashboard');
+
+        // Lógica de Drawer (Cajón deslizable)
+        map.on('click', () => {
+            dashboard.classList.remove('expanded');
+            dashboard.classList.add('collapsed');
+        });
+
+        dashboard.addEventListener('click', (e) => {
+            if (dashboard.classList.contains('collapsed')) {
+                dashboard.classList.remove('collapsed');
+                dashboard.classList.add('expanded');
+            }
+        });
 
         // Desactivar el seguimiento si el usuario arrastra el mapa manualmente
         map.on('dragstart', () => {
@@ -450,7 +541,8 @@
                 const card = document.createElement('div');
                 card.className = 'runner-card';
                 card.id = `card-${id}`;
-                card.onclick = () => {
+                card.onclick = (e) => {
+                    e.stopPropagation(); // Evitar que colapse si el cajon esta abierto
                     followingRunnerId = id; // Activar el modo seguimiento para este corredor
                     map.flyTo({ center: lngLat, zoom: 16, speed: 1.2 });
                     document.querySelectorAll('.runner-card').forEach(el => el.classList.remove('active'));
@@ -462,7 +554,10 @@
                         <div class="runner-avatar" style="background: linear-gradient(135deg, ${assignedColor}, #000); box-shadow: 0 4px 12px ${assignedColor}60;">${initials}</div>
                         <div class="runner-details">
                             <div class="runner-name">${id}</div>
-                            <div class="runner-speed">Vel: <span id="speed-${id}">${speed.toFixed(1)}</span> km/h</div>
+                            <div class="runner-stat-col" style="display: none;" class="dashboard-only-expanded"></div>
+                            <div class="runner-stat-col">Dist: <span id="dist-${id}">0.00</span> km</div>
+                            <div class="runner-stat-col">Vel: <span id="speed-${id}">${speed.toFixed(1)}</span> km/h</div>
+                            <div class="runner-stat-col">Máx: <span id="max-speed-${id}">0.0</span> km/h</div>
                         </div>
                     </div>
                 `;
@@ -479,8 +574,30 @@
                 const runner = state.runners[id];
                 // Animar el movimiento del marcador
                 runner.marker.setLngLat(lngLat);
+                
+                const dist_km = data.distancia_km || 0;
+                const max_spd = data.max_speed || speed;
 
                 document.getElementById(`speed-${id}`).textContent = speed.toFixed(1);
+                document.getElementById(`dist-${id}`).textContent = dist_km.toFixed(3);
+                document.getElementById(`max-speed-${id}`).textContent = max_spd.toFixed(1);
+                
+                // Actualizar max distance global
+                let liderDist = 0;
+                Object.keys(state.runners).forEach(rid => {
+                    let d = parseFloat(document.getElementById(`dist-${rid}`).textContent);
+                    if (d > liderDist) liderDist = d;
+                });
+                document.getElementById('lider-distancia').textContent = liderDist.toFixed(3);
+
+                // Reordenar DOM basado en distancia
+                let cards = Array.from(listContainer.children);
+                cards.sort((a, b) => {
+                    let distA = parseFloat(a.querySelector('[id^="dist-"]').textContent);
+                    let distB = parseFloat(b.querySelector('[id^="dist-"]').textContent);
+                    return distB - distA; // Mayor a menor
+                });
+                cards.forEach(c => listContainer.appendChild(c)); // Mueve en el DOM sin recrear
 
                 // Si este es el corredor que estamos siguiendo, mover la cámara con él
                 if (followingRunnerId === id) {

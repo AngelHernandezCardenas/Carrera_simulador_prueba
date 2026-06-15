@@ -4,12 +4,12 @@
 <head>
     <meta charset="utf-8">
     <title>Carrera Tracker - Panel de Control</title>
-    
+
     <!-- Fuentes modernas -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
-    
+
     <!-- MapLibre GL JS -->
     <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
     <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
@@ -28,7 +28,8 @@
             --success: #10b981;
         }
 
-        body, html {
+        body,
+        html {
             margin: 0;
             padding: 0;
             height: 100%;
@@ -69,7 +70,7 @@
         .header {
             padding: 24px;
             border-bottom: 1px solid var(--border-color);
-            background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 100%);
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0) 100%);
         }
 
         .header-title-row {
@@ -110,8 +111,15 @@
             cursor: pointer;
             transition: all 0.2s ease;
         }
-        .btn-3d:hover { background: rgba(255, 255, 255, 0.2); }
-        .btn-3d.active { background: var(--accent); border-color: var(--accent); }
+
+        .btn-3d:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-3d.active {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
 
         .stats {
             display: flex;
@@ -150,9 +158,18 @@
             gap: 8px;
         }
 
-        .runners-list::-webkit-scrollbar { width: 6px; }
-        .runners-list::-webkit-scrollbar-track { background: transparent; }
-        .runners-list::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 10px; }
+        .runners-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .runners-list::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .runners-list::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+        }
 
         .runner-card {
             background: rgba(255, 255, 255, 0.03);
@@ -166,7 +183,8 @@
             cursor: pointer;
         }
 
-        .runner-card:hover, .runner-card.active {
+        .runner-card:hover,
+        .runner-card.active {
             background: rgba(59, 130, 246, 0.1);
             border-color: var(--accent);
             transform: translateX(4px);
@@ -188,7 +206,7 @@
             font-weight: 800;
             font-size: 14px;
             color: white;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
         }
 
         .runner-details {
@@ -223,8 +241,17 @@
         }
 
         @keyframes pulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.5; transform: scale(0.8); }
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.5;
+                transform: scale(0.8);
+            }
         }
 
         /* Popups MapLibre */
@@ -234,19 +261,30 @@
             color: white !important;
             border: 1px solid var(--border-color) !important;
             border-radius: 8px !important;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5) !important;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5) !important;
             font-family: 'Inter', sans-serif !important;
             padding: 12px 16px !important;
         }
+
         .maplibregl-popup-tip {
             border-top-color: var(--border-color) !important;
             border-bottom-color: var(--border-color) !important;
         }
+
         .maplibregl-popup-close-button {
             color: white !important;
         }
-        .popup-title { font-weight: 800; font-size: 14px; margin-bottom: 4px; }
-        .popup-stat { font-size: 12px; color: #cbd5e1; }
+
+        .popup-title {
+            font-weight: 800;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+
+        .popup-stat {
+            font-size: 12px;
+            color: #cbd5e1;
+        }
     </style>
 </head>
 
@@ -256,8 +294,13 @@
     <div class="dashboard">
         <div class="header">
             <div class="header-title-row">
-                <h1><div class="status-dot"></div> Telemetria</h1>
-                <button id="btn-3d" class="btn-3d active" onclick="toggle3D()">3D: ON</button>
+                <h1>
+                    <div class="status-dot"></div> Telemetria
+                </h1>
+                <div style="display: flex; gap: 8px;">
+                    <button id="btn-theme" class="btn-3d" onclick="toggleTheme()">☀️ Día</button>
+                    <button id="btn-3d" class="btn-3d active" onclick="toggle3D()">3D: ON</button>
+                </div>
             </div>
             <div class="stats">
                 <div class="stat-box">
@@ -287,6 +330,54 @@
         });
 
         map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
+
+        const STYLE_DARK = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
+        const STYLE_LIGHT = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
+
+        // Funcion para reinyectar la capa 3D cuando cambia el estilo
+        function addBuildingsLayer() {
+            if (!map.getLayer('3d-buildings') && map.getSource('carto')) {
+                map.addLayer({
+                    'id': '3d-buildings',
+                    'source': 'carto',
+                    'source-layer': 'building',
+                    'type': 'fill-extrusion',
+                    'minzoom': 15,
+                    'paint': {
+                        'fill-extrusion-color': isDarkTheme ? '#1e293b' : '#cbd5e1',
+                        'fill-extrusion-height': ['coalesce', ['get', 'render_height'], ['get', 'height'], 15],
+                        'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], ['get', 'min_height'], 0],
+                        'fill-extrusion-opacity': 0.8
+                    }
+                });
+            }
+        }
+
+        // Reinyectar edificios cada vez que el estilo base termina de cargar
+        map.on('styledata', () => {
+            addBuildingsLayer();
+        });
+
+        let isDarkTheme = true;
+        function toggleTheme() {
+            isDarkTheme = !isDarkTheme;
+            const btn = document.getElementById('btn-theme');
+            if (isDarkTheme) {
+                btn.textContent = 'Día';
+                map.setStyle(STYLE_DARK);
+            } else {
+                btn.textContent = 'Noche';
+                map.setStyle(STYLE_LIGHT);
+            }
+        }
+
+        let followingRunnerId = null;
+
+        // Desactivar el seguimiento si el usuario arrastra el mapa manualmente
+        map.on('dragstart', () => {
+            followingRunnerId = null;
+            document.querySelectorAll('.runner-card').forEach(el => el.classList.remove('active'));
+        });
 
         let is3D = true;
         function toggle3D() {
@@ -354,12 +445,13 @@
                     .setLngLat(lngLat)
                     .setPopup(popup)
                     .addTo(map);
-                
+
                 // Crear card en la lista
                 const card = document.createElement('div');
                 card.className = 'runner-card';
                 card.id = `card-${id}`;
                 card.onclick = () => {
+                    followingRunnerId = id; // Activar el modo seguimiento para este corredor
                     map.flyTo({ center: lngLat, zoom: 16, speed: 1.2 });
                     document.querySelectorAll('.runner-card').forEach(el => el.classList.remove('active'));
                     card.classList.add('active');
@@ -387,9 +479,14 @@
                 const runner = state.runners[id];
                 // Animar el movimiento del marcador
                 runner.marker.setLngLat(lngLat);
-                
+
                 document.getElementById(`speed-${id}`).textContent = speed.toFixed(1);
-                
+
+                // Si este es el corredor que estamos siguiendo, mover la cámara con él
+                if (followingRunnerId === id) {
+                    map.easeTo({ center: lngLat, speed: 1.2, duration: 1000 });
+                }
+
                 // Actualizar el HTML del popup si está abierto
                 const popupSpeedEl = document.getElementById(`popup-speed-${id}`);
                 if (popupSpeedEl) {
@@ -405,4 +502,5 @@
         });
     </script>
 </body>
+
 </html>

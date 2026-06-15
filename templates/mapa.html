@@ -10,8 +10,10 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- MapLibre GL JS -->
+    <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
+    <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 
     <style>
@@ -70,6 +72,12 @@
             background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 100%);
         }
 
+        .header-title-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
         .header h1 {
             margin: 0;
             font-size: 20px;
@@ -90,6 +98,20 @@
             box-shadow: 0 0 10px var(--success);
             animation: pulse 2s infinite;
         }
+
+        .btn-3d {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .btn-3d:hover { background: rgba(255, 255, 255, 0.2); }
+        .btn-3d.active { background: var(--accent); border-color: var(--accent); }
 
         .stats {
             display: flex;
@@ -128,17 +150,9 @@
             gap: 8px;
         }
 
-        /* Estilos de la barra de desplazamiento */
-        .runners-list::-webkit-scrollbar {
-            width: 6px;
-        }
-        .runners-list::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        .runners-list::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 10px;
-        }
+        .runners-list::-webkit-scrollbar { width: 6px; }
+        .runners-list::-webkit-scrollbar-track { background: transparent; }
+        .runners-list::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 10px; }
 
         .runner-card {
             background: rgba(255, 255, 255, 0.03);
@@ -168,14 +182,13 @@
             width: 36px;
             height: 36px;
             border-radius: 10px;
-            background: linear-gradient(135deg, var(--accent), #1d4ed8);
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: 800;
             font-size: 14px;
             color: white;
-            box-shadow: 0 4px 12px var(--accent-glow);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
         }
 
         .runner-details {
@@ -200,23 +213,13 @@
             font-weight: 600;
         }
 
-        /* Animaciones para el mapa y marcadores */
-        .leaflet-marker-icon {
-            transition: transform 1.2s cubic-bezier(0.25, 1, 0.5, 1);
-        }
-
+        /* MapLibre custom marker */
         .custom-marker {
             width: 24px;
             height: 24px;
-            background: var(--accent);
             border: 3px solid white;
             border-radius: 50%;
-            box-shadow: 0 0 15px var(--accent-glow);
-            transition: all 0.3s ease;
-        }
-
-        .custom-marker.pulse-marker {
-            animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+            transition: transform 0.3s ease;
         }
 
         @keyframes pulse {
@@ -224,28 +227,25 @@
             50% { opacity: 0.5; transform: scale(0.8); }
         }
 
-        @keyframes ping {
-            75%, 100% { transform: scale(2); opacity: 0; }
+        /* Popups MapLibre */
+        .maplibregl-popup-content {
+            background: var(--panel-bg) !important;
+            backdrop-filter: blur(8px) !important;
+            color: white !important;
+            border: 1px solid var(--border-color) !important;
+            border-radius: 8px !important;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5) !important;
+            font-family: 'Inter', sans-serif !important;
+            padding: 12px 16px !important;
         }
-
-        /* Estilo para los popups del mapa */
-        .leaflet-popup-content-wrapper {
-            background: var(--panel-bg);
-            backdrop-filter: blur(8px);
-            color: white;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        .maplibregl-popup-tip {
+            border-top-color: var(--border-color) !important;
+            border-bottom-color: var(--border-color) !important;
         }
-        .leaflet-popup-tip {
-            background: var(--panel-bg);
-            border: 1px solid var(--border-color);
+        .maplibregl-popup-close-button {
+            color: white !important;
         }
-        .leaflet-popup-content {
-            font-family: 'Inter', sans-serif;
-            margin: 12px 16px;
-        }
-        .popup-title { font-weight: 800; font-size: 14px; margin-bottom: 4px; color: var(--accent); }
+        .popup-title { font-weight: 800; font-size: 14px; margin-bottom: 4px; }
         .popup-stat { font-size: 12px; color: #cbd5e1; }
     </style>
 </head>
@@ -255,7 +255,10 @@
 
     <div class="dashboard">
         <div class="header">
-            <h1><div class="status-dot"></div> Telemetria</h1>
+            <div class="header-title-row">
+                <h1><div class="status-dot"></div> Telemetria</h1>
+                <button id="btn-3d" class="btn-3d active" onclick="toggle3D()">3D: ON</button>
+            </div>
             <div class="stats">
                 <div class="stat-box">
                     <div class="stat-label">Corredores</div>
@@ -268,18 +271,37 @@
             </div>
         </div>
         <div class="runners-list" id="runners-list">
-            <!-- Los corredores se insertaran aqui dinamicamente -->
         </div>
     </div>
 
     <script>
-        // 1. Inicializacion del mapa
-        const map = L.map('map', { zoomControl: false }).setView([20.53, -97.45], 14);
-        L.control.zoom({ position: 'bottomright' }).addTo(map);
+        // 1. Inicializacion de MapLibre GL JS
+        const map = new maplibregl.Map({
+            container: 'map',
+            style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json', // Estilo Vectorial Oscuro
+            center: [-100.3706, 25.7735], // [Longitud, Latitud]
+            zoom: 15,
+            pitch: 60, // Inclinacion 3D inicial
+            bearing: -15, // Rotacion inicial
+            antialias: true
+        });
 
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            attribution: 'Map data &copy; OpenStreetMap contributors &copy; CARTO'
-        }).addTo(map);
+        map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
+
+        let is3D = true;
+        function toggle3D() {
+            is3D = !is3D;
+            const btn = document.getElementById('btn-3d');
+            if (is3D) {
+                btn.classList.add('active');
+                btn.textContent = '3D: ON';
+                map.easeTo({ pitch: 60, bearing: -15, duration: 1000 });
+            } else {
+                btn.classList.remove('active');
+                btn.textContent = '2D: ON';
+                map.easeTo({ pitch: 0, bearing: 0, duration: 1000 });
+            }
+        }
 
         const state = {
             runners: {},
@@ -288,8 +310,6 @@
         };
 
         const listContainer = document.getElementById('runners-list');
-
-        // Generador de colores para distinguir corredores
         const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
         let colorIndex = 0;
 
@@ -303,39 +323,44 @@
 
         socket.on('nueva_posicion', function (data) {
             const id = data.participante;
-            const latLng = [data.latitude, data.longitude];
+            const lngLat = [data.longitude, data.latitude]; // MapLibre usa [Lng, Lat]
             const speed = Number(data.velocidad) || 0;
 
-            // Actualizar estadisticas generales
             if (speed > state.maxSpeed) {
                 state.maxSpeed = speed;
                 document.getElementById('max-speed').textContent = speed.toFixed(1);
             }
 
             if (!state.runners[id]) {
-                // Nuevo corredor
                 const assignedColor = colors[colorIndex % colors.length];
                 colorIndex++;
-                
                 const initials = id.replace(/participante_?/i, '').substring(0, 2).toUpperCase() || 'R';
 
-                // Crear marcador en el mapa
-                const iconHtml = `<div class="custom-marker" style="background: ${assignedColor}; box-shadow: 0 0 15px ${assignedColor}80;"></div>`;
-                const customIcon = L.divIcon({
-                    html: iconHtml,
-                    className: '',
-                    iconSize: [24, 24],
-                    iconAnchor: [12, 12]
-                });
+                // Crear HTML del marcador
+                const el = document.createElement('div');
+                el.className = 'custom-marker';
+                el.style.backgroundColor = assignedColor;
+                el.style.boxShadow = `0 0 15px ${assignedColor}80`;
 
-                const marker = L.marker(latLng, { icon: customIcon }).addTo(map);
+                // Crear Popup
+                const popup = new maplibregl.Popup({ offset: 25 }).setHTML(`
+                    <div class="popup-title" style="color: ${assignedColor};">${id}</div>
+                    <div class="popup-stat">Velocidad: <b id="popup-speed-${id}">${speed.toFixed(1)}</b> km/h</div>
+                    <div class="popup-stat">Coord: ${data.latitude.toFixed(5)}, ${data.longitude.toFixed(5)}</div>
+                `);
+
+                // Instanciar marcador en MapLibre
+                const marker = new maplibregl.Marker(el)
+                    .setLngLat(lngLat)
+                    .setPopup(popup)
+                    .addTo(map);
                 
-                // Crear elemento en la lista
+                // Crear card en la lista
                 const card = document.createElement('div');
                 card.className = 'runner-card';
                 card.id = `card-${id}`;
                 card.onclick = () => {
-                    map.flyTo(latLng, 16, { animate: true, duration: 1.5 });
+                    map.flyTo({ center: lngLat, zoom: 16, speed: 1.2 });
                     document.querySelectorAll('.runner-card').forEach(el => el.classList.remove('active'));
                     card.classList.add('active');
                 };
@@ -351,30 +376,32 @@
                 `;
                 listContainer.appendChild(card);
 
-                state.runners[id] = { marker, card, color: assignedColor };
+                state.runners[id] = { marker, popup, card, color: assignedColor };
                 document.getElementById('total-runners').textContent = Object.keys(state.runners).length;
 
-                // Auto-centrar en el primer corredor que mande datos
                 if (!state.firstPointReceived) {
-                    map.flyTo(latLng, 15, { animate: true });
+                    map.flyTo({ center: lngLat, zoom: 15, speed: 1.5 });
                     state.firstPointReceived = true;
                 }
             } else {
-                // Corredor existente: Mover marcador
                 const runner = state.runners[id];
-                runner.marker.setLatLng(latLng);
+                // Animar el movimiento del marcador
+                runner.marker.setLngLat(lngLat);
                 
-                // Actualizar popup y UI
                 document.getElementById(`speed-${id}`).textContent = speed.toFixed(1);
+                
+                // Actualizar el HTML del popup si está abierto
+                const popupSpeedEl = document.getElementById(`popup-speed-${id}`);
+                if (popupSpeedEl) {
+                    popupSpeedEl.textContent = speed.toFixed(1);
+                } else {
+                    runner.popup.setHTML(`
+                        <div class="popup-title" style="color: ${runner.color};">${id}</div>
+                        <div class="popup-stat">Velocidad: <b id="popup-speed-${id}">${speed.toFixed(1)}</b> km/h</div>
+                        <div class="popup-stat">Coord: ${data.latitude.toFixed(5)}, ${data.longitude.toFixed(5)}</div>
+                    `);
+                }
             }
-
-            // Actualizar el contenido del Popup
-            const r = state.runners[id];
-            r.marker.bindPopup(`
-                <div class="popup-title" style="color: ${r.color};">${id}</div>
-                <div class="popup-stat">Velocidad: <b>${speed.toFixed(1)}</b> km/h</div>
-                <div class="popup-stat">Coordenadas: ${data.latitude.toFixed(5)}, ${data.longitude.toFixed(5)}</div>
-            `);
         });
     </script>
 </body>

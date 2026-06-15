@@ -13,6 +13,33 @@ let globalServerUrl = '';
 let globalParticipante = null;
 let globalDeviceId = null;
 
+// Función compartida para enviar GPS
+const enviarGps = async (loc) => {
+  if (!globalServerUrl || !globalParticipante) return;
+  try {
+    await fetch(`${globalServerUrl}/gps`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+        accuracy: loc.coords.accuracy,
+        altitude: loc.coords.altitude,
+        altitude_accuracy: loc.coords.altitudeAccuracy,
+        heading: loc.coords.heading,
+        speed_mps: loc.coords.speed,
+        speed_kmh: loc.coords.speed ? loc.coords.speed * 3.6 : null,
+        speed_source: 'gps_sensor',
+        device_id: globalDeviceId,
+        device_label: `App-${globalDeviceId.substring(0,6)}`,
+        client_timestamp_ms: Date.now()
+      })
+    });
+  } catch (e) {
+    console.error("Error enviando GPS:", e);
+  }
+};
+
 // Definir la tarea en segundo plano fuera de los componentes de React
 TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
   if (error) {
@@ -21,30 +48,8 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
   }
   if (data) {
     const { locations } = data;
-    if (locations && locations.length > 0 && globalServerUrl && globalParticipante) {
-      const loc = locations[0];
-      try {
-        await fetch(`${globalServerUrl}/gps`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            latitude: loc.coords.latitude,
-            longitude: loc.coords.longitude,
-            accuracy: loc.coords.accuracy,
-            altitude: loc.coords.altitude,
-            altitude_accuracy: loc.coords.altitudeAccuracy,
-            heading: loc.coords.heading,
-            speed_mps: loc.coords.speed,
-            speed_kmh: loc.coords.speed ? loc.coords.speed * 3.6 : null,
-            speed_source: 'gps_sensor',
-            device_id: globalDeviceId,
-            device_label: `App-${globalDeviceId.substring(0,6)}`,
-            client_timestamp_ms: Date.now()
-          })
-        });
-      } catch (e) {
-        console.error("Error enviando GPS de fondo:", e);
-      }
+    if (locations && locations.length > 0) {
+      await enviarGps(locations[locations.length - 1]);
     }
   }
 });
@@ -131,7 +136,6 @@ export default function App() {
     await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
       accuracy: Location.Accuracy.BestForNavigation,
       timeInterval: 1000,
-      deferredUpdatesInterval: 1000,
       distanceInterval: 0,
       showsBackgroundLocationIndicator: true,
       foregroundService: {
@@ -141,13 +145,13 @@ export default function App() {
       }
     });
 
-    // Watch position local para la UI
     Location.watchPositionAsync({
       accuracy: Location.Accuracy.BestForNavigation,
       timeInterval: 1000,
       distanceInterval: 0
     }, (loc) => {
       setLocation(loc);
+      enviarGps(loc); // Garantiza envío exacto cada segundo si la app está abierta
     });
   };
 

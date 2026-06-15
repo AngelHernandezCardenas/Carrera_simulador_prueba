@@ -191,16 +191,29 @@ def gps():
     latitude = float(data["latitude"])
     longitude = float(data["longitude"])
 
-    nivel_bateria = get_next_battery_level(device_id)
     posicion_inicial = get_participant_position(participante)
-    puntaje_bateria = get_battery_score(nivel_bateria)
-    posicion_bateria = get_battery_rank(device_id)
 
     with participants_lock:
         participant_entry = participants_cache[device_id]
         participant_entry["device_id"] = device_id
         participant_entry["nombre"] = participante
+        estado_anterior = participant_entry.get("estado", "corriendo")
         actualizar_estado_corredor(participant_entry, latitude, longitude)
+
+        estado_actual = participant_entry.get("estado", "corriendo")
+        nivel_bateria_final = participant_entry.get("nivel_bateria_final")
+        if estado_actual == "terminado":
+            if estado_anterior != "terminado" or nivel_bateria_final is None:
+                nivel_bateria = get_next_battery_level(device_id)
+                participant_entry["nivel_bateria_final"] = nivel_bateria
+            else:
+                nivel_bateria = float(nivel_bateria_final)
+                with _battery_lock:
+                    _battery_levels_by_device[device_id] = nivel_bateria
+        else:
+            nivel_bateria = get_next_battery_level(device_id)
+
+        participant_entry["nivel_bateria"] = nivel_bateria
         save_participants(participants_cache)
 
         checkpoint_state = {
@@ -211,7 +224,7 @@ def gps():
             "distancia_checkpoint_pendiente_mas_cercano_m": participant_entry.get("distancia_checkpoint_pendiente_mas_cercano_m"),
             "puntuacion_checkpoints": participant_entry.get("puntuacion_checkpoints", 0.0),
             "puntaje_checkpoints": participant_entry.get("puntaje_checkpoints", 0.0),
-            "estado": participant_entry.get("estado", "corriendo"),
+            "estado": estado_actual,
         }
         runners_snapshot = {
             runner_device_id: {
@@ -223,6 +236,8 @@ def gps():
         }
 
     posicion_checkpoints = get_checkpoint_rank_from_snapshot(device_id, runners_snapshot)
+    puntaje_bateria = get_battery_score(nivel_bateria)
+    posicion_bateria = get_battery_rank(device_id)
     puntaje_checkpoints = checkpoint_state["puntaje_checkpoints"]
     puntaje = round(puntaje_bateria + puntaje_checkpoints, 2)
     posicion = posicion_checkpoints

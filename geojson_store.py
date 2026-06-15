@@ -3,9 +3,23 @@ import os
 from config import GEOJSON_FILE, file_lock
 
 
+def dump_geojson(geojson, file_obj):
+    features = geojson.get("features", [])
+
+    file_obj.write('{"type":"FeatureCollection","features":[')
+    if features:
+        file_obj.write("\n")
+        for index, feature in enumerate(features):
+            if index > 0:
+                file_obj.write(",\n")
+            json.dump(feature, file_obj, separators=(",", ":"))
+        file_obj.write("\n")
+    file_obj.write("]}")
+
+
 def init_geojson():
     with open(GEOJSON_FILE, "w") as f:
-        json.dump({"type": "FeatureCollection", "features": []}, f)
+        dump_geojson({"type": "FeatureCollection", "features": []}, f)
 
 
 def load_geojson():
@@ -26,7 +40,7 @@ def append_feature(feature):
         geojson = load_geojson()
         geojson["features"].append(feature)
         with open(GEOJSON_FILE, "w") as f:
-            json.dump(geojson, f, indent=2)
+            dump_geojson(geojson, f)
 
 
 # Inicializar el archivo si no existe al importar el módulo

@@ -12,6 +12,9 @@ const DEVICE_ID_KEY = 'gps_tracker_device_id';
 let globalServerUrl = '';
 let globalParticipante = null;
 let globalDeviceId = null;
+let globalLocationSubscription = null; // Guardar la suscripcion para detenerla despues
+let globalTimer = null; // Forzar envio cada segundo
+let lastKnownLocation = null;
 
 // Función compartida para enviar GPS
 const enviarGps = async (loc) => {
@@ -118,9 +121,13 @@ export default function App() {
       return;
     }
 
-    const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
-    if (bgStatus !== 'granted') {
-      Alert.alert('Aviso', 'Permiso en segundo plano denegado. Solo funcionará con la app abierta.');
+    try {
+      const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
+      if (bgStatus !== 'granted') {
+        Alert.alert('Aviso', 'Permiso en segundo plano denegado. Solo funcionará con la app abierta.');
+      }
+    } catch (e) {
+      console.log('Expo Go en iOS no permite pedir permisos de segundo plano.');
     }
 
     setActivo(true);
@@ -132,34 +139,78 @@ export default function App() {
       setAccelData(data);
     });
 
-    // Iniciar GPS
-    await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
-      accuracy: Location.Accuracy.BestForNavigation,
-      timeInterval: 1000,
-      distanceInterval: 0,
-      showsBackgroundLocationIndicator: true,
-      foregroundService: {
-        notificationTitle: "GPS Tracker Activo",
-        notificationBody: "Enviando ubicación al servidor...",
-        notificationColor: "#2563eb",
-      }
-    });
+    // Iniciar GPS en segundo plano
+    try {
+      await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
+        accuracy: Location.Accuracy.BestForNavigation,
+        timeInterval: 1000,
+        distanceInterval: 0,
+        showsBackgroundLocationIndicator: true,
+        foregroundService: {
+          notificationTitle: "GPS Tracker Activo",
+          notificationBody: "Enviando ubicación al servidor...",
+          notificationColor: "#2563eb",
+        }
+      });
+    } catch (error) {
+      console.log("Aviso: Segundo plano no disponible en Expo Go iOS. Corriendo silenciosamente en primer plano.");
+    }
 
-    Location.watchPositionAsync({
+    // Obtener la ubicacion inicial de inmediato para no hacer esperar al servidor
+    try {
+      let initialLoc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced
+      });
+      lastKnownLocation = initialLoc;
+      setLocation(initialLoc);
+      enviarGps(initialLoc);
+    } catch (e) {
+      console.log("No se pudo obtener la ubicacion inicial rapidamente.");
+    }
+
+    globalLocationSubscription = await Location.watchPositionAsync({
       accuracy: Location.Accuracy.BestForNavigation,
       timeInterval: 1000,
       distanceInterval: 0
     }, (loc) => {
       setLocation(loc);
-      enviarGps(loc); // Garantiza envío exacto cada segundo si la app está abierta
+      lastKnownLocation = loc;
     });
+
+    // BUCLE FORZADO: Enviar datos exactamente cada 1 segundo,
+    // usando la ultima ubicacion conocida. Esto soluciona el problema de
+    // iOS/Android mandando datos cada 5-10 segundos cuando estas quieto.
+    if (globalTimer) clearInterval(globalTimer);
+    globalTimer = setInterval(() => {
+      if (lastKnownLocation) {
+        enviarGps(lastKnownLocation);
+      }
+    }, 1000);
   };
 
   const detenerCaptura = async () => {
     setActivo(false);
     setStatusMsg('Captura detenida.');
     Accelerometer.removeAllListeners();
-    await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
+    
+    // Detener el envio forzado (timer)
+    if (globalTimer) {
+      clearInterval(globalTimer);
+      globalTimer = null;
+    }
+    
+    // Detener el envio en primer plano
+    if (globalLocationSubscription) {
+      globalLocationSubscription.remove();
+      globalLocationSubscription = null;
+    }
+    
+    // Detener la tarea en segundo plano
+    try {
+      await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
+    } catch (e) {
+      console.log("El segundo plano ya estaba detenido o no soportado.");
+    }
   };
 
   return (

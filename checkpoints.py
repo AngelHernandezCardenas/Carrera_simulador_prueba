@@ -46,8 +46,39 @@ def _checkpoint_id(checkpoint: dict) -> int:
     return int(checkpoint["id"])
 
 
+def _checkpoint_name(checkpoint: dict) -> str:
+    checkpoint_id = _checkpoint_id(checkpoint)
+    return (
+        checkpoint.get("nombre")
+        or checkpoint.get("Rectoria")
+        or checkpoint.get("Rectoria-Descarga")
+        or checkpoint.get("Jubileo")
+        or checkpoint.get("Carreton")
+        or checkpoint.get("Bilio-Aulas4")
+        or checkpoint.get("Biotecnologia-Centrales")
+        or f"Checkpoint {checkpoint_id}"
+    )
+
+
 def _sorted_checkpoint_ids(checkpoint_ids) -> list[int]:
     return sorted(int(checkpoint_id) for checkpoint_id in checkpoint_ids)
+
+
+def _nearest_checkpoint(lat: float, lon: float, checkpoints: list[dict]) -> tuple[dict | None, float]:
+    if not checkpoints:
+        return None, 0.0
+
+    nearest = min(
+        checkpoints,
+        key=lambda checkpoint: haversine_distance_m(
+            lat,
+            lon,
+            float(checkpoint["lat"]),
+            float(checkpoint["lon"]),
+        ),
+    )
+    distance = haversine_distance_m(lat, lon, float(nearest["lat"]), float(nearest["lon"]))
+    return nearest, distance
 
 
 def _nearest_pending_checkpoint(
@@ -65,17 +96,7 @@ def _nearest_pending_checkpoint(
     if not pending:
         return None, 0.0
 
-    nearest = min(
-        pending,
-        key=lambda checkpoint: haversine_distance_m(
-            lat,
-            lon,
-            float(checkpoint["lat"]),
-            float(checkpoint["lon"]),
-        ),
-    )
-    distance = haversine_distance_m(lat, lon, float(nearest["lat"]), float(nearest["lon"]))
-    return nearest, distance
+    return _nearest_checkpoint(lat, lon, pending)
 
 
 def _scoring_checkpoints(checkpoints: list[dict]) -> list[dict]:
@@ -148,6 +169,7 @@ def actualizar_estado_corredor(
             visited_ids.add(checkpoint_id)
 
     scoring_checkpoints = _scoring_checkpoints(checkpoints)
+    nearest_scoring_checkpoint, closest_scoring_distance = _nearest_checkpoint(lat, lon, scoring_checkpoints)
     nearest_pending, nearest_distance = _nearest_pending_checkpoint(
         lat,
         lon,
@@ -178,13 +200,25 @@ def actualizar_estado_corredor(
         if nearest_pending is None
         else {
             "id": _checkpoint_id(nearest_pending),
-            "nombre": nearest_pending.get("nombre", f"Checkpoint {_checkpoint_id(nearest_pending)}"),
+            "nombre": _checkpoint_name(nearest_pending),
         }
     )
     corredor["checkpoint_pendiente_mas_cercano_id"] = (
         None if nearest_pending is None else _checkpoint_id(nearest_pending)
     )
     corredor["distancia_checkpoint_pendiente_mas_cercano_m"] = round(nearest_distance, 2)
+    corredor["checkpoint_mas_cercano"] = (
+        None
+        if nearest_scoring_checkpoint is None
+        else {
+            "id": _checkpoint_id(nearest_scoring_checkpoint),
+            "nombre": _checkpoint_name(nearest_scoring_checkpoint),
+        }
+    )
+    corredor["checkpoint_mas_cercano_id"] = (
+        None if nearest_scoring_checkpoint is None else _checkpoint_id(nearest_scoring_checkpoint)
+    )
+    corredor["distancia_checkpoint_mas_cercano_m"] = round(closest_scoring_distance, 2)
     corredor["puntuacion_checkpoints"] = round(raw_score, 2)
     corredor["puntaje_checkpoints"] = _checkpoint_score_out_of_50(
         scoring_visited_count,

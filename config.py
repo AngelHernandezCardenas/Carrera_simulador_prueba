@@ -1,8 +1,11 @@
 import threading
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent
 
 # --- Archivos de datos ---
-GEOJSON_FILE = "gps_data.geojson"
-PARTICIPANTS_FILE = "participantes.json"
+GEOJSON_FILE = BASE_DIR / "gps_data.geojson"
+PARTICIPANTS_FILE = BASE_DIR / "participantes.json"
 MAX_PARTICIPANTES = 20
 
 # --- Duración de la sesión ---

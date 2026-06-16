@@ -310,6 +310,9 @@ def gps():
             "checkpoint_pendiente_mas_cercano": participant_entry.get("checkpoint_pendiente_mas_cercano"),
             "checkpoint_pendiente_mas_cercano_id": participant_entry.get("checkpoint_pendiente_mas_cercano_id"),
             "distancia_checkpoint_pendiente_mas_cercano_m": participant_entry.get("distancia_checkpoint_pendiente_mas_cercano_m"),
+            "checkpoint_mas_cercano": participant_entry.get("checkpoint_mas_cercano"),
+            "checkpoint_mas_cercano_id": participant_entry.get("checkpoint_mas_cercano_id"),
+            "distancia_checkpoint_mas_cercano_m": participant_entry.get("distancia_checkpoint_mas_cercano_m"),
             "puntuacion_checkpoints": participant_entry.get("puntuacion_checkpoints", 0.0),
             "puntaje_checkpoints": participant_entry.get("puntaje_checkpoints", 0.0),
             "estado": estado_actual,
@@ -365,6 +368,9 @@ def gps():
             "checkpoint_pendiente_mas_cercano": checkpoint_state["checkpoint_pendiente_mas_cercano"],
             "checkpoint_pendiente_mas_cercano_id": checkpoint_state["checkpoint_pendiente_mas_cercano_id"],
             "distancia_checkpoint_pendiente_mas_cercano_m": checkpoint_state["distancia_checkpoint_pendiente_mas_cercano_m"],
+            "checkpoint_mas_cercano": checkpoint_state["checkpoint_mas_cercano"],
+            "checkpoint_mas_cercano_id": checkpoint_state["checkpoint_mas_cercano_id"],
+            "distancia_checkpoint_mas_cercano_m": checkpoint_state["distancia_checkpoint_mas_cercano_m"],
             "estado": checkpoint_state["estado"],
             "distancia_km": runner_stats["distancia_km"],
             "max_speed": runner_stats["max_speed"],
@@ -421,6 +427,8 @@ def gps():
         "checkpoint_descarga_visitado": checkpoint_state["checkpoint_descarga_visitado"],
         "checkpoint_pendiente_mas_cercano": checkpoint_state["checkpoint_pendiente_mas_cercano"],
         "distancia_checkpoint_pendiente_mas_cercano_m": checkpoint_state["distancia_checkpoint_pendiente_mas_cercano_m"],
+        "checkpoint_mas_cercano": checkpoint_state["checkpoint_mas_cercano"],
+        "distancia_checkpoint_mas_cercano_m": checkpoint_state["distancia_checkpoint_mas_cercano_m"],
     })
 
     response = {
@@ -442,6 +450,8 @@ def gps():
         "checkpoint_descarga_visitado": checkpoint_state["checkpoint_descarga_visitado"],
         "checkpoint_pendiente_mas_cercano": checkpoint_state["checkpoint_pendiente_mas_cercano"],
         "distancia_checkpoint_pendiente_mas_cercano_m": checkpoint_state["distancia_checkpoint_pendiente_mas_cercano_m"],
+        "checkpoint_mas_cercano": checkpoint_state["checkpoint_mas_cercano"],
+        "distancia_checkpoint_mas_cercano_m": checkpoint_state["distancia_checkpoint_mas_cercano_m"],
         "estado": checkpoint_state["estado"],
         "distancia_km": runner_stats["distancia_km"],
         "max_speed": runner_stats["max_speed"],

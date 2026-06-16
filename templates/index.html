@@ -85,6 +85,12 @@
         </div>
 
         <div class="card full">
+            <div class="label">Checkpoint ponderado más cercano</div>
+            <div class="value" id="checkpointCercano">--</div>
+            <div class="small" id="distanciaCheckpointCercano">Distancia: -- m</div>
+        </div>
+
+        <div class="card full">
             <div class="label">Acelerómetro con gravedad</div>
             <div class="small" id="acelG">X: --
 Y: --
@@ -160,6 +166,19 @@ Magnitud: --</div>
 
     function fmt(value, dec = 2) {
         return Number.isFinite(value) ? value.toFixed(dec) : "--";
+    }
+
+    function getCheckpointLabel(checkpoint) {
+        if (!checkpoint) return "--";
+        return checkpoint.nombre || `Checkpoint ${checkpoint.id}`;
+    }
+
+    function actualizarCheckpointCercano(data) {
+        const checkpoint = data.checkpoint_mas_cercano;
+        const distance = Number(data.distancia_checkpoint_mas_cercano_m);
+        document.getElementById("checkpointCercano").textContent = getCheckpointLabel(checkpoint);
+        document.getElementById("distanciaCheckpointCercano").textContent =
+            `Distancia: ${fmt(distance, 2)} m`;
     }
 
     function calcularMagnitud(x, y, z) {
@@ -474,6 +493,7 @@ Magnitud: --</div>
                 log(data.msg, "error");
             } else if (data.participante) {
                 participante = data.participante;
+                actualizarCheckpointCercano(data);
             }
         } catch(e) {
             log("Datos obtenidos pero error al enviar al servidor:\n" + e.message, "error");

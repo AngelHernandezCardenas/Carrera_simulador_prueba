@@ -611,12 +611,20 @@
             return pending.nombre || `Checkpoint ${pending.id}`;
         }
 
+        function getClosestCheckpointLabel(data) {
+            const closest = data.checkpoint_mas_cercano;
+            if (!closest) return 'Ninguno';
+            return closest.nombre || `Checkpoint ${closest.id}`;
+        }
+
         function buildRunnerPopupHtml(id, color, data, speed) {
             return `
                 <div class="popup-title" style="color: ${color};">${id}</div>
                 <div class="popup-stat">Velocidad: <b id="popup-speed-${id}">${speed.toFixed(1)}</b> km/h</div>
                 <div class="popup-stat">Posicion: <b>${data.posicion ?? '--'}</b></div>
                 <div class="popup-stat">Checkpoints visitados: <b>${data.checkpoints_visitados ?? 0}</b></div>
+                <div class="popup-stat">Checkpoint ponderado mas cercano: <b>${getClosestCheckpointLabel(data)}</b></div>
+                <div class="popup-stat">Distancia al ponderado mas cercano: <b>${formatNullable(data.distancia_checkpoint_mas_cercano_m, 2)}</b> m</div>
                 <div class="popup-stat">Checkpoint pendiente: <b>${getPendingCheckpointLabel(data)}</b></div>
                 <div class="popup-stat">Distancia pendiente: <b>${formatNullable(data.distancia_checkpoint_pendiente_mas_cercano_m, 2)}</b> m</div>
                 <div class="popup-stat">Estado: <b>${data.estado || '--'}</b></div>
@@ -631,7 +639,10 @@
 
             if (speed > state.maxSpeed) {
                 state.maxSpeed = speed;
-                document.getElementById('max-speed').textContent = speed.toFixed(1);
+                const maxSpeedEl = document.getElementById('max-speed');
+                if (maxSpeedEl) {
+                    maxSpeedEl.textContent = speed.toFixed(1);
+                }
             }
 
             if (!state.runners[id]) {

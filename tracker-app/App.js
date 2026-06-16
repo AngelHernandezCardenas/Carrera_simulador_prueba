@@ -156,18 +156,6 @@ export default function App() {
       console.log("Aviso: Segundo plano no disponible en Expo Go iOS. Corriendo silenciosamente en primer plano.");
     }
 
-    // Obtener la ubicacion inicial de inmediato para no hacer esperar al servidor
-    try {
-      let initialLoc = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced
-      });
-      lastKnownLocation = initialLoc;
-      setLocation(initialLoc);
-      enviarGps(initialLoc);
-    } catch (e) {
-      console.log("No se pudo obtener la ubicacion inicial rapidamente.");
-    }
-
     globalLocationSubscription = await Location.watchPositionAsync({
       accuracy: Location.Accuracy.BestForNavigation,
       timeInterval: 1000,

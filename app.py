@@ -3,21 +3,10 @@ import math
 import random
 import threading
 import time
-import urllib.error
 
 from flask import Flask, jsonify, render_template, request, send_from_directory
 from flask_socketio import SocketIO
 
-from arcgis import (
-    ARCGIS_CLIENT_ID,
-    ARCGIS_CLIENT_SECRET,
-    ARCGIS_FEATURE_LAYER_URL,
-    ARCGIS_THROTTLE_SECONDS,
-    ARCGIS_TOKEN,
-    arcgis_enabled,
-    send_feature_to_arcgis,
-    should_send_to_arcgis,
-)
 from checkpoints import CHECKPOINTS, actualizar_estado_corredor, clasificar_corredores, haversine_distance_m
 from config import DURACION, MAX_PARTICIPANTES, participants_lock
 from geojson_store import append_feature
@@ -253,17 +242,6 @@ def registrar():
     })
 
 
-@app.route("/arcgis/status")
-def arcgis_status():
-    return jsonify({
-        "enabled": arcgis_enabled(),
-        "feature_layer_url_configured": bool(ARCGIS_FEATURE_LAYER_URL),
-        "auth_configured": bool(ARCGIS_TOKEN or (ARCGIS_CLIENT_ID and ARCGIS_CLIENT_SECRET)),
-        "auth_mode": "token" if ARCGIS_TOKEN else ("oauth2" if ARCGIS_CLIENT_ID and ARCGIS_CLIENT_SECRET else "none"),
-        "throttle_seconds": ARCGIS_THROTTLE_SECONDS,
-    })
-
-
 @app.route("/gps", methods=["POST"])
 def gps():
     global inicio
@@ -416,22 +394,6 @@ def gps():
         f"puntaje={puntaje:.2f}"
     )
 
-    arcgis_sent = False
-    arcgis_skipped_throttle = False
-    arcgis_error = None
-
-    if should_send_to_arcgis(participante):
-        try:
-            arcgis_response = send_feature_to_arcgis(feature, participante, participants_cache, save_participants)
-            arcgis_sent = bool(arcgis_response.get("enabled"))
-            if arcgis_sent:
-                print(f"[ArcGIS] {arcgis_response.get('action')} -> {participante} (OBJECTID={arcgis_response.get('object_id')})")
-        except (urllib.error.URLError, TimeoutError, RuntimeError, KeyError, ValueError) as exc:
-            arcgis_error = str(exc)
-            print(f"[ArcGIS] Error al enviar punto de {participante}: {arcgis_error}")
-    else:
-        arcgis_skipped_throttle = True
-
     socketio.emit("nueva_posicion", {
         "participante": participante,
         "latitude": latitude,
@@ -467,11 +429,7 @@ def gps():
         "estado": checkpoint_state["estado"],
         "distancia_km": runner_stats["distancia_km"],
         "max_speed": runner_stats["max_speed"],
-        "arcgis_sent": arcgis_sent,
-        "arcgis_skipped_throttle": arcgis_skipped_throttle,
     }
-    if arcgis_error:
-        response["arcgis_error"] = arcgis_error
 
     return jsonify(response)
 

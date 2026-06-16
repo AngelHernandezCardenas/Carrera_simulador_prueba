@@ -47,7 +47,8 @@ def get_or_create_participant(device_id: str) -> str | None:
         return None
 
     nombre = f"participante_{len(participants_cache) + 1:02d}"
-    participants_cache[device_id] = {"nombre": nombre}
+    # TODO: BORRAR ESTO DESPUES. Peso inicial temporal solo para pruebas.
+    participants_cache[device_id] = {"nombre": nombre, "peso": 9.0}
     save_participants(participants_cache)
     return nombre
 

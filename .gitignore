@@ -144,3 +144,19 @@ yarn-error.log*
 .cache/
 tmp/
 temp/
+
+# ──────────────────────────────────────────
+# Expo / React Native
+# ──────────────────────────────────────────
+.expo/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# ──────────────────────────────────────────
+# Archivos de estado dinámico de la app
+# ──────────────────────────────────────────
+participantes.json

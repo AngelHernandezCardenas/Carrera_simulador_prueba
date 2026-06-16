@@ -93,7 +93,7 @@
         .dashboard.expanded .runner-info {
             width: 100%;
             display: grid;
-            grid-template-columns: 50px 2fr 1fr 1fr 1fr;
+            grid-template-columns: 50px 2fr 1fr 1fr 1fr 1fr;
             align-items: center;
             gap: 15px;
         }
@@ -324,7 +324,7 @@
         .table-header {
             display: none;
             padding: 10px 14px 0 14px;
-            grid-template-columns: 50px 2fr 1fr 1fr 1fr;
+            grid-template-columns: 50px 2fr 1fr 1fr 1fr 1fr;
             gap: 15px;
             font-size: 11px;
             color: var(--text-muted);
@@ -555,6 +555,7 @@
         <div class="table-header">
             <div>Pos</div>
             <div>Corredor</div>
+            <div>Puntos</div>
             <div>Distancia (Km)</div>
             <div>Vel. Actual (Km/h)</div>
             <div>Vel. Máx (Km/h)</div>
@@ -864,6 +865,7 @@
                         <div class="runner-details">
                             <div class="runner-name">${id}</div>
                             <div class="runner-stat-col" style="display: none;" class="dashboard-only-expanded"></div>
+                            <div class="runner-stat-col">Pts: <span id="puntos-${id}">0</span></div>
                             <div class="runner-stat-col">Dist: <span id="dist-${id}">0.00</span> km</div>
                             <div class="runner-stat-col">Vel: <span id="speed-${id}">${speed.toFixed(1)}</span> km/h</div>
                             <div class="runner-stat-col">Máx: <span id="max-speed-${id}">0.0</span> km/h</div>
@@ -905,10 +907,12 @@
                 
                 const dist_km = data.distancia_km || 0;
                 const max_spd = data.max_speed || speed;
+                const pts = data.puntos_totales || 0;
 
                 document.getElementById(`speed-${id}`).textContent = speed.toFixed(1);
                 document.getElementById(`dist-${id}`).textContent = dist_km.toFixed(3);
                 document.getElementById(`max-speed-${id}`).textContent = max_spd.toFixed(1);
+                document.getElementById(`puntos-${id}`).textContent = pts;
                 
                 // Actualizar max distance global
                 let liderDist = 0;
@@ -918,12 +922,17 @@
                 });
                 document.getElementById('lider-distancia').textContent = liderDist.toFixed(3);
 
-                // Reordenar DOM basado en distancia
+                // Reordenar DOM basado en puntos y luego distancia
                 let cards = Array.from(listContainer.children);
                 cards.sort((a, b) => {
+                    let ptsA = parseInt(a.querySelector('[id^="puntos-"]').textContent);
+                    let ptsB = parseInt(b.querySelector('[id^="puntos-"]').textContent);
+                    if (ptsB !== ptsA) {
+                        return ptsB - ptsA; // Mayor a menor puntos
+                    }
                     let distA = parseFloat(a.querySelector('[id^="dist-"]').textContent);
                     let distB = parseFloat(b.querySelector('[id^="dist-"]').textContent);
-                    return distB - distA; // Mayor a menor
+                    return distB - distA; // Mayor a menor distancia en caso de empate
                 });
                 cards.forEach(c => listContainer.appendChild(c)); // Mueve en el DOM sin recrear
 

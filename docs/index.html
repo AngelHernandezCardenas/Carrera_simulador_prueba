@@ -619,7 +619,10 @@
         }
 
         function guardarServidor() {
-            const url = urlInput.value.trim().replace(/\\/$/, '');
+            let url = urlInput.value.trim();
+            if (url.endsWith('/')) {
+                url = url.slice(0, -1);
+            }
             if (url) {
                 backendUrl = url;
                 localStorage.setItem('tracker_backend_url', backendUrl);

@@ -1,6 +1,6 @@
 .env
 .env.*
-!.env.example        # Permite subir el archivo de ejemplo (sin valores reales)
+!.env.example
 *.env
 secrets.*
 secret.*
@@ -21,9 +21,7 @@ id_rsa.*
 id_ed25519
 id_ed25519.*
 
-# ──────────────────────────────────────────
 # Tokens, contraseñas y configuraciones privadas
-# ──────────────────────────────────────────
 config.local.*
 local_settings.*
 settings_local.*
@@ -39,9 +37,7 @@ firebase*.json
 google_credentials*.json
 gcloud*.json
 
-# ──────────────────────────────────────────
 # Bases de datos y archivos de datos sensibles
-# ──────────────────────────────────────────
 *.db
 *.sqlite
 *.sqlite3
@@ -51,15 +47,13 @@ gcloud*.json
 *.backup
 dump.rdb
 
-# ──────────────────────────────────────────
 # Archivos GeoJSON / datos geoespaciales privados
-# ──────────────────────────────────────────
 data/private/
 data/sensible/
 private_data/
 datos_privados/
 *.geojson
-!assets/*.geojson   # Permite geojson de assets públicos si los hay
+!assets/*.geojson
 *.shp
 *.dbf
 *.prj
@@ -69,9 +63,7 @@ datos_privados/
 *.kmz
 *.gdb
 
-# ──────────────────────────────────────────
 # Logs y archivos de depuración
-# ──────────────────────────────────────────
 *.log
 *.logs
 logs/
@@ -81,9 +73,7 @@ debug.*
 cloudflared_qr.html
 cloudflared_url.txt
 
-# ──────────────────────────────────────────
-# Python — entorno virtual y caché
-# ──────────────────────────────────────────
+# Python
 __pycache__/
 *.py[cod]
 *.pyo
@@ -108,15 +98,11 @@ build/
 .coverage
 htmlcov/
 
-# ──────────────────────────────────────────
-# Jupyter Notebooks — checkpoints
-# ──────────────────────────────────────────
+# Jupyter
 .ipynb_checkpoints/
 *.ipynb_checkpoints
 
-# ──────────────────────────────────────────
 # Editores e IDEs
-# ──────────────────────────────────────────
 .idea/
 .vscode/
 *.swp
@@ -126,18 +112,14 @@ htmlcov/
 Thumbs.db
 desktop.ini
 
-# ──────────────────────────────────────────
-# Node / npm (si aplica)
-# ──────────────────────────────────────────
+# Node / npm
 node_modules/
 npm-debug.log*
 yarn-error.log*
 .pnp.*
 .yarn/
 
-# ──────────────────────────────────────────
 # Archivos temporales y del sistema
-# ──────────────────────────────────────────
 *.tmp
 *.temp
 *.swp
@@ -145,4 +127,13 @@ yarn-error.log*
 ~$*
 .cache/
 tmp/
-temp/branchmario/
+temp/
+
+# Expo / React Native
+.expo/
+*.p8
+*.mobileprovision
+*.orig.*
+
+# Archivos de estado dinámico de la app
+participantes.json

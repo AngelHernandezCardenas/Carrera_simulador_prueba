@@ -1,31 +1,35 @@
-import time
 import hashlib
+import math
 import random
 import threading
+import time
 import urllib.error
 
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, jsonify, render_template, request, send_from_directory
+from flask_socketio import SocketIO
 
-from config import MAX_PARTICIPANTES, DURACION, participants_lock
-from geojson_store import append_feature
-from participants import participants_cache, get_or_create_participant, reset_participants, save_participants
-from checkpoints import CHECKPOINTS, actualizar_estado_corredor, clasificar_corredores, haversine_distance_m
 from arcgis import (
+    ARCGIS_CLIENT_ID,
+    ARCGIS_CLIENT_SECRET,
+    ARCGIS_FEATURE_LAYER_URL,
+    ARCGIS_THROTTLE_SECONDS,
+    ARCGIS_TOKEN,
     arcgis_enabled,
     send_feature_to_arcgis,
     should_send_to_arcgis,
-    ARCGIS_FEATURE_LAYER_URL,
-    ARCGIS_TOKEN,
-    ARCGIS_CLIENT_ID,
-    ARCGIS_CLIENT_SECRET,
-    ARCGIS_THROTTLE_SECONDS,
 )
+from checkpoints import CHECKPOINTS, actualizar_estado_corredor, clasificar_corredores, haversine_distance_m
+from config import DURACION, MAX_PARTICIPANTES, participants_lock
+from geojson_store import append_feature
+from participants import get_or_create_participant, participants_cache, reset_participants, save_participants
 
 app = Flask(__name__)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 reset_participants()
 
 inicio = time.time()
+runners_stats: dict[str, dict] = {}
 _battery_levels_by_device: dict[str, float] = {}
 _battery_lock = threading.Lock()
 MAX_BATTERY_SCORE = 50.0
@@ -39,18 +43,30 @@ PESO_RESET_DISTANCE_METERS = 4.0
 
 def get_device_info(data: dict) -> tuple[str, str, str]:
     user_agent = request.headers.get("User-Agent", "")
-    device_ip  = request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
-    device_id  = data.get("device_id")
+    device_ip = request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
+    device_id = data.get("device_id")
 
     if not device_id:
         fingerprint = f"{device_ip}|{user_agent}"
-        device_id   = hashlib.sha256(fingerprint.encode("utf-8")).hexdigest()[:16]
+        device_id = hashlib.sha256(fingerprint.encode("utf-8")).hexdigest()[:16]
 
     return device_id, device_ip, user_agent
 
 
 def clamp(value: float, minimum: float, maximum: float) -> float:
     return max(minimum, min(maximum, value))
+
+
+def haversine(lat1, lon1, lat2, lon2):
+    radius_km = 6371.0
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = (
+        math.sin(dlat / 2) ** 2
+        + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
+    )
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return radius_km * c
 
 
 def get_next_battery_level(device_id: str) -> float:
@@ -165,6 +181,30 @@ def should_reset_peso(latitude: float, longitude: float) -> bool:
     return distance_m <= PESO_RESET_DISTANCE_METERS
 
 
+def update_runner_stats(participante: str, latitude: float, longitude: float, speed_kmh) -> dict:
+    vel = float(speed_kmh) if speed_kmh is not None else 0.0
+
+    if participante not in runners_stats:
+        runners_stats[participante] = {
+            "distancia_km": 0.0,
+            "max_speed": vel,
+            "last_coord": (latitude, longitude),
+        }
+    else:
+        stats = runners_stats[participante]
+        last_lat, last_lon = stats["last_coord"]
+        dist_incremental = haversine(last_lat, last_lon, latitude, longitude)
+
+        if dist_incremental > 0.001:
+            stats["distancia_km"] += dist_incremental
+            stats["last_coord"] = (latitude, longitude)
+
+        if vel > stats["max_speed"]:
+            stats["max_speed"] = vel
+
+    return runners_stats[participante]
+
+
 # ---------------------------------------------------------------------------
 # Rutas
 # ---------------------------------------------------------------------------
@@ -172,6 +212,21 @@ def should_reset_peso(latitude: float, longitude: float) -> bool:
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+@app.route("/mapa")
+def mapa():
+    return render_template("mapa.html")
+
+
+@app.route("/sw.js")
+def service_worker():
+    return send_from_directory("static", "sw.js")
+
+
+@app.route("/manifest.json")
+def manifest():
+    return send_from_directory("static", "manifest.json")
 
 
 @app.route("/registrar", methods=["POST"])
@@ -185,15 +240,15 @@ def registrar():
     if not participante:
         return jsonify({
             "status": "limite_participantes",
-            "msg":    f"Ya se alcanzó el límite de {MAX_PARTICIPANTES} participantes.",
+            "msg": f"Ya se alcanzó el límite de {MAX_PARTICIPANTES} participantes.",
         }), 403
 
     return jsonify({
-        "status":            "ok",
-        "participante":      participante,
-        "device_id":         device_id,
-        "device_label":      data.get("device_label") or f"Dispositivo-{device_id[:8]}",
-        "device_ip":         device_ip,
+        "status": "ok",
+        "participante": participante,
+        "device_id": device_id,
+        "device_label": data.get("device_label") or f"Dispositivo-{device_id[:8]}",
+        "device_ip": device_ip,
         "device_user_agent": user_agent,
     })
 
@@ -201,11 +256,11 @@ def registrar():
 @app.route("/arcgis/status")
 def arcgis_status():
     return jsonify({
-        "enabled":                     arcgis_enabled(),
+        "enabled": arcgis_enabled(),
         "feature_layer_url_configured": bool(ARCGIS_FEATURE_LAYER_URL),
-        "auth_configured":              bool(ARCGIS_TOKEN or (ARCGIS_CLIENT_ID and ARCGIS_CLIENT_SECRET)),
-        "auth_mode":                    "token" if ARCGIS_TOKEN else ("oauth2" if ARCGIS_CLIENT_ID and ARCGIS_CLIENT_SECRET else "none"),
-        "throttle_seconds":             ARCGIS_THROTTLE_SECONDS,
+        "auth_configured": bool(ARCGIS_TOKEN or (ARCGIS_CLIENT_ID and ARCGIS_CLIENT_SECRET)),
+        "auth_mode": "token" if ARCGIS_TOKEN else ("oauth2" if ARCGIS_CLIENT_ID and ARCGIS_CLIENT_SECRET else "none"),
+        "throttle_seconds": ARCGIS_THROTTLE_SECONDS,
     })
 
 
@@ -228,12 +283,11 @@ def gps():
     if not participante:
         return jsonify({
             "status": "limite_participantes",
-            "msg":    f"Ya se alcanzó el límite de {MAX_PARTICIPANTES} participantes.",
+            "msg": f"Ya se alcanzó el límite de {MAX_PARTICIPANTES} participantes.",
         }), 403
 
     latitude = float(data["latitude"])
     longitude = float(data["longitude"])
-
     posicion_inicial = get_participant_position(participante)
 
     with participants_lock:
@@ -291,28 +345,30 @@ def gps():
     puntaje_checkpoints = checkpoint_state["puntaje_checkpoints"]
     puntaje = round(puntaje_bateria + puntaje_checkpoints, 2)
     posicion = posicion_checkpoints
+    runner_stats = update_runner_stats(participante, latitude, longitude, data.get("speed_kmh"))
 
     feature = {
         "type": "Feature",
         "geometry": {
-            "type":        "Point",
+            "type": "Point",
             "coordinates": [longitude, latitude],
         },
         "properties": {
-            "timestamp":           time.strftime("%Y-%m-%d %H:%M:%S"),
-            "accuracy":            data.get("accuracy"),
-            "altitude":            data.get("altitude"),
-            "altitude_accuracy":   data.get("altitude_accuracy"),
-            "heading":             data.get("heading"),
-            "nivel_bateria":       nivel_bateria,
-            "posicion_inicial":    posicion_inicial,
-            "posicion":            posicion,
-            "posicion_bateria":    posicion_bateria,
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "Date_GPS": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "accuracy": data.get("accuracy"),
+            "altitude": data.get("altitude"),
+            "altitude_accuracy": data.get("altitude_accuracy"),
+            "heading": data.get("heading"),
+            "nivel_bateria": nivel_bateria,
+            "posicion_inicial": posicion_inicial,
+            "posicion": posicion,
+            "posicion_bateria": posicion_bateria,
             "posicion_checkpoints": posicion_checkpoints,
-            "puntaje_bateria":     puntaje_bateria,
-            "puntaje_checkpoints":  puntaje_checkpoints,
-            "puntaje":             puntaje,
-            "peso":                checkpoint_state["peso"],
+            "puntaje_bateria": puntaje_bateria,
+            "puntaje_checkpoints": puntaje_checkpoints,
+            "puntaje": puntaje,
+            "peso": checkpoint_state["peso"],
             "puntuacion_checkpoints": checkpoint_state["puntuacion_checkpoints"],
             "checkpoints_visitados": checkpoint_state["checkpoints_visitados"],
             "checkpoints_visitados_txt": ",".join(
@@ -322,57 +378,47 @@ def gps():
             "checkpoint_pendiente_mas_cercano": checkpoint_state["checkpoint_pendiente_mas_cercano"],
             "checkpoint_pendiente_mas_cercano_id": checkpoint_state["checkpoint_pendiente_mas_cercano_id"],
             "distancia_checkpoint_pendiente_mas_cercano_m": checkpoint_state["distancia_checkpoint_pendiente_mas_cercano_m"],
-            "estado":              checkpoint_state["estado"],
-
-            # Velocidad (sensor GPS o calculada por Haversine en el cliente)
-            "speed_mps":           data.get("speed_mps"),
-            "speed_kmh":           data.get("speed_kmh"),
-            "speed_source":        data.get("speed_source"),
-
-            # Acelerómetro con gravedad
-            "accel_gx":            data.get("accel_gx"),
-            "accel_gy":            data.get("accel_gy"),
-            "accel_gz":            data.get("accel_gz"),
-            "accel_g_magnitude":   data.get("accel_g_magnitude"),
-            "acceleration_mps2":   data.get("acceleration_mps2"),
-
-            # Metadatos del sensor
-            "accel_interval_ms":       data.get("accel_interval_ms"),
-            "accel_supported":         data.get("accel_supported"),
-            "accel_permission_state":  data.get("accel_permission_state"),
-            "sensor_timestamp_ms":     data.get("sensor_timestamp_ms"),
-            "client_timestamp_ms":     data.get("client_timestamp_ms"),
-
-            "participante":        participante,
-            "device_id":           device_id,
-            "device_label":        data.get("device_label") or f"Dispositivo-{device_id[:8]}",
-            "device_ip":           device_ip,
-            "device_user_agent":   user_agent,
+            "estado": checkpoint_state["estado"],
+            "distancia_km": runner_stats["distancia_km"],
+            "max_speed": runner_stats["max_speed"],
+            "speed_mps": data.get("speed_mps"),
+            "speed_kmh": data.get("speed_kmh"),
+            "speed_source": data.get("speed_source"),
+            "accel_gx": data.get("accel_gx"),
+            "accel_gy": data.get("accel_gy"),
+            "accel_gz": data.get("accel_gz"),
+            "accel_g_magnitude": data.get("accel_g_magnitude"),
+            "acceleration_mps2": data.get("acceleration_mps2"),
+            "accel_interval_ms": data.get("accel_interval_ms"),
+            "accel_supported": data.get("accel_supported"),
+            "accel_permission_state": data.get("accel_permission_state"),
+            "sensor_timestamp_ms": data.get("sensor_timestamp_ms"),
+            "client_timestamp_ms": data.get("client_timestamp_ms"),
+            "participante": participante,
+            "device_id": device_id,
+            "device_label": data.get("device_label") or f"Dispositivo-{device_id[:8]}",
+            "device_ip": device_ip,
+            "device_user_agent": user_agent,
         },
     }
 
-    # Guardar SIEMPRE en GeoJSON local (historial completo)
     append_feature(feature)
 
     print(
         f"[GPS] {participante} {feature['properties']['device_label']} "
-        f"{data['latitude']}, {data['longitude']} "
+        f"{latitude}, {longitude} "
         f"vel={data.get('speed_kmh', 'N/A')} km/h ({data.get('speed_source', '')}) "
-        f"accel={data.get('acceleration_mps2', '-')} m/s2 "
+        f"distancia={runner_stats['distancia_km']:.3f} km "
         f"bateria={nivel_bateria:.2f}% "
-        f"posicion_inicial={posicion_inicial} "
-        f"posicion={posicion} "
         f"estado={checkpoint_state['estado']} "
         f"checkpoints={checkpoint_state['cantidad_checkpoints_visitados']} "
         f"peso={checkpoint_state['peso']:.2f} "
-        f"puntaje={puntaje:.2f} "
-        f"(+/-{data.get('accuracy', '')}m)"
+        f"puntaje={puntaje:.2f}"
     )
 
-    # Enviar a ArcGIS con throttling (1 punto fijo por participante)
-    arcgis_sent            = False
+    arcgis_sent = False
     arcgis_skipped_throttle = False
-    arcgis_error           = None
+    arcgis_error = None
 
     if should_send_to_arcgis(participante):
         try:
@@ -386,25 +432,42 @@ def gps():
     else:
         arcgis_skipped_throttle = True
 
+    socketio.emit("nueva_posicion", {
+        "participante": participante,
+        "latitude": latitude,
+        "longitude": longitude,
+        "velocidad": float(data.get("speed_kmh")) if data.get("speed_kmh") is not None else 0.0,
+        "distancia_km": runner_stats["distancia_km"],
+        "max_speed": runner_stats["max_speed"],
+        "nivel_bateria": nivel_bateria,
+        "posicion": posicion,
+        "puntaje": puntaje,
+        "estado": checkpoint_state["estado"],
+        "peso": checkpoint_state["peso"],
+        "checkpoints_visitados": checkpoint_state["cantidad_checkpoints_visitados"],
+    })
+
     response = {
-        "status":                 "ok",
-        "participante":           participante,
-        "nivel_bateria":          nivel_bateria,
-        "posicion_inicial":       posicion_inicial,
-        "posicion":               posicion,
-        "posicion_bateria":       posicion_bateria,
-        "posicion_checkpoints":    posicion_checkpoints,
-        "puntaje_bateria":        puntaje_bateria,
-        "puntaje_checkpoints":     puntaje_checkpoints,
-        "puntaje":                puntaje,
-        "peso":                   checkpoint_state["peso"],
-        "puntuacion_checkpoints":  checkpoint_state["puntuacion_checkpoints"],
-        "checkpoints_visitados":   checkpoint_state["checkpoints_visitados"],
+        "status": "ok",
+        "participante": participante,
+        "nivel_bateria": nivel_bateria,
+        "posicion_inicial": posicion_inicial,
+        "posicion": posicion,
+        "posicion_bateria": posicion_bateria,
+        "posicion_checkpoints": posicion_checkpoints,
+        "puntaje_bateria": puntaje_bateria,
+        "puntaje_checkpoints": puntaje_checkpoints,
+        "puntaje": puntaje,
+        "peso": checkpoint_state["peso"],
+        "puntuacion_checkpoints": checkpoint_state["puntuacion_checkpoints"],
+        "checkpoints_visitados": checkpoint_state["checkpoints_visitados"],
         "cantidad_checkpoints_visitados": checkpoint_state["cantidad_checkpoints_visitados"],
         "checkpoint_pendiente_mas_cercano": checkpoint_state["checkpoint_pendiente_mas_cercano"],
         "distancia_checkpoint_pendiente_mas_cercano_m": checkpoint_state["distancia_checkpoint_pendiente_mas_cercano_m"],
-        "estado":                 checkpoint_state["estado"],
-        "arcgis_sent":            arcgis_sent,
+        "estado": checkpoint_state["estado"],
+        "distancia_km": runner_stats["distancia_km"],
+        "max_speed": runner_stats["max_speed"],
+        "arcgis_sent": arcgis_sent,
         "arcgis_skipped_throttle": arcgis_skipped_throttle,
     }
     if arcgis_error:
@@ -418,4 +481,4 @@ def gps():
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=False, threaded=True)
+    socketio.run(app, host="0.0.0.0", port=5000, debug=False)

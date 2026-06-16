@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GPS Tracker</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#2563eb">
+    <link rel="apple-touch-icon" href="/static/icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <style>
         body {
             font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
@@ -88,8 +93,8 @@ Magnitud: --</div>
         </div>
 
         <div class="card full">
-            <div class="label">Aceleración</div>
-            <div class="value" id="aceleracionReal">-- m/s²</div>
+            <div class="label">AceleraciÃ³n</div>
+            <div class="value" id="aceleracionReal">-- m/sÂ²</div>
             <div class="small">Velocidad / tiempo, 3 muestras</div>
         </div>
     </div>
@@ -97,12 +102,41 @@ Magnitud: --</div>
     <div id="estado">Esperando...</div>
 
 <script>
-    let intervalo = null;
+    // Service Worker Registration (PWA)
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW error', err));
+        });
+    }
+
+    // Wake Lock API
+    let wakeLock = null;
+    async function requestWakeLock() {
+        try {
+            if ('wakeLock' in navigator) {
+                wakeLock = await navigator.wakeLock.request('screen');
+                console.log('Wake Lock activado');
+            }
+        } catch (err) {
+            console.warn('Wake Lock error:', err);
+        }
+    }
+    function releaseWakeLock() {
+        if (wakeLock !== null) {
+            wakeLock.release().then(() => {
+                wakeLock = null;
+                console.log('Wake Lock liberado');
+            });
+        }
+    }
+
+    let watchId = null;
+    const silentAudio = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=");
+    silentAudio.loop = true;
     let activo = false;
     let participante = null;
     let ultimoPunto = null;
     let historialVelocidad = [];
-    let accelEventReceived = false;
 
     const DEVICE_ID_KEY = "gps_tracker_device_id";
     const ACCELERATION_SAMPLE_WINDOW = 3;
@@ -133,21 +167,6 @@ Magnitud: --</div>
         return Math.sqrt(x * x + y * y + z * z);
     }
 
-    function mensajeAyudaAcelerometro() {
-        const secureHelp = window.isSecureContext
-            ? ""
-            : "\n\nAbre la app con HTTPS. En HTTP por IP local, Brave/Chrome suelen bloquear sensores.";
-
-        return (
-            "No llegaron datos del acelerómetro.\n\n" +
-            "En Brave revisa:\n" +
-            "1. Toca el icono de Brave/Shields junto a la URL y desactiva Shields para este sitio.\n" +
-            "2. En el candado o ajustes del sitio, permite Sensores de movimiento.\n" +
-            "3. Recarga la página y toca otra vez Activar acelerómetro manual." +
-            secureHelp
-        );
-    }
-
     function toRad(deg) { return deg * Math.PI / 180; }
 
     function distanciaHaversineMetros(lat1, lon1, lat2, lon2) {
@@ -171,9 +190,8 @@ Magnitud: --</div>
             `Y: ${fmt(accelData.gy, 3)} m/s²\n` +
             `Z: ${fmt(accelData.gz, 3)} m/s²\n` +
             `Magnitud: ${fmt(accelData.g_magnitude, 3)} m/s²`;
-
         document.getElementById("aceleracionReal").textContent =
-            `${fmt(accelData.acceleration_mps2, 3)} m/s²`;
+            `${fmt(accelData.acceleration_mps2, 3)} m/sÂ²`;
     }
 
     function onDeviceMotion(event) {
@@ -188,14 +206,8 @@ Magnitud: --</div>
         accelData.sensor_timestamp_ms = Date.now();
         accelData.supported           = true;
         accelData.permission_state    = "granted";
-        accelEventReceived            = Number.isFinite(accelData.g_magnitude);
 
         actualizarPanelAcelerometro();
-
-        if (accelEventReceived) {
-            document.getElementById("sensorBtn").textContent = "Acelerómetro activo";
-            document.getElementById("sensorBtn").disabled = true;
-        }
     }
 
     async function activarSensores() {
@@ -207,14 +219,6 @@ Magnitud: --</div>
         }
 
         try {
-            if (!window.isSecureContext) {
-                log(
-                    "El acelerómetro puede estar bloqueado porque esta página no está en HTTPS.\n" +
-                    "Aun así intentaré activarlo. Si no funciona, abre la app con HTTPS.",
-                    "error"
-                );
-            }
-
             // iOS requiere permiso explícito dentro de un gesto del usuario
             if (typeof DeviceMotionEvent.requestPermission === "function") {
                 const permiso = await DeviceMotionEvent.requestPermission();
@@ -231,20 +235,10 @@ Magnitud: --</div>
             window.addEventListener("devicemotion", onDeviceMotion);
 
             accelData.supported = true;
-            accelEventReceived = false;
-            document.getElementById("sensorBtn").textContent = "Esperando acelerómetro...";
-            document.getElementById("sensorBtn").disabled = false;
+            document.getElementById("sensorBtn").textContent = "Acelerómetro activo";
+            document.getElementById("sensorBtn").disabled = true;
 
-            log("Permiso solicitado. Mueve el celular para confirmar lectura del acelerómetro.", "ok");
-
-            setTimeout(() => {
-                if (!accelEventReceived) {
-                    accelData.permission_state = "blocked_or_no_data";
-                    document.getElementById("sensorBtn").textContent = "Reintentar acelerómetro";
-                    document.getElementById("sensorBtn").disabled = false;
-                    log(mensajeAyudaAcelerometro(), "error");
-                }
-            }, 3000);
+            log("Acelerómetro activado. Ahora puedes iniciar la captura.", "ok");
         } catch (error) {
             accelData.permission_state = "error";
             log("No se pudo activar el acelerómetro:\n" + error.message, "error");
@@ -359,9 +353,7 @@ Magnitud: --</div>
         }
 
         if (activo) {
-            clearInterval(intervalo);
-            activo = false;
-            document.getElementById("btn").textContent = "Iniciar captura";
+            detenerCaptura();
             log("Captura detenida.");
             return;
         }
@@ -371,113 +363,130 @@ Magnitud: --</div>
             await activarSensores();
         }
 
+        // Hack de audio en segundo plano
+        try {
+            await silentAudio.play();
+        } catch (e) {
+            console.warn("Audio silencioso bloqueado:", e);
+        }
+
+        await requestWakeLock();
+
         activo      = true;
         ultimoPunto = null;
         historialVelocidad = [];
         document.getElementById("btn").textContent = "Detener captura";
         log("Obteniendo ubicación y acelerómetro...");
-        capturar();
-        intervalo = setInterval(capturar, 1000);
-    }
-
-    function capturar() {
-        navigator.geolocation.getCurrentPosition(
-            async function(pos) {
-                const lat             = pos.coords.latitude;
-                const lon             = pos.coords.longitude;
-                const acc             = pos.coords.accuracy;
-                const altitude        = pos.coords.altitude;
-                const altitudeAccuracy = pos.coords.altitudeAccuracy;
-                const heading         = pos.coords.heading;
-
-                const speed = calcularVelocidad(pos, lat, lon);
-                accelData.acceleration_mps2 = speed.acceleration_mps2;
-
-                // Actualizar paneles visuales
-                document.getElementById("velocidad").textContent      = `${fmt(speed.speed_kmh, 2)} km/h`;
-                document.getElementById("velocidadFuente").textContent = `Fuente: ${speed.speed_source}`;
-                document.getElementById("precision").textContent       = `±${fmt(acc, 0)} m`;
-                document.getElementById("hora").textContent            = `Hora: ${new Date().toLocaleTimeString()}`;
-                actualizarPanelAcelerometro();
-
-                log(
-                    `Ubicación obtenida\n` +
-                    `Participante: ${participante}\n` +
-                    `Lat: ${lat.toFixed(6)}\nLon: ${lon.toFixed(6)}\n` +
-                    `Velocidad: ${fmt(speed.speed_kmh, 2)} km/h (${fmt(speed.speed_mps, 2)} m/s)\n` +
-                    `Aceleración: ${fmt(speed.acceleration_mps2, 3)} m/s²\n` +
-                    `Acelerómetro: ${accelData.permission_state}\n` +
-                    `Precisión: ±${fmt(acc, 0)} m\n` +
-                    `Hora: ${new Date().toLocaleTimeString()}`,
-                    "ok"
-                );
-
-                try {
-                    const deviceId = getDeviceId();
-                    const resp = await fetch("/gps", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            latitude:  lat,
-                            longitude: lon,
-                            accuracy:  acc,
-                            altitude:  altitude,
-                            altitude_accuracy: altitudeAccuracy,
-                            heading:   heading,
-
-                            speed_mps:    speed.speed_mps,
-                            speed_kmh:    speed.speed_kmh,
-                            speed_source: speed.speed_source,
-
-                            accel_gx:          accelData.gx,
-                            accel_gy:          accelData.gy,
-                            accel_gz:          accelData.gz,
-                            accel_g_magnitude: accelData.g_magnitude,
-                            acceleration_mps2: accelData.acceleration_mps2,
-
-                            accel_interval_ms:       accelData.interval_ms,
-                            accel_supported:         accelData.supported,
-                            accel_permission_state:  accelData.permission_state,
-                            sensor_timestamp_ms:     accelData.sensor_timestamp_ms,
-                            client_timestamp_ms:     Date.now(),
-
-                            device_id:    deviceId,
-                            device_label: getDeviceLabel(deviceId)
-                        })
-                    });
-                    const data = await resp.json();
-
-                    if (!resp.ok && data.status !== "limite_participantes") {
-                        throw new Error(data.msg || `Error del servidor: ${resp.status}`);
-                    }
-
-                    if (data.status === "cerrado") {
-                        clearInterval(intervalo);
-                        activo = false;
-                        document.getElementById("btn").textContent = "Iniciar captura";
-                        log("Sesión terminada por el servidor (límite de tiempo alcanzado).", "error");
-                    } else if (data.status === "limite_participantes") {
-                        clearInterval(intervalo);
-                        activo = false;
-                        document.getElementById("btn").textContent = "Iniciar captura";
-                        log(data.msg, "error");
-                    } else if (data.participante) {
-                        participante = data.participante;
-                    }
-                } catch(e) {
-                    log("Datos obtenidos pero error al enviar al servidor:\n" + e.message, "error");
-                }
-            },
-            function(error) {
-                const mensajes = {
-                    1: "Permiso denegado por el usuario.",
-                    2: "Posición no disponible (GPS apagado o sin señal).",
-                    3: "Tiempo de espera agotado."
-                };
-                log(`Error GPS (código ${error.code}):\n` + (mensajes[error.code] || error.message), "error");
-            },
+        
+        watchId = navigator.geolocation.watchPosition(
+            onPositionSuccess,
+            onPositionError,
             { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
         );
+    }
+
+    function detenerCaptura() {
+        if (watchId !== null) {
+            navigator.geolocation.clearWatch(watchId);
+            watchId = null;
+        }
+        silentAudio.pause();
+        releaseWakeLock();
+        activo = false;
+        document.getElementById("btn").textContent = "Iniciar captura";
+    }
+
+    async function onPositionSuccess(pos) {
+        const lat             = pos.coords.latitude;
+        const lon             = pos.coords.longitude;
+        const acc             = pos.coords.accuracy;
+        const altitude        = pos.coords.altitude;
+        const altitudeAccuracy = pos.coords.altitudeAccuracy;
+        const heading         = pos.coords.heading;
+
+        const speed = calcularVelocidad(pos, lat, lon);
+        accelData.acceleration_mps2 = speed.acceleration_mps2;
+
+        // Actualizar paneles visuales
+        document.getElementById("velocidad").textContent      = `${fmt(speed.speed_kmh, 2)} km/h`;
+        document.getElementById("velocidadFuente").textContent = `Fuente: ${speed.speed_source}`;
+        document.getElementById("precision").textContent       = `±${fmt(acc, 0)} m`;
+        document.getElementById("hora").textContent            = `Hora: ${new Date().toLocaleTimeString()}`;
+
+        actualizarPanelAcelerometro();
+
+        log(
+            `Ubicación obtenida\n` +
+            `Participante: ${participante}\n` +
+            `Lat: ${lat.toFixed(6)}\nLon: ${lon.toFixed(6)}\n` +
+            `Velocidad: ${fmt(speed.speed_kmh, 2)} km/h (${fmt(speed.speed_mps, 2)} m/s)\n` +
+            `AceleraciÃ³n: ${fmt(speed.acceleration_mps2, 3)} m/sÂ²\n` +
+            `Acelerómetro: ${accelData.permission_state}\n` +
+            `Precisión: ±${fmt(acc, 0)} m\n` +
+            `Hora: ${new Date().toLocaleTimeString()}`,
+            "ok"
+        );
+
+        try {
+            const deviceId = getDeviceId();
+            const resp = await fetch("/gps", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    latitude:  lat,
+                    longitude: lon,
+                    accuracy:  acc,
+                    altitude:  altitude,
+                    altitude_accuracy: altitudeAccuracy,
+                    heading:   heading,
+
+                    speed_mps:    speed.speed_mps,
+                    speed_kmh:    speed.speed_kmh,
+                    speed_source: speed.speed_source,
+
+                    accel_gx:          accelData.gx,
+                    accel_gy:          accelData.gy,
+                    accel_gz:          accelData.gz,
+                    accel_g_magnitude: accelData.g_magnitude,
+                    acceleration_mps2: accelData.acceleration_mps2,
+
+                    accel_interval_ms:       accelData.interval_ms,
+                    accel_supported:         accelData.supported,
+                    accel_permission_state:  accelData.permission_state,
+                    sensor_timestamp_ms:     accelData.sensor_timestamp_ms,
+                    client_timestamp_ms:     Date.now(),
+
+                    device_id:    deviceId,
+                    device_label: getDeviceLabel(deviceId)
+                })
+            });
+            const data = await resp.json();
+
+            if (!resp.ok && data.status !== "limite_participantes") {
+                throw new Error(data.msg || `Error del servidor: ${resp.status}`);
+            }
+
+            if (data.status === "cerrado") {
+                detenerCaptura();
+                log("Sesión terminada por el servidor (límite de tiempo alcanzado).", "error");
+            } else if (data.status === "limite_participantes") {
+                detenerCaptura();
+                log(data.msg, "error");
+            } else if (data.participante) {
+                participante = data.participante;
+            }
+        } catch(e) {
+            log("Datos obtenidos pero error al enviar al servidor:\n" + e.message, "error");
+        }
+    }
+
+    function onPositionError(error) {
+        const mensajes = {
+            1: "Permiso denegado por el usuario.",
+            2: "Posición no disponible (GPS apagado o sin señal).",
+            3: "Tiempo de espera agotado."
+        };
+        log(`Error GPS (código ${error.code}):\n` + (mensajes[error.code] || error.message), "error");
     }
 
     // Iniciar al cargar la página

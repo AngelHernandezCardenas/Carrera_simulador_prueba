@@ -1,5 +1,6 @@
 import json
 import os
+
 from config import GEOJSON_FILE, file_lock
 
 
@@ -18,13 +19,13 @@ def dump_geojson(geojson, file_obj):
 
 
 def init_geojson():
-    with open(GEOJSON_FILE, "w") as f:
+    with open(GEOJSON_FILE, "w", encoding="utf-8") as f:
         dump_geojson({"type": "FeatureCollection", "features": []}, f)
 
 
 def load_geojson():
     try:
-        with open(GEOJSON_FILE, "r") as f:
+        with open(GEOJSON_FILE, "r", encoding="utf-8") as f:
             content = f.read().strip()
             if not content:
                 raise ValueError("Archivo vacío")
@@ -39,10 +40,9 @@ def append_feature(feature):
     with file_lock:
         geojson = load_geojson()
         geojson["features"].append(feature)
-        with open(GEOJSON_FILE, "w") as f:
+        with open(GEOJSON_FILE, "w", encoding="utf-8") as f:
             dump_geojson(geojson, f)
 
 
-# Inicializar el archivo si no existe al importar el módulo
 if not os.path.exists(GEOJSON_FILE):
     init_geojson()

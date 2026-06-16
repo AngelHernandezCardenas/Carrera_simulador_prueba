@@ -469,8 +469,8 @@
                     <div class="status-dot"></div> Telemetria
                 </h1>
                 <div style="display: flex; gap: 8px;" id="header-buttons">
-                    <button id="btn-servidor" class="btn-3d" onclick="event.stopPropagation(); mostrarModal()">⚙️ Servidor</button>
-                    <button id="btn-theme" class="btn-3d" onclick="event.stopPropagation(); toggleTheme()">☀️ Día</button>
+                    <button id="btn-servidor" class="btn-3d" onclick="event.stopPropagation(); mostrarModal()">Servidor</button>
+                    <button id="btn-theme" class="btn-3d" onclick="event.stopPropagation(); toggleTheme()">Día</button>
                     <button id="btn-3d" class="btn-3d active" onclick="event.stopPropagation(); toggle3D()">3D: ON</button>
                 </div>
             </div>
@@ -499,7 +499,7 @@
     <!-- MODAL PARA PEDIR URL -->
     <div id="server-modal" class="hidden">
         <div class="modal-content">
-            <h2>🔗 Conectar al Servidor</h2>
+            <h2>Conectar al Servidor</h2>
             <p style="font-size: 13px; color: var(--text-muted);">Pega la URL pública de tu túnel de Cloudflare para recibir la telemetría en vivo.</p>
             <input type="text" id="server-url-input" placeholder="ej. https://mitunel.trycloudflare.com">
             <button onclick="guardarServidor()">Conectar</button>

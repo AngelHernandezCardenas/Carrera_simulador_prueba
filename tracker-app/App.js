@@ -114,32 +114,25 @@ export default function App() {
       return;
     }
 
-    // Pedir permisos
     const { status: fgStatus } = await Location.requestForegroundPermissionsAsync();
     if (fgStatus !== 'granted') {
       Alert.alert('Error', 'Se requiere permiso de ubicación en primer plano.');
       return;
     }
 
-    try {
-      const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
-      if (bgStatus !== 'granted') {
-        Alert.alert('Aviso', 'Permiso en segundo plano denegado. Solo funcionará con la app abierta.');
-      }
-    } catch (e) {
-      console.log('Expo Go en iOS no permite pedir permisos de segundo plano.');
+    const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
+    if (bgStatus !== 'granted') {
+      Alert.alert('Aviso', 'Permiso en segundo plano denegado. Solo funcionará con la app abierta.');
     }
 
     setActivo(true);
     setStatusMsg('Captura iniciada (Fondo y Primer plano)');
 
-    // Iniciar Acelerómetro visual
     Accelerometer.setUpdateInterval(500);
     Accelerometer.addListener(data => {
       setAccelData(data);
     });
 
-    // Iniciar GPS en segundo plano
     try {
       await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
         accuracy: Location.Accuracy.BestForNavigation,
@@ -148,32 +141,23 @@ export default function App() {
         showsBackgroundLocationIndicator: true,
         foregroundService: {
           notificationTitle: "GPS Tracker Activo",
-          notificationBody: "Enviando ubicación al servidor...",
+          notificationBody: "Enviando ubicación...",
           notificationColor: "#2563eb",
         }
       });
     } catch (error) {
-      console.log("Aviso: Segundo plano no disponible en Expo Go iOS. Corriendo silenciosamente en primer plano.");
+      console.log("Aviso: Segundo plano no inició. Verifica permisos.");
     }
 
+    // Espía en primer plano para garantizar 1 segundo exacto
     globalLocationSubscription = await Location.watchPositionAsync({
       accuracy: Location.Accuracy.BestForNavigation,
       timeInterval: 1000,
       distanceInterval: 0
     }, (loc) => {
       setLocation(loc);
-      lastKnownLocation = loc;
+      enviarGps(loc); // Envio inmediato
     });
-
-    // BUCLE FORZADO: Enviar datos exactamente cada 1 segundo,
-    // usando la ultima ubicacion conocida. Esto soluciona el problema de
-    // iOS/Android mandando datos cada 5-10 segundos cuando estas quieto.
-    if (globalTimer) clearInterval(globalTimer);
-    globalTimer = setInterval(() => {
-      if (lastKnownLocation) {
-        enviarGps(lastKnownLocation);
-      }
-    }, 1000);
   };
 
   const detenerCaptura = async () => {
@@ -181,23 +165,15 @@ export default function App() {
     setStatusMsg('Captura detenida.');
     Accelerometer.removeAllListeners();
     
-    // Detener el envio forzado (timer)
-    if (globalTimer) {
-      clearInterval(globalTimer);
-      globalTimer = null;
-    }
-    
-    // Detener el envio en primer plano
     if (globalLocationSubscription) {
       globalLocationSubscription.remove();
       globalLocationSubscription = null;
     }
     
-    // Detener la tarea en segundo plano
     try {
       await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
     } catch (e) {
-      console.log("El segundo plano ya estaba detenido o no soportado.");
+      console.log("El segundo plano ya estaba detenido.");
     }
   };
 

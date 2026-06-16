@@ -301,6 +301,9 @@ Magnitud: --</div>
         log(`${participante} asignado.\nActiva el acelerómetro y luego inicia captura.`, "ok");
     }
 
+    let globalLocation = null;
+    let globalTimer = null;
+
     function log(msg, tipo) {
         const el = document.getElementById("estado");
         el.textContent = msg;
@@ -349,10 +352,18 @@ Magnitud: --</div>
         log("Obteniendo ubicación y acelerómetro...");
         
         watchId = navigator.geolocation.watchPosition(
-            onPositionSuccess,
+            (pos) => { globalLocation = pos; actualizarUI(pos); },
             onPositionError,
             { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
         );
+
+        // Bucle forzado para enviar la ultima ubicacion conocida cada segundo
+        if (globalTimer) clearInterval(globalTimer);
+        globalTimer = setInterval(() => {
+            if (globalLocation) {
+                enviarAlServidor(globalLocation);
+            }
+        }, 1000);
     }
 
     function detenerCaptura() {
@@ -360,27 +371,37 @@ Magnitud: --</div>
             navigator.geolocation.clearWatch(watchId);
             watchId = null;
         }
+        if (globalTimer) {
+            clearInterval(globalTimer);
+            globalTimer = null;
+        }
         silentAudio.pause();
         releaseWakeLock();
         activo = false;
         document.getElementById("btn").textContent = "Iniciar captura";
     }
 
-    async function onPositionSuccess(pos) {
+    function actualizarUI(pos) {
         const lat             = pos.coords.latitude;
         const lon             = pos.coords.longitude;
         const acc             = pos.coords.accuracy;
-        const altitude        = pos.coords.altitude;
-        const altitudeAccuracy = pos.coords.altitudeAccuracy;
-        const heading         = pos.coords.heading;
-
         const speed = calcularVelocidad(pos, lat, lon);
 
-        // Actualizar paneles visuales
         document.getElementById("velocidad").textContent      = `${fmt(speed.speed_kmh, 2)} km/h`;
         document.getElementById("velocidadFuente").textContent = `Fuente: ${speed.speed_source}`;
         document.getElementById("precision").textContent       = `±${fmt(acc, 0)} m`;
         document.getElementById("hora").textContent            = `Hora: ${new Date().toLocaleTimeString()}`;
+    }
+
+    async function enviarAlServidor(pos) {
+        const lat             = pos.coords.latitude;
+        const lon             = pos.coords.longitude;
+        const acc             = pos.coords.accuracy;
+        const heading         = pos.coords.heading;
+        const altitude        = pos.coords.altitude;
+        const altitudeAccuracy = pos.coords.altitudeAccuracy;
+
+        const speed = calcularVelocidad(pos, lat, lon);
 
         log(
             `Ubicación obtenida\n` +

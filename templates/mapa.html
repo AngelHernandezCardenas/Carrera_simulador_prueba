@@ -391,6 +391,27 @@
             font-size: 12px;
             color: #cbd5e1;
         }
+
+        .checkpoint-marker {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            border: 2px solid #ffffff;
+            background: #f59e0b;
+            color: #111827;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 800;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45), 0 0 16px rgba(245, 158, 11, 0.55);
+        }
+
+        .checkpoint-marker.non-scoring {
+            background: #ef4444;
+            color: #ffffff;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45), 0 0 16px rgba(239, 68, 68, 0.55);
+        }
     </style>
 </head>
 
@@ -431,6 +452,43 @@
     </div>
 
     <script>
+        const CHECKPOINTS = {{ checkpoints | tojson }};
+        const NON_SCORING_CHECKPOINT_IDS = new Set({{ non_scoring_checkpoint_ids | tojson }});
+
+        function getCheckpointName(checkpoint) {
+            return checkpoint.nombre
+                || checkpoint.Rectoria
+                || checkpoint["Rectoria-Descarga"]
+                || checkpoint.Jubileo
+                || checkpoint.Carreton
+                || checkpoint["Bilio-Aulas4"]
+                || checkpoint["Biotecnologia-Centrales"]
+                || `Checkpoint ${checkpoint.id}`;
+        }
+
+        function addCheckpointMarkers() {
+            CHECKPOINTS.forEach((checkpoint) => {
+                const isNonScoring = NON_SCORING_CHECKPOINT_IDS.has(Number(checkpoint.id));
+                const el = document.createElement('div');
+                el.className = `checkpoint-marker${isNonScoring ? ' non-scoring' : ''}`;
+                el.textContent = checkpoint.id;
+                el.title = getCheckpointName(checkpoint);
+
+                const popup = new maplibregl.Popup({ offset: 18 }).setHTML(`
+                    <div class="popup-title">${getCheckpointName(checkpoint)}</div>
+                    <div class="popup-stat">ID: <b>${checkpoint.id}</b></div>
+                    <div class="popup-stat">${isNonScoring ? 'Descarga de peso, no pondera' : 'Checkpoint ponderado'}</div>
+                    <div class="popup-stat">Radio: ${Number(checkpoint.radio_m || 5).toFixed(1)} m</div>
+                    <div class="popup-stat">Coord: ${Number(checkpoint.lat).toFixed(5)}, ${Number(checkpoint.lon).toFixed(5)}</div>
+                `);
+
+                new maplibregl.Marker({ element: el, anchor: 'center' })
+                    .setLngLat([Number(checkpoint.lon), Number(checkpoint.lat)])
+                    .setPopup(popup)
+                    .addTo(map);
+            });
+        }
+
         // 1. Inicializacion de MapLibre GL JS
         const map = new maplibregl.Map({
             container: 'map',
@@ -443,6 +501,7 @@
         });
 
         map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
+        addCheckpointMarkers();
 
         const STYLE_DARK = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
         const STYLE_LIGHT = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
@@ -532,13 +591,44 @@
         const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
         let colorIndex = 0;
 
-        // 2. WebSockets
         const socket = io({
             path: '/socket.io',
             transports: ['polling', 'websocket']
         });
 
         socket.on('connect', () => console.log('Conectado al servidor de telemetria.'));
+
+        function formatNullable(value, decimals = 2, fallback = '--') {
+            const number = Number(value);
+            return Number.isFinite(number) ? number.toFixed(decimals) : fallback;
+        }
+
+        function getPendingCheckpointLabel(data) {
+            const pending = data.checkpoint_pendiente_mas_cercano;
+            if (!pending) return 'Ninguno';
+            return pending.nombre || `Checkpoint ${pending.id}`;
+        }
+
+        function getClosestCheckpointLabel(data) {
+            const closest = data.checkpoint_mas_cercano;
+            if (!closest) return 'Ninguno';
+            return closest.nombre || `Checkpoint ${closest.id}`;
+        }
+
+        function buildRunnerPopupHtml(id, color, data, speed) {
+            return `
+                <div class="popup-title" style="color: ${color};">${id}</div>
+                <div class="popup-stat">Velocidad: <b id="popup-speed-${id}">${speed.toFixed(1)}</b> km/h</div>
+                <div class="popup-stat">Posición: <b>${data.posicion ?? '--'}</b></div>
+                <div class="popup-stat">Checkpoints visitados: <b>${data.checkpoints_visitados ?? 0}</b></div>
+                <div class="popup-stat">Checkpoint ponderado mas cercano: <b>${getClosestCheckpointLabel(data)}</b></div>
+                <div class="popup-stat">Dist. al ponderado: <b>${formatNullable(data.distancia_checkpoint_mas_cercano_m, 2)}</b> m</div>
+                <div class="popup-stat">Checkpoint pendiente: <b>${getPendingCheckpointLabel(data)}</b></div>
+                <div class="popup-stat">Dist. pendiente: <b>${formatNullable(data.distancia_checkpoint_pendiente_mas_cercano_m, 2)}</b> m</div>
+                <div class="popup-stat">Estado: <b>${data.estado || '--'}</b></div>
+                <div class="popup-stat">Nivel bateria: <b>${formatNullable(data.nivel_bateria, 2)}</b>%</div>
+            `;
+        }
 
         socket.on('nueva_posicion', function (data) {
             const id = data.participante;
@@ -564,11 +654,9 @@
                 el.innerHTML = initials;
 
                 // Crear Popup
-                const popup = new maplibregl.Popup({ offset: 25 }).setHTML(`
-                    <div class="popup-title" style="color: ${assignedColor};">${id}</div>
-                    <div class="popup-stat">Velocidad: <b id="popup-speed-${id}">${speed.toFixed(1)}</b> km/h</div>
-                    <div class="popup-stat">Coord: ${data.latitude.toFixed(5)}, ${data.longitude.toFixed(5)}</div>
-                `);
+                const popup = new maplibregl.Popup({ offset: 25 }).setHTML(
+                    buildRunnerPopupHtml(id, assignedColor, data, speed)
+                );
 
                 // Instanciar marcador en MapLibre
                 const marker = new maplibregl.Marker({ element: el })
@@ -644,16 +732,7 @@
                 }
 
                 // Actualizar el HTML del popup si está abierto
-                const popupSpeedEl = document.getElementById(`popup-speed-${id}`);
-                if (popupSpeedEl) {
-                    popupSpeedEl.textContent = speed.toFixed(1);
-                } else {
-                    runner.popup.setHTML(`
-                        <div class="popup-title" style="color: ${runner.color};">${id}</div>
-                        <div class="popup-stat">Velocidad: <b id="popup-speed-${id}">${speed.toFixed(1)}</b> km/h</div>
-                        <div class="popup-stat">Coord: ${data.latitude.toFixed(5)}, ${data.longitude.toFixed(5)}</div>
-                    `);
-                }
+                runner.popup.setHTML(buildRunnerPopupHtml(id, runner.color, data, speed));
             }
         });
     </script>

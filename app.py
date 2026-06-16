@@ -9,6 +9,21 @@ from geojson_store import append_feature
 from participants import participants_cache, get_or_create_participant, save_participants
 
 import math
+import random
+import threading
+
+from flask import Flask, request, jsonify, render_template, send_from_directory
+from flask_socketio import SocketIO
+from config import MAX_PARTICIPANTES, DURACION, participants_lock
+from geojson_store import append_feature
+from participants import participants_cache, get_or_create_participant, save_participants
+
+from checkpoints import (
+    CHECKPOINTS,
+    NON_SCORING_CHECKPOINT_IDS,
+    actualizar_estado_corredor,
+    clasificar_corredores
+)
 
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*")
@@ -30,6 +45,24 @@ def haversine(lat1, lon1, lat2, lon2):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def clamp(value, min_val, max_val):
+    return max(min_val, min(value, max_val))
+
+_battery_lock = threading.Lock()
+_battery_levels_by_device = {}
+
+def get_next_battery_level(device_id: str) -> float:
+    with _battery_lock:
+        current_level = _battery_levels_by_device.get(device_id)
+        if current_level is None:
+            current_level = random.uniform(0.0, 100.0)
+        else:
+            current_level += random.uniform(-5.0, 5.0)
+
+        current_level = clamp(current_level, 0.0, 100.0)
+        _battery_levels_by_device[device_id] = current_level
+        return current_level
 
 def get_device_info(data: dict) -> tuple[str, str, str]:
     user_agent = request.headers.get("User-Agent", "")
@@ -54,7 +87,7 @@ def index():
 
 @app.route("/mapa")
 def mapa():
-    return render_template("mapa.html")
+    return render_template("mapa.html", checkpoints=CHECKPOINTS, non_scoring_checkpoint_ids=list(NON_SCORING_CHECKPOINT_IDS))
 
 
 @app.route("/sw.js")
@@ -166,24 +199,36 @@ def gps():
         runners_stats[participante] = {
             "distancia_km": 0.0,
             "max_speed": vel,
-            "last_coord": (lat, lon)
+            "last_coord": (lat, lon),
+            "nombre": participante,
+            "device_id": device_id
         }
     else:
         stats = runners_stats[participante]
         last_lat, last_lon = stats["last_coord"]
         dist_incremental = haversine(last_lat, last_lon, lat, lon)
         
-        # Ignorar "saltos" anomalos grandes (ej. > 1km en un segundo) si fuera necesario, aqui lo sumamos normal
-        if dist_incremental > 0.001: # Mas de 1 metro
+        # Ignorar "saltos" anomalos grandes
+        if dist_incremental > 0.001: 
             stats["distancia_km"] += dist_incremental
             stats["last_coord"] = (lat, lon)
         
         if vel > stats["max_speed"]:
             stats["max_speed"] = vel
 
+    # Lógica de Checkpoints (Mario)
+    stats = runners_stats[participante]
+    actualizar_estado_corredor(stats, lat, lon)
+    stats["nivel_bateria"] = get_next_battery_level(device_id)
+
+    # Recalcular posiciones globalmente
+    clasificados = clasificar_corredores(runners_stats)
+    for index, corredor in enumerate(clasificados):
+        corredor["posicion"] = index + 1
+
     print(
         f"[GPS] {participante} {feature['properties']['device_label']} "
-        f"{lat}, {lon} | Distancia: {runners_stats[participante]['distancia_km']:.3f} km"
+        f"{lat}, {lon} | Distancia: {runners_stats[participante]['distancia_km']:.3f} km | Checkpoints: {stats.get('cantidad_checkpoints_visitados', 0)}"
     )
 
     # Emitir el punto a través de WebSockets para el mapa y la tabla
@@ -192,8 +237,16 @@ def gps():
         'latitude': lat,
         'longitude': lon,
         'velocidad': vel,
-        'distancia_km': runners_stats[participante]['distancia_km'],
-        'max_speed': runners_stats[participante]['max_speed']
+        'distancia_km': stats['distancia_km'],
+        'max_speed': stats['max_speed'],
+        'checkpoints_visitados': stats.get('cantidad_checkpoints_visitados', 0),
+        'checkpoint_mas_cercano': stats.get('checkpoint_mas_cercano'),
+        'distancia_checkpoint_mas_cercano_m': stats.get('distancia_checkpoint_mas_cercano_m'),
+        'checkpoint_pendiente_mas_cercano': stats.get('checkpoint_pendiente_mas_cercano'),
+        'distancia_checkpoint_pendiente_mas_cercano_m': stats.get('distancia_checkpoint_pendiente_mas_cercano_m'),
+        'estado': stats.get('estado'),
+        'nivel_bateria': stats.get('nivel_bateria'),
+        'posicion': stats.get('posicion')
     })
 
     return jsonify({

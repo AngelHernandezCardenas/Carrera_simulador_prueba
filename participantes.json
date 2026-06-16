@@ -1,1 +1,11 @@
-{}
+{
+  "simulador-mono-01": {
+    "nombre": "participante_01"
+  },
+  "e10fce89-c030-40fb-960f-1e8a099f76c8": {
+    "nombre": "participante_02"
+  },
+  "db3f8281-6773-4442-aeda-7ee723a27eba": {
+    "nombre": "participante_03"
+  }
+}

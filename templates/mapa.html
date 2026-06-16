@@ -767,7 +767,7 @@
                 const prevVisitedCount = runner.checkpoints_visitados || 0;
                 
                 if (visitedCount > prevVisitedCount) {
-                    showToast(`🏆 <b>${id}</b> llegó a un nuevo Checkpoint!<br>Puntos totales: <span style="color: #10b981; font-weight: bold;">${data.puntos_totales || 0} pts</span>`);
+                    showToast(`<b>${id}</b> llegó a un nuevo Checkpoint!<br>Puntos totales: <span style="color: #10b981; font-weight: bold;">${data.puntos_totales || 0} pts</span>`);
                     
                     if (data.checkpoint_mas_cercano && data.distancia_checkpoint_mas_cercano_m < 20) {
                         const cpEl = document.getElementById(`cp-marker-${data.checkpoint_mas_cercano.id}`);

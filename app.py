@@ -9,7 +9,7 @@ from flask import Flask, request, jsonify, render_template
 from config import MAX_PARTICIPANTES, DURACION, participants_lock
 from geojson_store import append_feature
 from participants import participants_cache, get_or_create_participant, reset_participants, save_participants
-from checkpoints import actualizar_estado_corredor, clasificar_corredores
+from checkpoints import CHECKPOINTS, actualizar_estado_corredor, clasificar_corredores, haversine_distance_m
 from arcgis import (
     arcgis_enabled,
     send_feature_to_arcgis,
@@ -29,6 +29,8 @@ inicio = time.time()
 _battery_levels_by_device: dict[str, float] = {}
 _battery_lock = threading.Lock()
 MAX_BATTERY_SCORE = 50.0
+PESO_RESET_CHECKPOINT_ID = 1
+PESO_RESET_DISTANCE_METERS = 4.0
 
 
 # ---------------------------------------------------------------------------
@@ -122,6 +124,47 @@ def get_checkpoint_rank_from_snapshot(device_id: str, runners_snapshot: dict) ->
     return None
 
 
+def get_checkpoint_by_id(checkpoint_id: int) -> dict | None:
+    for checkpoint in CHECKPOINTS:
+        if int(checkpoint["id"]) == checkpoint_id:
+            return checkpoint
+    return None
+
+
+def get_peso_from_payload(data: dict, current_peso: float) -> float:
+    try:
+        if data.get("peso") is not None:
+            return float(data["peso"])
+
+        if data.get("peso_incremento") is not None:
+            return current_peso + float(data["peso_incremento"])
+    except (TypeError, ValueError):
+        return current_peso
+
+    return current_peso
+
+
+def safe_float(value, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def should_reset_peso(latitude: float, longitude: float) -> bool:
+    checkpoint = get_checkpoint_by_id(PESO_RESET_CHECKPOINT_ID)
+    if checkpoint is None:
+        return False
+
+    distance_m = haversine_distance_m(
+        latitude,
+        longitude,
+        float(checkpoint["lat"]),
+        float(checkpoint["lon"]),
+    )
+    return distance_m <= PESO_RESET_DISTANCE_METERS
+
+
 # ---------------------------------------------------------------------------
 # Rutas
 # ---------------------------------------------------------------------------
@@ -213,7 +256,13 @@ def gps():
         else:
             nivel_bateria = get_next_battery_level(device_id)
 
+        peso_actual = safe_float(participant_entry.get("peso"), 0.0)
+        peso = get_peso_from_payload(data, peso_actual)
+        if should_reset_peso(latitude, longitude):
+            peso = 0.0
+
         participant_entry["nivel_bateria"] = nivel_bateria
+        participant_entry["peso"] = peso
         save_participants(participants_cache)
 
         checkpoint_state = {
@@ -225,6 +274,7 @@ def gps():
             "puntuacion_checkpoints": participant_entry.get("puntuacion_checkpoints", 0.0),
             "puntaje_checkpoints": participant_entry.get("puntaje_checkpoints", 0.0),
             "estado": estado_actual,
+            "peso": peso,
         }
         runners_snapshot = {
             runner_device_id: {
@@ -262,6 +312,7 @@ def gps():
             "puntaje_bateria":     puntaje_bateria,
             "puntaje_checkpoints":  puntaje_checkpoints,
             "puntaje":             puntaje,
+            "peso":                checkpoint_state["peso"],
             "puntuacion_checkpoints": checkpoint_state["puntuacion_checkpoints"],
             "checkpoints_visitados": checkpoint_state["checkpoints_visitados"],
             "checkpoints_visitados_txt": ",".join(
@@ -313,6 +364,7 @@ def gps():
         f"posicion={posicion} "
         f"estado={checkpoint_state['estado']} "
         f"checkpoints={checkpoint_state['cantidad_checkpoints_visitados']} "
+        f"peso={checkpoint_state['peso']:.2f} "
         f"puntaje={puntaje:.2f} "
         f"(+/-{data.get('accuracy', '')}m)"
     )
@@ -345,6 +397,7 @@ def gps():
         "puntaje_bateria":        puntaje_bateria,
         "puntaje_checkpoints":     puntaje_checkpoints,
         "puntaje":                puntaje,
+        "peso":                   checkpoint_state["peso"],
         "puntuacion_checkpoints":  checkpoint_state["puntuacion_checkpoints"],
         "checkpoints_visitados":   checkpoint_state["checkpoints_visitados"],
         "cantidad_checkpoints_visitados": checkpoint_state["cantidad_checkpoints_visitados"],

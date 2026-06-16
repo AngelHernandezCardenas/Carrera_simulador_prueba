@@ -226,6 +226,16 @@ def actualizar_estado_corredor(
         nearest_distance,
     )
     corredor["estado"] = "terminado" if finished else "corriendo"
+
+    # Calcular puntos totales fijos (5 puntos para el CP 4, 3 puntos para el resto)
+    puntos_totales = 0
+    for cid in visited_ids:
+        if cid == 4:
+            puntos_totales += 5
+        else:
+            puntos_totales += 3
+    corredor["puntos_totales"] = puntos_totales
+
     return corredor
 
 

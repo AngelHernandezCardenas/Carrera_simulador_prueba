@@ -412,10 +412,55 @@
             color: #ffffff;
             box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45), 0 0 16px rgba(239, 68, 68, 0.55);
         }
+
+        @keyframes checkpoint-pulse {
+            0% { transform: scale(1); box-shadow: 0 0 10px rgba(245, 158, 11, 0.8); }
+            50% { transform: scale(1.6); box-shadow: 0 0 30px rgba(245, 158, 11, 1); background-color: #ffffff; color: #f59e0b; }
+            100% { transform: scale(1); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45), 0 0 16px rgba(245, 158, 11, 0.55); }
+        }
+
+        .checkpoint-marker.animate-pulse {
+            animation: checkpoint-pulse 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        #toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+
+        .toast-notification {
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(8px);
+            border: 1px solid #10b981;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3), 0 0 10px rgba(16, 185, 129, 0.5);
+            animation: slide-in-toast 0.4s ease-out forwards, fade-out-toast 0.4s ease-out 4s forwards;
+        }
+
+        @keyframes slide-in-toast {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes fade-out-toast {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
     </style>
 </head>
 
 <body>
+    <div id="toast-container"></div>
     <div id="map"></div>
 
     <div class="dashboard collapsed" id="dashboard">
@@ -471,6 +516,7 @@
                 const isNonScoring = NON_SCORING_CHECKPOINT_IDS.has(Number(checkpoint.id));
                 const el = document.createElement('div');
                 el.className = `checkpoint-marker${isNonScoring ? ' non-scoring' : ''}`;
+                el.id = `cp-marker-${checkpoint.id}`;
                 el.textContent = checkpoint.id;
                 el.title = getCheckpointName(checkpoint);
 
@@ -615,12 +661,26 @@
             return closest.nombre || `Checkpoint ${closest.id}`;
         }
 
+        function showToast(message) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'toast-notification';
+            toast.innerHTML = message;
+            container.appendChild(toast);
+            setTimeout(() => {
+                if (container.contains(toast)) {
+                    container.removeChild(toast);
+                }
+            }, 4500);
+        }
+
         function buildRunnerPopupHtml(id, color, data, speed) {
             return `
                 <div class="popup-title" style="color: ${color};">${id}</div>
                 <div class="popup-stat">Velocidad: <b id="popup-speed-${id}">${speed.toFixed(1)}</b> km/h</div>
                 <div class="popup-stat">Posición: <b>${data.posicion ?? '--'}</b></div>
                 <div class="popup-stat">Checkpoints visitados: <b>${data.checkpoints_visitados ?? 0}</b></div>
+                <div class="popup-stat">Puntos totales: <b style="color: #10b981;">${data.puntos_totales ?? 0}</b> pts</div>
                 <div class="popup-stat">Checkpoint ponderado mas cercano: <b>${getClosestCheckpointLabel(data)}</b></div>
                 <div class="popup-stat">Dist. al ponderado: <b>${formatNullable(data.distancia_checkpoint_mas_cercano_m, 2)}</b> m</div>
                 <div class="popup-stat">Checkpoint pendiente: <b>${getPendingCheckpointLabel(data)}</b></div>
@@ -690,7 +750,7 @@
                 `;
                 listContainer.appendChild(card);
 
-                state.runners[id] = { marker, popup, card, color: assignedColor };
+                state.runners[id] = { marker, popup, card, color: assignedColor, checkpoints_visitados: data.checkpoints_visitados || 0 };
                 document.getElementById('total-runners').textContent = Object.keys(state.runners).length;
 
                 if (!state.firstPointReceived) {
@@ -699,6 +759,25 @@
                 }
             } else {
                 const runner = state.runners[id];
+                
+                // Detección de nuevo checkpoint visitado
+                const visitedCount = data.checkpoints_visitados || 0;
+                const prevVisitedCount = runner.checkpoints_visitados || 0;
+                
+                if (visitedCount > prevVisitedCount) {
+                    showToast(`🏆 <b>${id}</b> llegó a un nuevo Checkpoint!<br>Puntos totales: <span style="color: #10b981; font-weight: bold;">${data.puntos_totales || 0} pts</span>`);
+                    
+                    if (data.checkpoint_mas_cercano && data.distancia_checkpoint_mas_cercano_m < 20) {
+                        const cpEl = document.getElementById(`cp-marker-${data.checkpoint_mas_cercano.id}`);
+                        if (cpEl) {
+                            cpEl.classList.remove('animate-pulse');
+                            void cpEl.offsetWidth; // Force reflow
+                            cpEl.classList.add('animate-pulse');
+                        }
+                    }
+                }
+                runner.checkpoints_visitados = visitedCount;
+
                 // Animar el movimiento del marcador
                 runner.marker.setLngLat(lngLat);
                 

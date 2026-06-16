@@ -246,7 +246,8 @@ def gps():
         'distancia_checkpoint_pendiente_mas_cercano_m': stats.get('distancia_checkpoint_pendiente_mas_cercano_m'),
         'estado': stats.get('estado'),
         'nivel_bateria': stats.get('nivel_bateria'),
-        'posicion': stats.get('posicion')
+        'posicion': stats.get('posicion'),
+        'puntos_totales': stats.get('puntos_totales', 0)
     })
 
     return jsonify({

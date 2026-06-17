@@ -2,7 +2,7 @@ import math
 
 
 # ---------------------------------------------------------------------------
-# EDITA AQUI TUS 3 CHECKPOINTS
+# EDITA AQUI TUS CHECKPOINTS
 # ---------------------------------------------------------------------------
 # Cambia lat/lon por las coordenadas reales de tu carrera.
 # radio_m es el radio de deteccion en metros para marcar el checkpoint.
@@ -20,9 +20,24 @@ CHECKPOINTS = [
     {"id": 5, "Jubileo": "Checkpoint 5", "lat": 25.649140, "lon": -100.290238, "radio_m": 5.0},
 ]
 
-MAX_CHECKPOINT_SCORE = 50.0
+MAX_CHECKPOINT_SCORE = 30.0
 PROXIMITY_DISTANCE_WINDOW_METERS = 1000.0
 NON_SCORING_CHECKPOINT_IDS = {4}
+MAX_PERSONAS_POR_CHECKPOINT = 2
+UNLIMITED_OCCUPANCY_CHECKPOINT_IDS = {4}
+CHECKPOINT_DESCARGA_ID = 4
+
+# Checkpoints que cargan puntos al corredor antes de descargar en el checkpoint 4.
+# El checkpoint 4 NO debe estar aqui: solo descarga a puntaje_equipo y deja puntos_totales en 0.
+# Para agregar otro checkpoint con el mismo puntaje, agrega su id con el mismo valor:
+#     6: 3,
+# Para agregar uno con puntaje diferente, cambia solo el valor:
+#     7: 5,
+CHECKPOINT_POINTS = {
+    2: 3,
+    3: 3,
+    5: 5,  # AJUSTA ESTE PUNTAJE A TU GUSTO
+}
 
 
 def haversine_distance_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -81,16 +96,98 @@ def _nearest_checkpoint(lat: float, lon: float, checkpoints: list[dict]) -> tupl
     return nearest, distance
 
 
+def _checkpoint_occupancy_by_id(
+    corredores: dict | None,
+    checkpoints: list[dict],
+    corredor_actual: dict | None = None,
+) -> dict[int, int]:
+    occupancy = {_checkpoint_id(checkpoint): 0 for checkpoint in checkpoints}
+
+    if not corredores:
+        return occupancy
+
+    for corredor in corredores.values():
+        if corredor is corredor_actual:
+            continue
+
+        last_coord = corredor.get("last_coord")
+        if not last_coord or len(last_coord) < 2:
+            continue
+
+        try:
+            lat, lon = float(last_coord[0]), float(last_coord[1])
+        except (TypeError, ValueError):
+            continue
+
+        for checkpoint in checkpoints:
+            checkpoint_id = _checkpoint_id(checkpoint)
+            distance = haversine_distance_m(
+                lat,
+                lon,
+                float(checkpoint["lat"]),
+                float(checkpoint["lon"]),
+            )
+            if distance <= float(checkpoint.get("radio_m", 5.0)):
+                occupancy[checkpoint_id] += 1
+
+    return occupancy
+
+
+def _full_checkpoint_ids(
+    corredores: dict | None,
+    checkpoints: list[dict],
+    corredor_actual: dict | None = None,
+) -> set[int]:
+    occupancy = _checkpoint_occupancy_by_id(corredores, checkpoints, corredor_actual)
+    return {
+        checkpoint_id
+        for checkpoint_id, count in occupancy.items()
+        if count >= MAX_PERSONAS_POR_CHECKPOINT
+        and checkpoint_id not in UNLIMITED_OCCUPANCY_CHECKPOINT_IDS
+    }
+
+
+def _full_checkpoint_ids_with_current_position(
+    corredores: dict | None,
+    checkpoints: list[dict],
+    corredor_actual: dict,
+    lat: float,
+    lon: float,
+) -> set[int]:
+    occupancy = _checkpoint_occupancy_by_id(corredores, checkpoints, corredor_actual)
+
+    for checkpoint in checkpoints:
+        checkpoint_id = _checkpoint_id(checkpoint)
+        distance = haversine_distance_m(
+            lat,
+            lon,
+            float(checkpoint["lat"]),
+            float(checkpoint["lon"]),
+        )
+        if distance <= float(checkpoint.get("radio_m", 5.0)):
+            occupancy[checkpoint_id] += 1
+
+    return {
+        checkpoint_id
+        for checkpoint_id, count in occupancy.items()
+        if count >= MAX_PERSONAS_POR_CHECKPOINT
+        and checkpoint_id not in UNLIMITED_OCCUPANCY_CHECKPOINT_IDS
+    }
+
+
 def _nearest_pending_checkpoint(
     lat: float,
     lon: float,
     visited_ids: set[int],
     checkpoints: list[dict],
+    unavailable_ids: set[int] | None = None,
 ) -> tuple[dict | None, float]:
+    unavailable_ids = unavailable_ids or set()
     pending = [
         checkpoint
         for checkpoint in checkpoints
         if _checkpoint_id(checkpoint) not in visited_ids
+        and _checkpoint_id(checkpoint) not in unavailable_ids
     ]
 
     if not pending:
@@ -103,8 +200,16 @@ def _scoring_checkpoints(checkpoints: list[dict]) -> list[dict]:
     return [
         checkpoint
         for checkpoint in checkpoints
-        if _checkpoint_id(checkpoint) not in NON_SCORING_CHECKPOINT_IDS
+        if _checkpoint_id(checkpoint) in CHECKPOINT_POINTS
+        and _checkpoint_id(checkpoint) not in NON_SCORING_CHECKPOINT_IDS
     ]
+
+
+def _checkpoint_points(checkpoint_id: int) -> float:
+    try:
+        return float(CHECKPOINT_POINTS.get(int(checkpoint_id), 0.0))
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def _count_scoring_visited(visited_ids: set[int], checkpoints: list[dict]) -> int:
@@ -112,7 +217,38 @@ def _count_scoring_visited(visited_ids: set[int], checkpoints: list[dict]) -> in
     return len(visited_ids.intersection(scoring_ids))
 
 
-def _checkpoint_score_out_of_50(
+def _is_inside_checkpoint_id(
+    lat: float,
+    lon: float,
+    checkpoints: list[dict],
+    checkpoint_id: int,
+) -> bool:
+    for checkpoint in checkpoints:
+        if _checkpoint_id(checkpoint) != checkpoint_id:
+            continue
+
+        distance = haversine_distance_m(
+            lat,
+            lon,
+            float(checkpoint["lat"]),
+            float(checkpoint["lon"]),
+        )
+        return distance <= float(checkpoint.get("radio_m", 5.0))
+
+    return False
+
+
+def _calculate_carried_points(
+    visited_ids: set[int],
+    deposited_ids: set[int],
+    checkpoints: list[dict],
+) -> float:
+    scoring_ids = {_checkpoint_id(checkpoint) for checkpoint in _scoring_checkpoints(checkpoints)}
+    pending_points_ids = visited_ids.intersection(scoring_ids).difference(deposited_ids)
+    return sum(_checkpoint_points(checkpoint_id) for checkpoint_id in pending_points_ids)
+
+
+def _checkpoint_score(
     visited_count: int,
     total_checkpoints: int,
     nearest_pending_distance_m: float,
@@ -134,18 +270,12 @@ def _checkpoint_score_out_of_50(
     return round(min(score, MAX_CHECKPOINT_SCORE), 2)
 
 
-def _peso_actual(corredor: dict) -> float:
-    try:
-        return float(corredor.get("peso", 0.0))
-    except (TypeError, ValueError):
-        return 0.0
-
-
 def actualizar_estado_corredor(
     corredor: dict,
     lat: float,
     lon: float,
     checkpoints: list[dict] | None = None,
+    corredores: dict | None = None,
 ) -> dict:
     """
     Actualiza el estado de un corredor sin usar orden fijo.
@@ -153,10 +283,21 @@ def actualizar_estado_corredor(
     """
     checkpoints = checkpoints or CHECKPOINTS
     visited_ids = set(_sorted_checkpoint_ids(corredor.get("checkpoints_visitados", [])))
+    deposited_ids = set(_sorted_checkpoint_ids(corredor.get("checkpoints_puntos_entregados", [])))
+    full_checkpoint_ids_for_visits = _full_checkpoint_ids(corredores, checkpoints, corredor)
+    full_checkpoint_ids_for_display = _full_checkpoint_ids_with_current_position(
+        corredores,
+        checkpoints,
+        corredor,
+        lat,
+        lon,
+    )
 
     for checkpoint in checkpoints:
         checkpoint_id = _checkpoint_id(checkpoint)
         if checkpoint_id in visited_ids:
+            continue
+        if checkpoint_id in full_checkpoint_ids_for_visits:
             continue
 
         distance = haversine_distance_m(
@@ -169,12 +310,22 @@ def actualizar_estado_corredor(
             visited_ids.add(checkpoint_id)
 
     scoring_checkpoints = _scoring_checkpoints(checkpoints)
-    nearest_scoring_checkpoint, closest_scoring_distance = _nearest_checkpoint(lat, lon, scoring_checkpoints)
+    available_scoring_checkpoints = [
+        checkpoint
+        for checkpoint in scoring_checkpoints
+        if _checkpoint_id(checkpoint) not in full_checkpoint_ids_for_display
+    ]
+    nearest_scoring_checkpoint, closest_scoring_distance = _nearest_checkpoint(
+        lat,
+        lon,
+        available_scoring_checkpoints,
+    )
     nearest_pending, nearest_distance = _nearest_pending_checkpoint(
         lat,
         lon,
         visited_ids,
         scoring_checkpoints,
+        full_checkpoint_ids_for_display,
     )
     visited_count = len(visited_ids)
     scoring_visited_count = _count_scoring_visited(visited_ids, checkpoints)
@@ -182,11 +333,15 @@ def actualizar_estado_corredor(
     required_checkpoint_ids = {_checkpoint_id(checkpoint) for checkpoint in checkpoints}
     all_required_visited = required_checkpoint_ids.issubset(visited_ids)
     scoring_finished = scoring_visited_count >= total_checkpoints
-    finished = all_required_visited and _peso_actual(corredor) <= 0.0
+    scoring_distance = (
+        PROXIMITY_DISTANCE_WINDOW_METERS
+        if nearest_pending is None and not scoring_finished
+        else nearest_distance
+    )
     raw_score = (
         scoring_visited_count * 1000
         if scoring_finished
-        else scoring_visited_count * 1000 - nearest_distance
+        else scoring_visited_count * 1000 - scoring_distance
     )
 
     corredor["checkpoints_visitados"] = _sorted_checkpoint_ids(visited_ids)
@@ -206,7 +361,7 @@ def actualizar_estado_corredor(
     corredor["checkpoint_pendiente_mas_cercano_id"] = (
         None if nearest_pending is None else _checkpoint_id(nearest_pending)
     )
-    corredor["distancia_checkpoint_pendiente_mas_cercano_m"] = round(nearest_distance, 2)
+    corredor["distancia_checkpoint_pendiente_mas_cercano_m"] = round(scoring_distance, 2)
     corredor["checkpoint_mas_cercano"] = (
         None
         if nearest_scoring_checkpoint is None
@@ -220,12 +375,31 @@ def actualizar_estado_corredor(
     )
     corredor["distancia_checkpoint_mas_cercano_m"] = round(closest_scoring_distance, 2)
     corredor["puntuacion_checkpoints"] = round(raw_score, 2)
-    corredor["puntaje_checkpoints"] = _checkpoint_score_out_of_50(
+    corredor["puntaje_checkpoints"] = _checkpoint_score(
         scoring_visited_count,
         total_checkpoints,
-        nearest_distance,
+        scoring_distance,
     )
+    scoring_ids = {_checkpoint_id(checkpoint) for checkpoint in scoring_checkpoints}
+    deposited_ids = deposited_ids.intersection(scoring_ids)
+    puntos_totales = _calculate_carried_points(visited_ids, deposited_ids, checkpoints)
+    try:
+        puntaje_equipo = float(corredor.get("puntaje_equipo", 0))
+    except (TypeError, ValueError):
+        puntaje_equipo = 0.0
+
+    if _is_inside_checkpoint_id(lat, lon, checkpoints, CHECKPOINT_DESCARGA_ID):
+        puntaje_equipo += puntos_totales
+        deposited_ids.update(visited_ids.intersection(scoring_ids))
+        puntos_totales = 0
+
+    corredor["checkpoints_puntos_entregados"] = _sorted_checkpoint_ids(deposited_ids)
+    corredor["puntos_totales"] = puntos_totales
+    corredor["peso"] = puntos_totales
+    corredor["puntaje_equipo"] = puntaje_equipo
+    finished = all_required_visited and puntos_totales <= 0.0
     corredor["estado"] = "terminado" if finished else "corriendo"
+
     return corredor
 
 

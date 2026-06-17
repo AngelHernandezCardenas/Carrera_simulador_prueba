@@ -143,9 +143,14 @@ Magnitud: --</div>
     let participante = null;
     let ultimoPunto = null;
     let historialVelocidad = [];
+    let envioGpsEnCurso = false;
+    let ultimoEnvioGpsMs = 0;
+    let gpsPollTimer = null;
+    let ultimaPosicionGps = null;
 
     const DEVICE_ID_KEY = "gps_tracker_device_id";
     const ACCELERATION_SAMPLE_WINDOW = 3;
+    const GPS_SEND_INTERVAL_MS = 2000;
 
     let accelData = {
         gx: null, gy: null, gz: null, g_magnitude: null,
@@ -393,6 +398,7 @@ Magnitud: --</div>
 
         activo      = true;
         ultimoPunto = null;
+        ultimaPosicionGps = null;
         historialVelocidad = [];
         document.getElementById("btn").textContent = "Detener captura";
         log("Obteniendo ubicación y acelerómetro...");
@@ -402,6 +408,20 @@ Magnitud: --</div>
             onPositionError,
             { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
         );
+
+        gpsPollTimer = setInterval(() => {
+            if (!activo || envioGpsEnCurso) return;
+            if (ultimaPosicionGps) {
+                onPositionSuccess(ultimaPosicionGps);
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                onPositionSuccess,
+                onPositionError,
+                { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+            );
+        }, GPS_SEND_INTERVAL_MS);
     }
 
     function detenerCaptura() {
@@ -409,13 +429,28 @@ Magnitud: --</div>
             navigator.geolocation.clearWatch(watchId);
             watchId = null;
         }
+        if (gpsPollTimer !== null) {
+            clearInterval(gpsPollTimer);
+            gpsPollTimer = null;
+        }
         silentAudio.pause();
         releaseWakeLock();
         activo = false;
+        ultimaPosicionGps = null;
         document.getElementById("btn").textContent = "Iniciar captura";
     }
 
     async function onPositionSuccess(pos) {
+        ultimaPosicionGps = pos;
+
+        const ahoraMs = Date.now();
+        if (envioGpsEnCurso || ahoraMs - ultimoEnvioGpsMs < GPS_SEND_INTERVAL_MS) {
+            return;
+        }
+
+        envioGpsEnCurso = true;
+        ultimoEnvioGpsMs = ahoraMs;
+
         const lat             = pos.coords.latitude;
         const lon             = pos.coords.longitude;
         const acc             = pos.coords.accuracy;
@@ -456,7 +491,6 @@ Magnitud: --</div>
                     longitude: lon,
                     accuracy:  acc,
                     altitude:  altitude,
-                    altitude_accuracy: altitudeAccuracy,
                     heading:   heading,
 
                     speed_mps:    speed.speed_mps,
@@ -469,11 +503,8 @@ Magnitud: --</div>
                     accel_g_magnitude: accelData.g_magnitude,
                     acceleration_mps2: accelData.acceleration_mps2,
 
-                    accel_interval_ms:       accelData.interval_ms,
-                    accel_supported:         accelData.supported,
-                    accel_permission_state:  accelData.permission_state,
                     sensor_timestamp_ms:     accelData.sensor_timestamp_ms,
-                    client_timestamp_ms:     Date.now(),
+                    client_timestamp_ms:     ahoraMs,
 
                     device_id:    deviceId,
                     device_label: getDeviceLabel(deviceId)
@@ -497,6 +528,8 @@ Magnitud: --</div>
             }
         } catch(e) {
             log("Datos obtenidos pero error al enviar al servidor:\n" + e.message, "error");
+        } finally {
+            envioGpsEnCurso = false;
         }
     }
 

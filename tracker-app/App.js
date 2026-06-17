@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const LOCATION_TASK_NAME = 'background-location-task';
 const DEVICE_ID_KEY = 'gps_tracker_device_id';
+const GPS_SEND_INTERVAL_MS = 2000;
 
 // Variable global para la URL en el TaskManager
 let globalServerUrl = '';
@@ -15,10 +16,18 @@ let globalDeviceId = null;
 let globalLocationSubscription = null; // Guardar la suscripcion para detenerla despues
 let globalTimer = null; // Forzar envio cada segundo
 let lastKnownLocation = null;
+let globalSendingGps = false;
+let globalLastGpsSentMs = 0;
 
 // Función compartida para enviar GPS
 const enviarGps = async (loc) => {
   if (!globalServerUrl || !globalParticipante) return;
+  const nowMs = Date.now();
+  if (globalSendingGps || nowMs - globalLastGpsSentMs < GPS_SEND_INTERVAL_MS) return;
+
+  globalSendingGps = true;
+  globalLastGpsSentMs = nowMs;
+
   try {
     await fetch(`${globalServerUrl}/gps`, {
       method: 'POST',
@@ -35,11 +44,13 @@ const enviarGps = async (loc) => {
         speed_source: 'gps_sensor',
         device_id: globalDeviceId,
         device_label: `App-${globalDeviceId.substring(0,6)}`,
-        client_timestamp_ms: Date.now()
+        client_timestamp_ms: nowMs
       })
     });
   } catch (e) {
     console.error("Error enviando GPS:", e);
+  } finally {
+    globalSendingGps = false;
   }
 };
 
@@ -143,7 +154,7 @@ export default function App() {
     try {
       await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
         accuracy: Location.Accuracy.BestForNavigation,
-        timeInterval: 1000,
+        timeInterval: 2000,
         distanceInterval: 0,
         showsBackgroundLocationIndicator: true,
         foregroundService: {
@@ -158,14 +169,14 @@ export default function App() {
 
     globalLocationSubscription = await Location.watchPositionAsync({
       accuracy: Location.Accuracy.BestForNavigation,
-      timeInterval: 1000,
+      timeInterval: 2000,
       distanceInterval: 0
     }, (loc) => {
       setLocation(loc);
       lastKnownLocation = loc;
     });
 
-    // BUCLE FORZADO: Enviar datos exactamente cada 1 segundo,
+    // BUCLE FORZADO: intenta enviar seguido, pero enviarGps limita a 2s
     // usando la ultima ubicacion conocida. Esto soluciona el problema de
     // iOS/Android mandando datos cada 5-10 segundos cuando estas quieto.
     if (globalTimer) clearInterval(globalTimer);
@@ -173,7 +184,7 @@ export default function App() {
       if (lastKnownLocation) {
         enviarGps(lastKnownLocation);
       }
-    }, 1000);
+    }, 250);
   };
 
   const detenerCaptura = async () => {

@@ -11,17 +11,26 @@ from checkpoints import CHECKPOINTS, actualizar_estado_corredor, clasificar_corr
 from config import DURACION, MAX_PARTICIPANTES, participants_lock
 from geojson_store import append_feature
 from participants import get_or_create_participant, participants_cache, reset_participants, save_participants
+from Puntaje import get_puntaje_retos_detalle, refrescar_puntajes_retos, sincronizar_puntajes
 
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 reset_participants()
+try:
+    refrescar_puntajes_retos()
+except Exception as e:
+    print("No se pudieron cargar puntajes_retos al iniciar:", e)
+threading.Thread(target=sincronizar_puntajes, daemon=True).start()
 
 inicio = time.time()
 runners_stats: dict[str, dict] = {}
 _battery_levels_by_device: dict[str, float] = {}
 _battery_lock = threading.Lock()
-MAX_BATTERY_SCORE = 50.0
+_last_gps_saved_by_device: dict[str, float] = {}
+_gps_dedupe_lock = threading.Lock()
+MAX_BATTERY_SCORE = 30.0
+MIN_GPS_SAVE_INTERVAL_SECONDS = 1.5
 PESO_RESET_CHECKPOINT_ID = 4
 PESO_RESET_DISTANCE_METERS = 4.0
 
@@ -156,6 +165,17 @@ def safe_float(value, default: float = 0.0) -> float:
         return default
 
 
+def should_skip_gps_save(device_id: str) -> bool:
+    now = time.time()
+    with _gps_dedupe_lock:
+        last_saved = _last_gps_saved_by_device.get(device_id, 0.0)
+        if now - last_saved < MIN_GPS_SAVE_INTERVAL_SECONDS:
+            return True
+
+        _last_gps_saved_by_device[device_id] = now
+        return False
+
+
 def should_reset_peso(latitude: float, longitude: float) -> bool:
     checkpoint = get_checkpoint_by_id(PESO_RESET_CHECKPOINT_ID)
     if checkpoint is None:
@@ -242,7 +262,6 @@ def registrar():
         "device_id": device_id,
         "device_label": data.get("device_label") or f"Dispositivo-{device_id[:8]}",
         "device_ip": device_ip,
-        "device_user_agent": user_agent,
     })
 
 
@@ -268,6 +287,16 @@ def gps():
             "msg": f"Ya se alcanzó el límite de {MAX_PARTICIPANTES} participantes.",
         }), 403
 
+    if should_skip_gps_save(device_id):
+        return jsonify({
+            "status": "ok",
+            "participante": participante,
+            "skipped": True,
+            "msg": "Lectura duplicada ignorada",
+        })
+
+    puntaje_retos_detalle = get_puntaje_retos_detalle(participante)
+    puntaje_retos_actual = puntaje_retos_detalle["puntaje_retos"]
     latitude = float(data["latitude"])
     longitude = float(data["longitude"])
     posicion_inicial = get_participant_position(participante)
@@ -276,15 +305,12 @@ def gps():
         participant_entry = participants_cache[device_id]
         participant_entry["device_id"] = device_id
         participant_entry["nombre"] = participante
-        peso_actual = safe_float(participant_entry.get("peso"), 0.0)
-        peso = get_peso_from_payload(data, peso_actual)
-        if should_reset_peso(latitude, longitude):
-            peso = 0.0
-
-        participant_entry["peso"] = peso
+        participant_entry["last_coord"] = (latitude, longitude)
 
         estado_anterior = participant_entry.get("estado", "corriendo")
-        actualizar_estado_corredor(participant_entry, latitude, longitude)
+        actualizar_estado_corredor(participant_entry, latitude, longitude, corredores=participants_cache)
+        participant_entry["puntaje_retos"] = puntaje_retos_actual
+        participant_entry["peso"] = participant_entry.get("puntos_totales", 0)
 
         estado_actual = participant_entry.get("estado", "corriendo")
         nivel_bateria_final = participant_entry.get("nivel_bateria_final")
@@ -315,8 +341,11 @@ def gps():
             "distancia_checkpoint_mas_cercano_m": participant_entry.get("distancia_checkpoint_mas_cercano_m"),
             "puntuacion_checkpoints": participant_entry.get("puntuacion_checkpoints", 0.0),
             "puntaje_checkpoints": participant_entry.get("puntaje_checkpoints", 0.0),
+            "puntaje_retos": participant_entry.get("puntaje_retos", 0.0),
             "estado": estado_actual,
-            "peso": peso,
+            "puntos_totales": participant_entry.get("puntos_totales", 0),
+            "puntaje_equipo": participant_entry.get("puntaje_equipo", 0),
+            "peso": participant_entry.get("puntos_totales", 0),
         }
         runners_snapshot = {
             runner_device_id: {
@@ -331,7 +360,8 @@ def gps():
     puntaje_bateria = get_battery_score(nivel_bateria)
     posicion_bateria = get_battery_rank(device_id)
     puntaje_checkpoints = checkpoint_state["puntaje_checkpoints"]
-    puntaje = round(puntaje_bateria + puntaje_checkpoints, 2)
+    puntaje_retos = safe_float(checkpoint_state["puntaje_retos"])
+    puntaje = round(puntaje_bateria + puntaje_checkpoints + puntaje_retos, 2)
     posicion = posicion_checkpoints
     runner_stats = update_runner_stats(participante, latitude, longitude, data.get("speed_kmh"))
 
@@ -346,7 +376,6 @@ def gps():
             "Date_GPS": time.strftime("%Y-%m-%d %H:%M:%S"),
             "accuracy": data.get("accuracy"),
             "altitude": data.get("altitude"),
-            "altitude_accuracy": data.get("altitude_accuracy"),
             "heading": data.get("heading"),
             "nivel_bateria": nivel_bateria,
             "posicion_inicial": posicion_inicial,
@@ -355,8 +384,15 @@ def gps():
             "posicion_checkpoints": posicion_checkpoints,
             "puntaje_bateria": puntaje_bateria,
             "puntaje_checkpoints": puntaje_checkpoints,
+            "puntaje_retos": puntaje_retos,
+            "puntaje_retos_total": puntaje_retos_detalle["puntaje_retos_total"],
+            "puntaje_retos_equipo": puntaje_retos_detalle["puntaje_retos_equipo"],
+            "puntaje_retos_origen": puntaje_retos_detalle["puntaje_retos_origen"],
+            "puntaje_retos_lectura_ts": puntaje_retos_detalle["puntaje_retos_lectura_ts"],
             "puntaje": puntaje,
+            "puntos_totales": checkpoint_state["puntos_totales"],
             "peso": checkpoint_state["peso"],
+            "puntaje_equipo": checkpoint_state["puntaje_equipo"],
             "puntuacion_checkpoints": checkpoint_state["puntuacion_checkpoints"],
             "checkpoints_visitados": checkpoint_state["checkpoints_visitados"],
             "checkpoints_visitados_txt": ",".join(
@@ -382,16 +418,12 @@ def gps():
             "accel_gz": data.get("accel_gz"),
             "accel_g_magnitude": data.get("accel_g_magnitude"),
             "acceleration_mps2": data.get("acceleration_mps2"),
-            "accel_interval_ms": data.get("accel_interval_ms"),
-            "accel_supported": data.get("accel_supported"),
-            "accel_permission_state": data.get("accel_permission_state"),
             "sensor_timestamp_ms": data.get("sensor_timestamp_ms"),
             "client_timestamp_ms": data.get("client_timestamp_ms"),
             "participante": participante,
             "device_id": device_id,
             "device_label": data.get("device_label") or f"Dispositivo-{device_id[:8]}",
             "device_ip": device_ip,
-            "device_user_agent": user_agent,
         },
     }
 
@@ -406,7 +438,10 @@ def gps():
         f"estado={checkpoint_state['estado']} "
         f"checkpoints={checkpoint_state['cantidad_checkpoints_visitados']} "
         f"ponderados={checkpoint_state['cantidad_checkpoints_ponderados_visitados']} "
-        f"peso={checkpoint_state['peso']:.2f} "
+        f"puntos={checkpoint_state['puntos_totales']} "
+        f"equipo={checkpoint_state['puntaje_equipo']} "
+        f"peso={float(checkpoint_state['peso']):.2f} "
+        f"retos={puntaje_retos:.2f} "
         f"puntaje={puntaje:.2f}"
     )
 
@@ -420,8 +455,11 @@ def gps():
         "nivel_bateria": nivel_bateria,
         "posicion": posicion,
         "puntaje": puntaje,
+        "puntaje_retos": puntaje_retos,
         "estado": checkpoint_state["estado"],
+        "puntos_totales": checkpoint_state["puntos_totales"],
         "peso": checkpoint_state["peso"],
+        "puntaje_equipo": checkpoint_state["puntaje_equipo"],
         "checkpoints_visitados": checkpoint_state["cantidad_checkpoints_visitados"],
         "checkpoints_ponderados_visitados": checkpoint_state["cantidad_checkpoints_ponderados_visitados"],
         "checkpoint_descarga_visitado": checkpoint_state["checkpoint_descarga_visitado"],
@@ -441,8 +479,11 @@ def gps():
         "posicion_checkpoints": posicion_checkpoints,
         "puntaje_bateria": puntaje_bateria,
         "puntaje_checkpoints": puntaje_checkpoints,
+        "puntaje_retos": puntaje_retos,
         "puntaje": puntaje,
+        "puntos_totales": checkpoint_state["puntos_totales"],
         "peso": checkpoint_state["peso"],
+        "puntaje_equipo": checkpoint_state["puntaje_equipo"],
         "puntuacion_checkpoints": checkpoint_state["puntuacion_checkpoints"],
         "checkpoints_visitados": checkpoint_state["checkpoints_visitados"],
         "cantidad_checkpoints_visitados": checkpoint_state["cantidad_checkpoints_visitados"],

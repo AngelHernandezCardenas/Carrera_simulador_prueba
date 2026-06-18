@@ -1,47 +1,5 @@
 {
   "39ed205b-8220-4e7c-9446-303c6d0a5179": {
     "nombre": "participante_01"
-  },
-  "f2fe0c6e-dde5-4e2e-a01e-12a02c72a270": {
-    "nombre": "participante_02"
-  },
-  "17663c59-139c-419c-80d3-c2daa68b99d9": {
-    "nombre": "participante_03",
-    "device_id": "17663c59-139c-419c-80d3-c2daa68b99d9",
-    "last_coord": [
-      25.6524439,
-      -100.2925773
-    ],
-    "checkpoints_visitados": [],
-    "cantidad_checkpoints_visitados": 0,
-    "cantidad_checkpoints_ponderados_visitados": 0,
-    "checkpoint_descarga_visitado": false,
-    "checkpoint_pendiente_mas_cercano": {
-      "id": 3,
-      "nombre": "Checkpoint 3"
-    },
-    "checkpoint_pendiente_mas_cercano_id": 3,
-    "distancia_checkpoint_pendiente_mas_cercano_m": 259.87,
-    "checkpoint_mas_cercano": {
-      "id": 3,
-      "nombre": "Checkpoint 3"
-    },
-    "checkpoint_mas_cercano_id": 3,
-    "distancia_checkpoint_mas_cercano_m": 259.87,
-    "puntuacion_checkpoints": -259.87,
-    "puntaje_checkpoints": 7.39,
-    "checkpoints_puntos_entregados": [],
-    "puntos_totales": 0,
-    "peso": 0,
-    "puntaje_equipo": 0.0,
-    "estado": "corriendo",
-    "puntaje_retos": 22.2,
-    "nivel_bateria": 9.69188637482455
-  },
-  "79caf67f-f930-429a-ae99-a748c04d3638": {
-    "nombre": "participante_04"
-  },
-  "b7210590-4496-4d0c-b08f-e3ac74b837d9": {
-    "nombre": "participante_05"
   }
 }

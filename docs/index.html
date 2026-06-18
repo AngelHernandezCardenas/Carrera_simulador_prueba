@@ -87,8 +87,7 @@
         .dashboard.collapsed #btn-timer-start,
         .dashboard.collapsed #btn-timer-stop,
         .dashboard.collapsed #btn-theme,
-        .dashboard.collapsed #btn-3d,
-        .dashboard.collapsed #btn-servidor {
+        .dashboard.collapsed #btn-3d {
             display: none;
         }
 
@@ -460,71 +459,6 @@
             color: #cbd5e1;
         }
 
-        /* ----- MODAL DE SERVIDOR ----- */
-        #server-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: rgba(0, 0, 0, 0.8);
-            backdrop-filter: blur(8px);
-            z-index: 9999;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        #server-modal.hidden {
-            display: none;
-        }
-
-        .modal-content {
-            background: var(--panel-bg);
-            border: 1px solid var(--accent);
-            padding: 30px;
-            border-radius: 16px;
-            width: 90%;
-            max-width: 400px;
-            text-align: center;
-            box-shadow: 0 0 30px rgba(59, 130, 246, 0.3);
-        }
-
-        .modal-content h2 {
-            margin-top: 0;
-            font-size: 20px;
-            color: white;
-        }
-
-        .modal-content input {
-            width: 100%;
-            padding: 12px;
-            margin: 15px 0;
-            background: rgba(0,0,0,0.5);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            color: white;
-            font-size: 14px;
-            box-sizing: border-box;
-        }
-
-        .modal-content button {
-            background: var(--accent);
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-weight: bold;
-            cursor: pointer;
-            width: 100%;
-            transition: 0.2s;
-        }
-
-        .popup-stat {
-            font-size: 12px;
-            color: #cbd5e1;
-        }
-
         .checkpoint-marker {
             width: 32px;
             height: 32px;
@@ -605,7 +539,6 @@
                 <div style="display: flex; gap: 8px;" id="header-buttons">
                     <button id="btn-timer-start" class="btn-3d" onclick="startGlobalTimer(event)">Iniciar</button>
                     <button id="btn-timer-stop" class="btn-3d" onclick="stopGlobalTimer(event)" disabled>Detener</button>
-                    <button id="btn-servidor" class="btn-3d" onclick="event.stopPropagation(); mostrarModal()">Servidor</button>
                     <button id="btn-theme" class="btn-3d" onclick="event.stopPropagation(); toggleTheme()">Día</button>
                     <button id="btn-3d" class="btn-3d active" onclick="event.stopPropagation(); toggle3D()">3D: ON</button>
                 </div>
@@ -624,7 +557,7 @@
         <div class="table-header">
             <div>Pos</div>
             <div>Corredor</div>
-            <div>Puntos</div>
+            <div>Puntaje</div>
             <div>Peso</div>
             <div>Distancia (Km)</div>
             <div>Vel. Actual (Km/h)</div>
@@ -635,25 +568,9 @@
         </div>
     </div>
 
-    <!-- MODAL PARA PEDIR URL -->
-    <div id="server-modal" class="hidden">
-        <div class="modal-content">
-            <h2>Conectar al Servidor</h2>
-            <p style="font-size: 13px; color: var(--text-muted);">Pega la URL pública de tu túnel de Cloudflare para recibir la telemetría en vivo.</p>
-            <input type="text" id="server-url-input" placeholder="ej. https://mitunel.trycloudflare.com">
-            <button onclick="guardarServidor()">Conectar</button>
-        </div>
-    </div>
-
     <script>
-        const CHECKPOINTS = [
-            {"id": 1, "Biotecnologia-Centrales": "Checkpoint 1", "lat": 25.651796, "lon": -100.288868, "radio_m": 5.0},
-            {"id": 2, "Bilio-Aulas4": "Checkpoint 2", "lat": 25.650111, "lon": -100.289386, "radio_m": 5.0},
-            {"id": 3, "Carreton": "Checkpoint 3", "lat": 25.651442, "lon": -100.290235, "radio_m": 5.0},
-            {"id": 4, "Rectoria-Descarga": "Checkpoint 4", "lat": 25.651464, "lon": -100.291149, "radio_m": 5.0},
-            {"id": 5, "Jubileo": "Checkpoint 5", "lat": 25.649140, "lon": -100.290238, "radio_m": 5.0}
-        ];
-        const NON_SCORING_CHECKPOINT_IDS = new Set([4]);
+        const CHECKPOINTS = {{ checkpoints | tojson }};
+        const NON_SCORING_CHECKPOINT_IDS = new Set({{ non_scoring_checkpoint_ids | tojson }});
 
         function getCheckpointName(checkpoint) {
             return checkpoint.nombre
@@ -797,51 +714,12 @@
         const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
         let colorIndex = 0;
 
-        // 2. WebSockets y Configuración Desacoplada
-        let backendUrl = localStorage.getItem('tracker_backend_url');
-        const modal = document.getElementById('server-modal');
-        const urlInput = document.getElementById('server-url-input');
+        const socket = io({
+            path: '/socket.io',
+            transports: ['polling', 'websocket']
+        });
 
-        function mostrarModal() {
-            if (backendUrl) urlInput.value = backendUrl;
-            modal.classList.remove('hidden');
-        }
-
-        function guardarServidor() {
-            let url = urlInput.value.trim();
-            if (url.endsWith('/')) {
-                url = url.slice(0, -1);
-            }
-            if (url) {
-                backendUrl = url;
-                localStorage.setItem('tracker_backend_url', backendUrl);
-                modal.classList.add('hidden');
-                conectarServidor();
-            }
-        }
-
-        function conectarServidor() {
-            if (!backendUrl) {
-                mostrarModal();
-                return;
-            }
-
-            console.log("Intentando conectar a: " + backendUrl);
-            if (window.socket) window.socket.disconnect();
-
-            window.socket = io(backendUrl, {
-                path: '/socket.io',
-                transports: ['polling', 'websocket']
-            });
-
-            window.socket.on('connect', () => console.log('✅ Conectado al servidor de telemetría remota.'));
-            window.socket.on('connect_error', (err) => console.error('Error de conexion:', err));
-
-            window.socket.on('nueva_posicion', procesarPosicion);
-        }
-
-        // Iniciar el flujo de conexion
-        conectarServidor();
+        socket.on('connect', () => console.log('Conectado al servidor de telemetria.'));
 
         function formatNullable(value, decimals = 2, fallback = '--') {
             const number = Number(value);
@@ -1003,7 +881,7 @@
                 <div class="popup-stat">Velocidad: <b id="popup-speed-${id}">${speed.toFixed(1)}</b> km/h</div>
                 <div class="popup-stat">Posición: <b>${data.posicion ?? '--'}</b></div>
                 <div class="popup-stat">Checkpoints visitados: <b>${data.checkpoints_visitados ?? 0}</b></div>
-                <div class="popup-stat">Puntos totales: <b style="color: #10b981;">${data.puntos_totales ?? 0}</b> pts</div>
+                <div class="popup-stat">Puntaje: <b style="color: #10b981;">${formatNullable(data.puntaje, 2, '0.00')}</b></div>
                 <div class="popup-stat">Checkpoint ponderado mas cercano: <b>${getClosestCheckpointLabel(data)}</b></div>
                 <div class="popup-stat">Dist. al ponderado: <b>${formatNullable(data.distancia_checkpoint_mas_cercano_m, 2)}</b> m</div>
                 <div class="popup-stat">Checkpoint pendiente: <b>${getPendingCheckpointLabel(data)}</b></div>
@@ -1013,7 +891,7 @@
             `;
         }
 
-        function procesarPosicion(data) {
+        socket.on('nueva_posicion', function (data) {
             const id = data.participante;
             const lngLat = [data.longitude, data.latitude]; // MapLibre usa [Lng, Lat]
             const speed = Number(data.velocidad) || 0;
@@ -1053,7 +931,8 @@
 
                 // Crear card en la lista
                 const card = document.createElement('div');
-                const peso = Number(data.peso ?? data.puntos_totales ?? 0) || 0;
+                const puntaje = Number(data.puntaje ?? data.puntos_totales ?? 0) || 0;
+                const peso = Number(data.peso ?? 0) || 0;
                 card.className = `runner-card ${getPesoClass(peso)}`;
                 card.id = `card-${id}`;
                 card.onclick = (e) => {
@@ -1070,7 +949,7 @@
                         <div class="runner-details">
                             <div class="runner-name">${id}</div>
                             <div class="runner-stat-col" style="display: none;" class="dashboard-only-expanded"></div>
-                            <div class="runner-stat-col">Pts: <span id="puntos-${id}">${data.puntos_totales || 0}</span></div>
+                            <div class="runner-stat-col">Puntaje: <span id="puntos-${id}">${puntaje.toFixed(2)}</span></div>
                             <div class="runner-stat-col">Peso: <span id="peso-${id}">${peso}</span></div>
                             <div class="runner-stat-col">Dist: <span id="dist-${id}">0.00</span> km</div>
                             <div class="runner-stat-col">Vel: <span id="speed-${id}">${speed.toFixed(1)}</span> km/h</div>
@@ -1119,7 +998,7 @@
                 const prevVisitedCount = runner.checkpoints_visitados || 0;
                 
                 if (visitedCount > prevVisitedCount) {
-                    showToast(`<b>${id}</b> llegó a un nuevo Checkpoint!<br>Puntos totales: <span style="color: #10b981; font-weight: bold;">${data.puntos_totales || 0} pts</span>`);
+                    showToast(`<b>${id}</b> llegó a un nuevo Checkpoint!<br>Puntaje: <span style="color: #10b981; font-weight: bold;">${formatNullable(data.puntaje, 2, '0.00')}</span>`);
                     
                     if (data.checkpoint_mas_cercano && data.distancia_checkpoint_mas_cercano_m < 20) {
                         const cpEl = document.getElementById(`cp-marker-${data.checkpoint_mas_cercano.id}`);
@@ -1137,13 +1016,13 @@
                 
                 const dist_km = data.distancia_km || 0;
                 const max_spd = data.max_speed || speed;
-                const pts = data.puntos_totales || 0;
-                const peso = Number(data.peso ?? pts) || 0;
+                const pts = Number(data.puntaje ?? data.puntos_totales ?? 0) || 0;
+                const peso = Number(data.peso ?? 0) || 0;
 
                 document.getElementById(`speed-${id}`).textContent = speed.toFixed(1);
                 document.getElementById(`dist-${id}`).textContent = dist_km.toFixed(3);
                 document.getElementById(`max-speed-${id}`).textContent = max_spd.toFixed(1);
-                document.getElementById(`puntos-${id}`).textContent = pts;
+                document.getElementById(`puntos-${id}`).textContent = pts.toFixed(2);
                 document.getElementById(`peso-${id}`).textContent = peso;
                 document.getElementById(`posicion-${id}`).textContent = data.posicion ?? '--';
                 applyPesoClass(runner.card, peso);
@@ -1173,7 +1052,7 @@
                 // Actualizar el HTML del popup si está abierto
                 runner.popup.setHTML(buildRunnerPopupHtml(id, runner.color, data, speed));
             }
-        }
+        });
     </script>
 </body>
 

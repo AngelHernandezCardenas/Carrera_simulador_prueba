@@ -124,7 +124,7 @@ def leer_datos_arcgis_geojson(ruta_archivo='gps_data.geojson'):
     global estado_anterior
     
     if not os.path.exists(ruta_archivo):
-        print(f"⚠️ Archivo {ruta_archivo} no encontrado. Esperando datos...")
+        print(f"️ Archivo {ruta_archivo} no encontrado. Esperando datos...")
         return pd.DataFrame()
         
     try:

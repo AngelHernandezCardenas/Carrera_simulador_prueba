@@ -3,15 +3,20 @@ import math
 import random
 import threading
 import time
+import base64
 
 from flask import Flask, jsonify, render_template, request, send_from_directory
 from flask_socketio import SocketIO
+import cv2
+import numpy as np
 
 from checkpoints import CHECKPOINTS, actualizar_estado_corredor, clasificar_corredores, haversine_distance_m
 from config import DURACION, MAX_PARTICIPANTES, participants_lock
 from geojson_store import append_feature
 from participants import get_or_create_participant, participants_cache, reset_participants, save_participants
 from Puntaje import get_puntaje_retos_detalle, refrescar_puntajes_retos, sincronizar_puntajes
+from colores.gp_vision_optimizer import GPVisionOptimizer
+from colores.vision_backend import procesar_frame_vision_servidor
 
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*")
@@ -29,10 +34,13 @@ _battery_levels_by_device: dict[str, float] = {}
 _battery_lock = threading.Lock()
 _last_gps_saved_by_device: dict[str, float] = {}
 _gps_dedupe_lock = threading.Lock()
+device_trackers: dict[str, dict] = {}
 MAX_BATTERY_SCORE = 30.0
 MIN_GPS_SAVE_INTERVAL_SECONDS = 1.5
 PESO_RESET_CHECKPOINT_ID = 4
 PESO_RESET_DISTANCE_METERS = 4.0
+COLOR_WEIGHTS_KG = {"Rojo": 1.0, "Blanco": 3.0, "Negro": 5.0}
+PESO_ALERTA_KG = 10.0
 
 
 # ---------------------------------------------------------------------------
@@ -190,6 +198,41 @@ def should_reset_peso(latitude: float, longitude: float) -> bool:
     return distance_m <= PESO_RESET_DISTANCE_METERS
 
 
+
+
+def normalize_color_counts(raw_counts) -> dict[str, int]:
+    if not isinstance(raw_counts, dict):
+        return {color: 0 for color in COLOR_WEIGHTS_KG}
+
+    normalized = {}
+    for color in COLOR_WEIGHTS_KG:
+        try:
+            normalized[color] = max(0, int(raw_counts.get(color, 0) or 0))
+        except (TypeError, ValueError):
+            normalized[color] = 0
+    return normalized
+
+
+def expand_detected_colors(color_counts: dict[str, int]) -> list[str]:
+    colors = []
+    for color in COLOR_WEIGHTS_KG:
+        colors.extend([color] * color_counts.get(color, 0))
+    return colors
+
+
+def calculate_peso_kg_from_payload(data: dict, color_counts: dict[str, int]) -> float | None:
+    if any(color_counts.values()):
+        return sum(COLOR_WEIGHTS_KG[color] * count for color, count in color_counts.items())
+
+    for key in ("peso_kg", "carga_kg"):
+        if data.get(key) is not None:
+            try:
+                return max(0.0, float(data[key]))
+            except (TypeError, ValueError):
+                return None
+
+    return None
+
 def update_runner_stats(participante: str, latitude: float, longitude: float, speed_kmh) -> dict:
     vel = float(speed_kmh) if speed_kmh is not None else 0.0
 
@@ -312,6 +355,37 @@ def gps():
         participant_entry["puntaje_retos"] = puntaje_retos_actual
         participant_entry["peso"] = participant_entry.get("puntos_totales", 0)
 
+        color_counts = normalize_color_counts(data.get("conteo_colores") or data.get("color_counts"))
+        detected_colors = expand_detected_colors(color_counts)
+        peso_detectado_kg = calculate_peso_kg_from_payload(data, color_counts)
+
+        participant_entry["conteo_colores"] = color_counts
+        participant_entry["color_detectado"] = detected_colors
+        participant_entry.setdefault("peso_kg", 0.0)
+        participant_entry.setdefault("peso_entregado_kg", 0.0)
+        participant_entry["peso_descargado_kg"] = 0.0
+
+        if peso_detectado_kg is not None:
+            participant_entry["peso_kg"] = peso_detectado_kg
+
+        inside_descarga = should_reset_peso(latitude, longitude)
+        was_inside_descarga = bool(participant_entry.get("en_checkpoint_descarga_peso", False))
+        if inside_descarga and not was_inside_descarga:
+            peso_actual_kg = safe_float(participant_entry.get("peso_kg"), 0.0)
+            if peso_actual_kg > 0:
+                participant_entry["peso_descargado_kg"] = peso_actual_kg
+                participant_entry["peso_entregado_kg"] = safe_float(participant_entry.get("peso_entregado_kg"), 0.0) + peso_actual_kg
+            participant_entry["peso_kg"] = 0.0
+            participant_entry["conteo_colores"] = {color: 0 for color in COLOR_WEIGHTS_KG}
+            participant_entry["color_detectado"] = []
+            participant_entry["en_checkpoint_descarga_peso"] = True
+        elif inside_descarga:
+            participant_entry["peso_kg"] = 0.0
+            participant_entry["conteo_colores"] = {color: 0 for color in COLOR_WEIGHTS_KG}
+            participant_entry["color_detectado"] = []
+        else:
+            participant_entry["en_checkpoint_descarga_peso"] = False
+
         estado_actual = participant_entry.get("estado", "corriendo")
         nivel_bateria_final = participant_entry.get("nivel_bateria_final")
         if estado_actual == "terminado":
@@ -346,6 +420,11 @@ def gps():
             "puntos_totales": participant_entry.get("puntos_totales", 0),
             "puntaje_equipo": participant_entry.get("puntaje_equipo", 0),
             "peso": participant_entry.get("puntos_totales", 0),
+            "peso_kg": participant_entry.get("peso_kg", 0.0),
+            "peso_entregado_kg": participant_entry.get("peso_entregado_kg", 0.0),
+            "peso_descargado_kg": participant_entry.get("peso_descargado_kg", 0.0),
+            "conteo_colores": participant_entry.get("conteo_colores", {color: 0 for color in COLOR_WEIGHTS_KG}),
+            "color_detectado": participant_entry.get("color_detectado", []),
         }
         runners_snapshot = {
             runner_device_id: {
@@ -392,6 +471,9 @@ def gps():
             "puntaje": puntaje,
             "puntos_totales": checkpoint_state["puntos_totales"],
             "peso": checkpoint_state["peso"],
+            "peso_kg": checkpoint_state["peso_kg"],
+            "peso_entregado_kg": checkpoint_state["peso_entregado_kg"],
+            "peso_descargado_kg": checkpoint_state["peso_descargado_kg"],
             "puntaje_equipo": checkpoint_state["puntaje_equipo"],
             "puntuacion_checkpoints": checkpoint_state["puntuacion_checkpoints"],
             "checkpoints_visitados": checkpoint_state["checkpoints_visitados"],
@@ -424,6 +506,12 @@ def gps():
             "device_id": device_id,
             "device_label": data.get("device_label") or f"Dispositivo-{device_id[:8]}",
             "device_ip": device_ip,
+            "carga_kg": checkpoint_state["peso_kg"],
+            "peso_kg": checkpoint_state["peso_kg"],
+            "peso_entregado_kg": checkpoint_state["peso_entregado_kg"],
+            "peso_descargado_kg": checkpoint_state["peso_descargado_kg"],
+            "conteo_colores": checkpoint_state["conteo_colores"],
+            "color_detectado": checkpoint_state["color_detectado"],
         },
     }
 
@@ -459,6 +547,9 @@ def gps():
         "estado": checkpoint_state["estado"],
         "puntos_totales": checkpoint_state["puntos_totales"],
         "peso": checkpoint_state["peso"],
+        "peso_kg": checkpoint_state["peso_kg"],
+        "peso_entregado_kg": checkpoint_state["peso_entregado_kg"],
+        "peso_descargado_kg": checkpoint_state["peso_descargado_kg"],
         "puntaje_equipo": checkpoint_state["puntaje_equipo"],
         "checkpoints_visitados": checkpoint_state["cantidad_checkpoints_visitados"],
         "checkpoints_ponderados_visitados": checkpoint_state["cantidad_checkpoints_ponderados_visitados"],
@@ -467,6 +558,12 @@ def gps():
         "distancia_checkpoint_pendiente_mas_cercano_m": checkpoint_state["distancia_checkpoint_pendiente_mas_cercano_m"],
         "checkpoint_mas_cercano": checkpoint_state["checkpoint_mas_cercano"],
         "distancia_checkpoint_mas_cercano_m": checkpoint_state["distancia_checkpoint_mas_cercano_m"],
+        "carga_kg": checkpoint_state["peso_kg"],
+        "peso_kg": checkpoint_state["peso_kg"],
+        "peso_entregado_kg": checkpoint_state["peso_entregado_kg"],
+        "peso_descargado_kg": checkpoint_state["peso_descargado_kg"],
+        "conteo_colores": checkpoint_state["conteo_colores"],
+        "color_detectado": checkpoint_state["color_detectado"],
     })
 
     response = {
@@ -483,6 +580,9 @@ def gps():
         "puntaje": puntaje,
         "puntos_totales": checkpoint_state["puntos_totales"],
         "peso": checkpoint_state["peso"],
+        "peso_kg": checkpoint_state["peso_kg"],
+        "peso_entregado_kg": checkpoint_state["peso_entregado_kg"],
+        "peso_descargado_kg": checkpoint_state["peso_descargado_kg"],
         "puntaje_equipo": checkpoint_state["puntaje_equipo"],
         "puntuacion_checkpoints": checkpoint_state["puntuacion_checkpoints"],
         "checkpoints_visitados": checkpoint_state["checkpoints_visitados"],
@@ -496,10 +596,91 @@ def gps():
         "estado": checkpoint_state["estado"],
         "distancia_km": runner_stats["distancia_km"],
         "max_speed": runner_stats["max_speed"],
+        "carga_kg": checkpoint_state["peso_kg"],
+        "peso_kg": checkpoint_state["peso_kg"],
+        "peso_entregado_kg": checkpoint_state["peso_entregado_kg"],
+        "peso_descargado_kg": checkpoint_state["peso_descargado_kg"],
+        "conteo_colores": checkpoint_state["conteo_colores"],
+        "color_detectado": checkpoint_state["color_detectado"],
     }
 
     return jsonify(response)
 
+@app.route("/vision", methods=["POST"])
+def vision():
+    data = request.json or {}
+    if "image" not in data or "device_id" not in data:
+        return jsonify({"status": "error", "msg": "Datos de imagen o dispositivo faltantes"}), 400
+
+    device_id = data["device_id"]
+    image_b64 = data["image"]
+    if "," in image_b64:
+        image_b64 = image_b64.split(",", 1)[1]
+
+    try:
+        image_bytes = base64.b64decode(image_b64)
+        np_arr = np.frombuffer(image_bytes, np.uint8)
+        frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+
+        if frame is None:
+            return jsonify({"status": "error", "msg": "No se pudo decodificar el frame"}), 400
+
+        if device_id not in device_trackers:
+            device_trackers[device_id] = {
+                "trackers": {},
+                "huellas": {"Rojo": [], "Blanco": [], "Negro": []},
+                "counts": {"Rojo": 0, "Blanco": 0, "Negro": 0},
+                "ultimo_intento": {},
+                "gp_optimizer": GPVisionOptimizer(),
+            }
+
+        estado = device_trackers[device_id]
+        gp_opt = estado["gp_optimizer"]
+        gp_params = gp_opt.obtener_params()
+
+        gp_max_w = gp_params.get("max_width", 1280)
+        h_orig, w_orig = frame.shape[:2]
+        if w_orig > gp_max_w:
+            scale = gp_max_w / w_orig
+            frame = cv2.resize(frame, (gp_max_w, int(h_orig * scale)), interpolation=cv2.INTER_AREA)
+
+        t_start = time.time()
+        detectado, frame_annotated = procesar_frame_vision_servidor(frame, estado, gp_params=gp_params)
+        server_elapsed_ms = (time.time() - t_start) * 1000.0
+
+        client_elapsed_ms = data.get("client_elapsed_ms", 0)
+        tiempo_a_reportar = client_elapsed_ms if client_elapsed_ms > 0 else server_elapsed_ms
+        gp_opt.reportar_tiempo(tiempo_a_reportar)
+
+        jpeg_q = gp_params.get("jpeg_quality", 55)
+        encode_params = [cv2.IMWRITE_JPEG_QUALITY, jpeg_q]
+        _, buffer = cv2.imencode(".jpg", frame_annotated, encode_params)
+        annotated_b64 = base64.b64encode(buffer).decode("utf-8")
+
+        if detectado and "color" in detectado:
+            return jsonify({
+                "status": "ok",
+                "detected": True,
+                "color": detectado["color"],
+                "carga_kg": detectado["carga_kg"],
+                "orientacion": detectado["orientacion"],
+                "counts": detectado["counts"],
+                "annotated_image": annotated_b64,
+                "gp_max_width": gp_max_w,
+                "gp_jpeg_quality": jpeg_q,
+            })
+
+        return jsonify({
+            "status": "ok",
+            "detected": False,
+            "counts": detectado["counts"] if detectado else None,
+            "annotated_image": annotated_b64,
+            "gp_max_width": gp_max_w,
+            "gp_jpeg_quality": jpeg_q,
+        })
+
+    except Exception as exc:
+        return jsonify({"status": "error", "msg": str(exc)}), 500
 
 # ---------------------------------------------------------------------------
 # Entry point

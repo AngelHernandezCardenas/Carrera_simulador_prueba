@@ -69,7 +69,16 @@
     <div class="sub">Captura ubicación, velocidad y acelerómetro del celular.</div>
 
     <button id="sensorBtn" class="secondary" onclick="activarSensores()">Activar acelerómetro manual</button>
+    <button id="camaraBtn" class="secondary" onclick="toggleCamara()">Activar camara (Escaner)</button>
     <button id="btn" onclick="iniciar()">Iniciar captura</button>
+
+
+
+    <div id="camaraContainer" style="display: none; margin-bottom: 12px;">
+        <video id="videoCam" autoplay playsinline style="display: none;"></video>
+        <img id="fotoCam" style="width: 100%; border-radius: 8px; background: #000; min-height: 200px; display: block;" />
+        <canvas id="canvasCam" style="display: none;"></canvas>
+    </div>
 
     <div class="grid">
         <div class="card">
@@ -105,6 +114,18 @@ Magnitud: --</div>
         </div>
     </div>
 
+
+        <div class="card full" style="display: flex; justify-content: center; align-items: center; gap: 24px; min-height: 80px;">
+            <div id="circle-red" style="width: 50px; height: 50px; border-radius: 50%; background-color: red; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 20px;">0</div>
+            <div id="circle-white" style="width: 50px; height: 50px; border-radius: 50%; background-color: white; border: 1px solid #ccc; display: flex; align-items: center; justify-content: center; color: black; font-weight: bold; font-size: 20px;">0</div>
+            <div id="circle-black" style="width: 50px; height: 50px; border-radius: 50%; background-color: black; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 20px;">0</div>
+        </div>
+
+        <div class="card full">
+            <div class="label">Escaner de carga visual</div>
+            <div class="value" id="cargaActual">-- kg</div>
+            <div class="small" id="colorActual">Color: --</div>
+        </div>
     <div id="estado">Esperando...</div>
 
 <script>
@@ -147,6 +168,15 @@ Magnitud: --</div>
     let ultimoEnvioGpsMs = 0;
     let gpsPollTimer = null;
     let ultimaPosicionGps = null;
+    let streamCamara = null;
+    let escaneoActivo = false;
+    let escaneoBusy = false;
+    let pesoKgDetectado = 0;
+    let conteoColoresDetectados = { Rojo: 0, Blanco: 0, Negro: 0 };
+    let coloresDetectados = [];
+    let currentMaxWidth = 1280;
+    let currentJpegQuality = 0.55;
+    let lastFrameTimeMs = 0;
 
     const DEVICE_ID_KEY = "gps_tracker_device_id";
     const ACCELERATION_SAMPLE_WINDOW = 3;
@@ -435,6 +465,7 @@ Magnitud: --</div>
         }
         silentAudio.pause();
         releaseWakeLock();
+        detenerEscaner();
         activo = false;
         ultimaPosicionGps = null;
         document.getElementById("btn").textContent = "Iniciar captura";
@@ -507,7 +538,11 @@ Magnitud: --</div>
                     client_timestamp_ms:     ahoraMs,
 
                     device_id:    deviceId,
-                    device_label: getDeviceLabel(deviceId)
+                    device_label: getDeviceLabel(deviceId),
+                    carga_kg: pesoKgDetectado,
+                    peso_kg: pesoKgDetectado,
+                    conteo_colores: conteoColoresDetectados,
+                    color_detectado: coloresDetectados
                 })
             });
             const data = await resp.json();
@@ -542,6 +577,134 @@ Magnitud: --</div>
         log(`Error GPS (código ${error.code}):\n` + (mensajes[error.code] || error.message), "error");
     }
 
+
+
+    // -------------------------------------------------------------------------
+    // Escaner de colores
+    // -------------------------------------------------------------------------
+
+    function detenerEscaner() {
+        escaneoActivo = false;
+        if (streamCamara) {
+            streamCamara.getTracks().forEach(track => track.stop());
+            streamCamara = null;
+        }
+        const contenedor = document.getElementById("camaraContainer");
+        const camaraBtn = document.getElementById("camaraBtn");
+        if (contenedor) contenedor.style.display = "none";
+        if (camaraBtn) camaraBtn.textContent = "Activar camara (Escaner)";
+    }
+
+    async function toggleCamara() {
+        if (escaneoActivo) {
+            detenerEscaner();
+            pesoKgDetectado = 0;
+            conteoColoresDetectados = { Rojo: 0, Blanco: 0, Negro: 0 };
+            coloresDetectados = [];
+            document.getElementById("cargaActual").textContent = "-- kg";
+            document.getElementById("colorActual").textContent = "Color: --";
+            document.getElementById("fotoCam").src = "";
+            return;
+        }
+
+        try {
+            const video = document.getElementById("videoCam");
+            streamCamara = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: "environment",
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                }
+            });
+            video.srcObject = streamCamara;
+            document.getElementById("camaraContainer").style.display = "block";
+            document.getElementById("camaraBtn").textContent = "Apagar camara";
+            escaneoActivo = true;
+            video.onloadedmetadata = () => bucleEscaneo();
+            log("Camara activada. Escaneando colores...", "ok");
+        } catch (e) {
+            log("Error al acceder a la camara: " + e.message, "error");
+        }
+    }
+
+    async function bucleEscaneo() {
+        if (!escaneoActivo) return;
+        await escanearFrame();
+        setTimeout(bucleEscaneo, 250);
+    }
+
+    async function escanearFrame() {
+        if (escaneoBusy) return;
+        escaneoBusy = true;
+
+        const video = document.getElementById("videoCam");
+        const canvas = document.getElementById("canvasCam");
+        if (!video || video.videoWidth === 0) {
+            escaneoBusy = false;
+            return;
+        }
+
+        const scale = Math.min(1, currentMaxWidth / video.videoWidth);
+        canvas.width = Math.round(video.videoWidth * scale);
+        canvas.height = Math.round(video.videoHeight * scale);
+        canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        const started = performance.now();
+        const base64Img = canvas.toDataURL("image/jpeg", currentJpegQuality);
+
+        try {
+            const resp = await fetch("/vision", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    image: base64Img,
+                    device_id: getDeviceId(),
+                    client_elapsed_ms: lastFrameTimeMs
+                })
+            });
+            const data = await resp.json();
+            lastFrameTimeMs = performance.now() - started;
+
+            if (data.status === "ok") {
+                if (data.annotated_image) {
+                    document.getElementById("fotoCam").src = "data:image/jpeg;base64," + data.annotated_image;
+                }
+                if (data.gp_max_width) currentMaxWidth = data.gp_max_width;
+                if (data.gp_jpeg_quality) currentJpegQuality = data.gp_jpeg_quality / 100;
+                if (data.counts) {
+                    document.getElementById("circle-red").textContent = data.counts.Rojo || 0;
+                    document.getElementById("circle-white").textContent = data.counts.Blanco || 0;
+                    document.getElementById("circle-black").textContent = data.counts.Negro || 0;
+                    conteoColoresDetectados = data.counts;
+                    coloresDetectados = [];
+                    Object.entries(conteoColoresDetectados).forEach(([color, count]) => {
+                        for (let i = 0; i < Number(count || 0); i += 1) coloresDetectados.push(color);
+                    });
+                    pesoKgDetectado = (conteoColoresDetectados.Rojo || 0) * 15 +
+                        (conteoColoresDetectados.Blanco || 0) * 25 +
+                        (conteoColoresDetectados.Negro || 0) * 40;
+                    document.getElementById("cargaActual").textContent = `${pesoKgDetectado} kg`;
+                    document.getElementById("colorActual").textContent = `Color: ${coloresDetectados.join(", ") || "--"}`;
+                }
+                if (data.detected) {
+                    conteoColoresDetectados = data.counts || conteoColoresDetectados;
+                    coloresDetectados = [];
+                    Object.entries(conteoColoresDetectados).forEach(([color, count]) => {
+                        for (let i = 0; i < Number(count || 0); i += 1) coloresDetectados.push(color);
+                    });
+                    pesoKgDetectado = (conteoColoresDetectados.Rojo || 0) * 15 +
+                        (conteoColoresDetectados.Blanco || 0) * 25 +
+                        (conteoColoresDetectados.Negro || 0) * 40;
+                    document.getElementById("cargaActual").textContent = `${pesoKgDetectado} kg`;
+                    document.getElementById("colorActual").textContent = `Color: ${coloresDetectados.join(", ") || "--"}`;
+                }
+            }
+        } catch (e) {
+            console.warn("Error en vision:", e);
+        } finally {
+            escaneoBusy = false;
+        }
+    }
     // Iniciar al cargar la página
     registrarParticipante().catch(e => log(e.message, "error"));
     actualizarPanelAcelerometro();

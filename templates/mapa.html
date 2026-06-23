@@ -932,7 +932,7 @@
                 // Crear card en la lista
                 const card = document.createElement('div');
                 const puntaje = Number(data.puntaje ?? data.puntos_totales ?? 0) || 0;
-                const peso = Number(data.peso ?? 0) || 0;
+                const peso = Number(data.peso_kg ?? data.peso ?? 0) || 0;
                 card.className = `runner-card ${getPesoClass(peso)}`;
                 card.id = `card-${id}`;
                 card.onclick = (e) => {
@@ -1017,7 +1017,7 @@
                 const dist_km = data.distancia_km || 0;
                 const max_spd = data.max_speed || speed;
                 const pts = Number(data.puntaje ?? data.puntos_totales ?? 0) || 0;
-                const peso = Number(data.peso ?? 0) || 0;
+                const peso = Number(data.peso_kg ?? data.peso ?? 0) || 0;
 
                 document.getElementById(`speed-${id}`).textContent = speed.toFixed(1);
                 document.getElementById(`dist-${id}`).textContent = dist_km.toFixed(3);

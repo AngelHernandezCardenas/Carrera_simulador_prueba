@@ -4,6 +4,7 @@ import random
 import threading
 import time
 import base64
+from pathlib import Path
 
 from flask import Flask, jsonify, render_template, request, send_from_directory
 from flask_socketio import SocketIO
@@ -41,6 +42,31 @@ PESO_RESET_CHECKPOINT_ID = 4
 PESO_RESET_DISTANCE_METERS = 4.0
 COLOR_WEIGHTS_KG = {"Rojo": 1.0, "Blanco": 3.0, "Negro": 5.0}
 PESO_ALERTA_KG = 10.0
+BASE_DIR = Path(__file__).resolve().parent
+VISION_CONFIG = {
+    "limits": {"Rojo": 10, "Negro": 2, "Blanco": 3},
+    "max_balls_total": 10,
+    "mesh_fraction": 0.38,
+    "camera": {
+        "width": 1280,
+        "height": 720,
+        "delay_ms": 33,
+    },
+    "model_path": str(BASE_DIR / "colores" / "detección" / "best.pt"),
+    "hsv_ranges": {
+        "Rojo": [
+            (np.array([0, 50, 40]), np.array([12, 255, 255])),
+            (np.array([160, 50, 40]), np.array([180, 255, 255])),
+        ],
+        "Blanco": [
+            (np.array([0, 0, 50]), np.array([180, 180, 255])),
+        ],
+        "Negro": [
+            (np.array([0, 0, 0]), np.array([180, 255, 75])),
+        ],
+    },
+    "color_weights_kg": COLOR_WEIGHTS_KG,
+}
 
 
 # ---------------------------------------------------------------------------
@@ -632,6 +658,7 @@ def vision():
                 "counts": {"Rojo": 0, "Blanco": 0, "Negro": 0},
                 "ultimo_intento": {},
                 "gp_optimizer": GPVisionOptimizer(),
+                "vision_config": VISION_CONFIG,
             }
 
         estado = device_trackers[device_id]
@@ -645,7 +672,12 @@ def vision():
             frame = cv2.resize(frame, (gp_max_w, int(h_orig * scale)), interpolation=cv2.INTER_AREA)
 
         t_start = time.time()
-        detectado, frame_annotated = procesar_frame_vision_servidor(frame, estado, gp_params=gp_params)
+        detectado, frame_annotated = procesar_frame_vision_servidor(
+            frame,
+            estado,
+            gp_params=gp_params,
+            config=VISION_CONFIG,
+        )
         server_elapsed_ms = (time.time() - t_start) * 1000.0
 
         client_elapsed_ms = data.get("client_elapsed_ms", 0)

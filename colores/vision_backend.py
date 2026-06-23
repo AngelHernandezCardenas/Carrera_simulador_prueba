@@ -127,7 +127,48 @@ def estimar_z(area_px, frame_shape):
     frac = area_px / (frame_shape[0] * frame_shape[1])
     return round(max(0.1, min(5.0, 1.0 / (frac * 10 + 0.01))), 2)
 
-def procesar_frame_vision_servidor(frame, estado, gp_params=None):
+
+def get_zona_deteccion(frame_shape, mesh_fraction=0.38):
+    fh, fw = frame_shape[:2]
+    cx, cy = fw // 2, fh // 2
+    radio = int(min(fw, fh) * mesh_fraction)
+    return cx, cy, radio
+
+
+def dibujar_reticula(frame, mesh_fraction=0.38):
+    cx, cy, radio = get_zona_deteccion(frame.shape, mesh_fraction)
+    color = (255, 255, 255)
+    cv2.rectangle(frame, (cx - radio, cy - radio), (cx + radio, cy + radio), color, 1)
+    cv2.line(frame, (cx, cy - radio), (cx, cy + radio), color, 1)
+    cv2.line(frame, (cx - radio, cy), (cx + radio, cy), color, 1)
+    cv2.circle(frame, (cx, cy), radio, color, 1)
+    return cx, cy, radio
+
+
+def dentro_del_circulo(px, py, cx, cy, radio):
+    return ((px - cx) ** 2 + (py - cy) ** 2) ** 0.5 <= radio
+
+
+def construir_mascara_hsv(hsv, nombre, config=None):
+    hsv_ranges = (config or {}).get('hsv_ranges', {})
+    rangos = hsv_ranges.get(nombre)
+    if rangos:
+        mascara = None
+        for lower, upper in rangos:
+            tramo = cv2.inRange(hsv, lower, upper)
+            mascara = tramo if mascara is None else cv2.add(mascara, tramo)
+        return mascara
+
+    if nombre == 'Rojo':
+        return cv2.add(cv2.inRange(hsv, *RANGO_ROJO_1), cv2.inRange(hsv, *RANGO_ROJO_2))
+    if nombre == 'Blanco':
+        return cv2.inRange(hsv, *RANGO_BLANCO)
+    if nombre == 'Negro':
+        return cv2.inRange(hsv, *RANGO_NEGRO)
+    return np.zeros(hsv.shape[:2], dtype=np.uint8)
+
+
+def procesar_frame_vision_servidor(frame, estado, gp_params=None, config=None):
     """
     Detecta Rojo/Blanco/Negro devolviendo el objeto detectado.
     Dibuja la malla de calibración, contornos y etiquetas sobre el frame.
@@ -140,6 +181,11 @@ def procesar_frame_vision_servidor(frame, estado, gp_params=None):
     counts = estado['counts']
     ultimo_intento = estado['ultimo_intento']
     temporizadores = estado.setdefault('temporizadores', {})
+    config = config or estado.get('vision_config') or {}
+    limits = config.get('limits', {'Rojo': 10, 'Negro': 2, 'Blanco': 3})
+    max_balls_total = config.get('max_balls_total', 10)
+    mesh_fraction = config.get('mesh_fraction', 0.38)
+    color_weights_kg = config.get('color_weights_kg', {'Rojo': 1.0, 'Blanco': 3.0, 'Negro': 5.0})
 
     # ── Parámetros dinámicos del GP (o defaults) ──────────────────────────────
     if gp_params:
@@ -158,10 +204,11 @@ def procesar_frame_vision_servidor(frame, estado, gp_params=None):
     t_act   = time.time()
     
     area_min = max(800, int(frame.shape[0] * frame.shape[1] * frac_min))
+    cx_zona, cy_zona, radio_zona = dibujar_reticula(frame, mesh_fraction)
 
-    m_rojo   = cv2.add(cv2.inRange(hsv, *RANGO_ROJO_1), cv2.inRange(hsv, *RANGO_ROJO_2))
-    m_blanco = cv2.inRange(hsv, *RANGO_BLANCO)
-    m_negro  = cv2.inRange(hsv, *RANGO_NEGRO)
+    m_rojo = construir_mascara_hsv(hsv, 'Rojo', config)
+    m_blanco = construir_mascara_hsv(hsv, 'Blanco', config)
+    m_negro = construir_mascara_hsv(hsv, 'Negro', config)
 
     colores = [
         ('Rojo',   m_rojo,   (0,   0, 255)),
@@ -187,6 +234,10 @@ def procesar_frame_vision_servidor(frame, estado, gp_params=None):
             area = cv2.contourArea(c)
             if area >= area_min:
                 x, y, w, h = cv2.boundingRect(c)
+                centro_x = x + w / 2.0
+                centro_y = y + h / 2.0
+                if not dentro_del_circulo(centro_x, centro_y, cx_zona, cy_zona, radio_zona):
+                    continue
                 px_c = cv2.countNonZero(mascara[y:y+h, x:x+w])
                 if px_c / (w * h) >= RATIO_COB_MIN:
                     bbox_raw = (x, y, w, h)
@@ -258,11 +309,11 @@ def procesar_frame_vision_servidor(frame, estado, gp_params=None):
                 if not es_mismo_objeto(huella, huellas[nombre]):
                     if huella is not None:
                         huellas[nombre].append(huella)
-                    counts[nombre] += 1
+                    total_actual = sum(int(v) for v in counts.values())
+                    if counts[nombre] < limits.get(nombre, max_balls_total) and total_actual < max_balls_total:
+                        counts[nombre] += 1
             
-            # Map pesos (Carga)
-            mapa_cargas = { "Rojo": 15.0, "Blanco": 25.0, "Negro": 40.0 }
-            carga_kg = mapa_cargas.get(nombre, 0.0)
+            carga_kg = float(color_weights_kg.get(nombre, 0.0))
 
             detectado = {
                 "color": nombre,

@@ -1,0 +1,5 @@
+Fase 5 - Mejor hiper-heuristica
+add(mul(0.0167360952364195, P), PW)
+
+Fitness: 1154.0630
+Nodos: 5  |  Altura: 2

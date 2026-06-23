@@ -1,0 +1,5 @@
+Fase 2 - Mejor hiper-heuristica
+sub(PW, div(PW, W))
+
+Fitness: 1151.2504
+Nodos: 5  |  Altura: 2

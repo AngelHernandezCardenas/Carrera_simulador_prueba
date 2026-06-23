@@ -1,0 +1,5 @@
+Fase 6 - Mejor hiper-heuristica
+div(add(P, sub(div(mul(div(PW, PW), div(PW, PW)), add(div(P, PW), div(P, P))), PW)), W)
+
+Fitness: 1261.6357
+Nodos: 21  |  Altura: 6

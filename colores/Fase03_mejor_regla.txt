@@ -1,0 +1,5 @@
+Fase 3 - Mejor hiper-heuristica
+div(add(P, sub(0.8885731114335684, PW)), W)
+
+Fitness: 1218.8111
+Nodos: 7  |  Altura: 3

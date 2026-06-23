@@ -5,7 +5,7 @@ import threading
 import time
 import base64
 
-from flask import Flask, jsonify, render_template, request, send_from_directory
+from flask import Flask, jsonify, render_template, request, send_from_directory, make_response
 from flask_socketio import SocketIO
 import cv2
 import numpy as np
@@ -15,8 +15,17 @@ from config import DURACION, MAX_PARTICIPANTES, participants_lock
 from geojson_store import append_feature
 from participants import get_or_create_participant, participants_cache, reset_participants, save_participants
 from Puntaje import get_puntaje_retos_detalle, refrescar_puntajes_retos, sincronizar_puntajes
-from colores.gp_vision_optimizer import GPVisionOptimizer
-from colores.vision_backend import procesar_frame_vision_servidor
+from colores.vision_backend import procesar_frame_yolo_api
+from ultralytics import YOLO
+import os
+
+modelo_yolo_global = None
+ruta_modelo = os.path.join(os.path.dirname(__file__), "colores", "detección", "best.pt")
+if os.path.exists(ruta_modelo):
+    print(f"Cargando YOLO desde {ruta_modelo}")
+    modelo_yolo_global = YOLO(ruta_modelo)
+else:
+    print(f"ERROR: No se encontró YOLO en {ruta_modelo}")
 
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*")
@@ -99,11 +108,9 @@ def get_participant_position(participante: str) -> int | None:
 def get_battery_score(nivel_bateria: float) -> float:
     with _battery_lock:
         highest_battery = max(_battery_levels_by_device.values(), default=0.0)
-
-    if highest_battery <= 0:
-        return 0.0
-
-    return clamp((nivel_bateria / highest_battery) * MAX_BATTERY_SCORE, 0.0, MAX_BATTERY_SCORE)
+    if highest_battery > 0:
+        return round((nivel_bateria / highest_battery) * MAX_BATTERY_SCORE, 2)
+    return 0.0
 
 
 def get_battery_rank(device_id: str) -> int | None:
@@ -184,9 +191,12 @@ def should_skip_gps_save(device_id: str) -> bool:
         return False
 
 
-def should_reset_peso(latitude: float, longitude: float) -> bool:
-    checkpoint = get_checkpoint_by_id(PESO_RESET_CHECKPOINT_ID)
-    if checkpoint is None:
+def is_near_reset_checkpoint(latitude: float, longitude: float) -> bool:
+    checkpoint = next(
+        (cp for cp in CHECKPOINTS if cp["id"] == PESO_RESET_CHECKPOINT_ID),
+        None,
+    )
+    if not checkpoint:
         return False
 
     distance_m = haversine_distance_m(
@@ -263,7 +273,11 @@ def update_runner_stats(participante: str, latitude: float, longitude: float, sp
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    resp = make_response(render_template("index.html"))
+    resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    return resp
 
 
 @app.route("/mapa")
@@ -626,33 +640,20 @@ def vision():
             return jsonify({"status": "error", "msg": "No se pudo decodificar el frame"}), 400
 
         if device_id not in device_trackers:
-            device_trackers[device_id] = {
-                "trackers": {},
-                "huellas": {"Rojo": [], "Blanco": [], "Negro": []},
-                "counts": {"Rojo": 0, "Blanco": 0, "Negro": 0},
-                "ultimo_intento": {},
-                "gp_optimizer": GPVisionOptimizer(),
-            }
+            device_trackers[device_id] = {}
 
         estado = device_trackers[device_id]
-        gp_opt = estado["gp_optimizer"]
-        gp_params = gp_opt.obtener_params()
 
-        gp_max_w = gp_params.get("max_width", 1280)
+        gp_max_w = 320
         h_orig, w_orig = frame.shape[:2]
         if w_orig > gp_max_w:
             scale = gp_max_w / w_orig
             frame = cv2.resize(frame, (gp_max_w, int(h_orig * scale)), interpolation=cv2.INTER_AREA)
 
         t_start = time.time()
-        detectado, frame_annotated = procesar_frame_vision_servidor(frame, estado, gp_params=gp_params)
-        server_elapsed_ms = (time.time() - t_start) * 1000.0
+        detectado, frame_annotated = procesar_frame_yolo_api(frame, estado, modelo_yolo_global)
 
-        client_elapsed_ms = data.get("client_elapsed_ms", 0)
-        tiempo_a_reportar = client_elapsed_ms if client_elapsed_ms > 0 else server_elapsed_ms
-        gp_opt.reportar_tiempo(tiempo_a_reportar)
-
-        jpeg_q = gp_params.get("jpeg_quality", 55)
+        jpeg_q = 35
         encode_params = [cv2.IMWRITE_JPEG_QUALITY, jpeg_q]
         _, buffer = cv2.imencode(".jpg", frame_annotated, encode_params)
         annotated_b64 = base64.b64encode(buffer).decode("utf-8")
@@ -673,7 +674,7 @@ def vision():
         return jsonify({
             "status": "ok",
             "detected": False,
-            "counts": detectado["counts"] if detectado else None,
+            "counts": estado.get("counts") if not detectado else detectado.get("counts"),
             "annotated_image": annotated_b64,
             "gp_max_width": gp_max_w,
             "gp_jpeg_quality": jpeg_q,
@@ -687,4 +688,4 @@ def vision():
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    socketio.run(app, host="0.0.0.0", port=5000, debug=False)
+    socketio.run(app, host="0.0.0.0", port=5000, debug=False, allow_unsafe_werkzeug=True)

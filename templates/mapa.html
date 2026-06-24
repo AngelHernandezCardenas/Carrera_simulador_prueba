@@ -738,6 +738,14 @@
             return closest.nombre || `Checkpoint ${closest.id}`;
         }
 
+        function getPesoValue(data) {
+            return Number(data.peso_kg ?? data.carga_kg ?? data.peso ?? 0) || 0;
+        }
+
+        function formatPeso(value) {
+            return Number(value).toFixed(2);
+        }
+
         function getPesoClass(peso) {
             if (peso > 10) return 'peso-red';
             if (peso >= 7) return 'peso-yellow';
@@ -882,6 +890,7 @@
                 <div class="popup-stat">Posición: <b>${data.posicion ?? '--'}</b></div>
                 <div class="popup-stat">Checkpoints visitados: <b>${data.checkpoints_visitados ?? 0}</b></div>
                 <div class="popup-stat">Puntaje: <b style="color: #10b981;">${formatNullable(data.puntaje, 2, '0.00')}</b></div>
+                <div class="popup-stat">Peso: <b>${formatPeso(getPesoValue(data))}</b> kg</div>
                 <div class="popup-stat">Checkpoint ponderado mas cercano: <b>${getClosestCheckpointLabel(data)}</b></div>
                 <div class="popup-stat">Dist. al ponderado: <b>${formatNullable(data.distancia_checkpoint_mas_cercano_m, 2)}</b> m</div>
                 <div class="popup-stat">Checkpoint pendiente: <b>${getPendingCheckpointLabel(data)}</b></div>
@@ -932,7 +941,7 @@
                 // Crear card en la lista
                 const card = document.createElement('div');
                 const puntaje = Number(data.puntaje ?? data.puntos_totales ?? 0) || 0;
-                const peso = Number(data.peso_kg ?? data.peso ?? 0) || 0;
+                const peso = getPesoValue(data);
                 card.className = `runner-card ${getPesoClass(peso)}`;
                 card.id = `card-${id}`;
                 card.onclick = (e) => {
@@ -950,7 +959,7 @@
                             <div class="runner-name">${id}</div>
                             <div class="runner-stat-col" style="display: none;" class="dashboard-only-expanded"></div>
                             <div class="runner-stat-col">Puntaje: <span id="puntos-${id}">${puntaje.toFixed(2)}</span></div>
-                            <div class="runner-stat-col">Peso: <span id="peso-${id}">${peso}</span></div>
+                            <div class="runner-stat-col">Peso: <span id="peso-${id}">${formatPeso(peso)}</span> kg</div>
                             <div class="runner-stat-col">Dist: <span id="dist-${id}">0.00</span> km</div>
                             <div class="runner-stat-col">Vel: <span id="speed-${id}">${speed.toFixed(1)}</span> km/h</div>
                             <div class="runner-stat-col">Máx: <span id="max-speed-${id}">0.0</span> km/h</div>
@@ -1017,13 +1026,13 @@
                 const dist_km = data.distancia_km || 0;
                 const max_spd = data.max_speed || speed;
                 const pts = Number(data.puntaje ?? data.puntos_totales ?? 0) || 0;
-                const peso = Number(data.peso_kg ?? data.peso ?? 0) || 0;
+                const peso = getPesoValue(data);
 
                 document.getElementById(`speed-${id}`).textContent = speed.toFixed(1);
                 document.getElementById(`dist-${id}`).textContent = dist_km.toFixed(3);
                 document.getElementById(`max-speed-${id}`).textContent = max_spd.toFixed(1);
                 document.getElementById(`puntos-${id}`).textContent = pts.toFixed(2);
-                document.getElementById(`peso-${id}`).textContent = peso;
+                document.getElementById(`peso-${id}`).textContent = formatPeso(peso);
                 document.getElementById(`posicion-${id}`).textContent = data.posicion ?? '--';
                 applyPesoClass(runner.card, peso);
                 

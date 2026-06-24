@@ -287,15 +287,15 @@ def expand_detected_colors(color_counts: dict[str, int]) -> list[str]:
 
 
 def calculate_peso_kg_from_payload(data: dict, color_counts: dict[str, int]) -> float | None:
-    if any(color_counts.values()):
-        return sum(COLOR_WEIGHTS_KG[color] * count for color, count in color_counts.items())
-
     for key in ("peso_kg", "carga_kg"):
         if data.get(key) is not None:
             try:
                 return max(0.0, float(data[key]))
             except (TypeError, ValueError):
                 return None
+
+    if any(color_counts.values()):
+        return sum(COLOR_WEIGHTS_KG[color] * count for color, count in color_counts.items())
 
     return None
 
@@ -439,7 +439,7 @@ def gps():
         if peso_detectado_kg is not None:
             participant_entry["peso_kg"] = peso_detectado_kg
 
-        inside_descarga = is_near_reset_checkpoint(latitude, longitude)
+        inside_descarga = should_reset_peso(latitude, longitude)
         was_inside_descarga = bool(participant_entry.get("en_checkpoint_descarga_peso", False))
         if inside_descarga and not was_inside_descarga:
             peso_actual_kg = safe_float(participant_entry.get("peso_kg"), 0.0)

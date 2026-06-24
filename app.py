@@ -132,6 +132,22 @@ def get_battery_score(nivel_bateria: float) -> float:
     return clamp((nivel_bateria / highest_battery) * MAX_BATTERY_SCORE, 0.0, MAX_BATTERY_SCORE)
 
 
+def competition_rank(sorted_items: list, target_item, rank_value_fn) -> int | None:
+    previous_value = None
+    current_rank = 0
+
+    for index, item in enumerate(sorted_items, start=1):
+        item_value = rank_value_fn(item)
+        if item_value != previous_value:
+            current_rank = index
+            previous_value = item_value
+
+        if item == target_item:
+            return current_rank
+
+    return None
+
+
 def get_battery_rank(device_id: str) -> int | None:
     with _battery_lock:
         battery_levels = dict(_battery_levels_by_device)
@@ -158,18 +174,35 @@ def get_battery_rank(device_id: str) -> int | None:
         ),
     )
 
-    try:
-        return ranked_devices.index(device_id) + 1
-    except ValueError:
-        return None
+    return competition_rank(
+        ranked_devices,
+        device_id,
+        lambda participant_device_id: -round(score_from_snapshot(battery_levels[participant_device_id]), 6),
+    )
+
+
+def get_checkpoint_rank_value(runner: dict) -> tuple:
+    return (
+        runner.get("estado") != "terminado",
+        -int(runner.get(
+            "cantidad_checkpoints_ponderados_visitados",
+            runner.get("cantidad_checkpoints_visitados", 0),
+        )),
+        round(float(runner.get("distancia_checkpoint_pendiente_mas_cercano_m", float("inf"))), 2),
+    )
 
 
 def get_checkpoint_rank_from_snapshot(device_id: str, runners_snapshot: dict) -> int | None:
     ranked_runners = clasificar_corredores(runners_snapshot)
-    for index, runner in enumerate(ranked_runners, start=1):
-        if runner.get("device_id") == device_id:
-            return index
-    return None
+    target_runner = next(
+        (runner for runner in ranked_runners if runner.get("device_id") == device_id),
+        None,
+    )
+
+    if target_runner is None:
+        return None
+
+    return competition_rank(ranked_runners, target_runner, get_checkpoint_rank_value)
 
 
 def get_checkpoint_by_id(checkpoint_id: int) -> dict | None:

@@ -90,7 +90,17 @@ def leer_hoja_puntajes() -> pd.DataFrame:
     return pd.read_csv(StringIO(csv_text))
 
 
-def set_puntajes_retos_cache(puntajes_por_participante: dict[str, dict[str, float]]) -> dict[str, float]:
+def _get_puntajes_retos_detalle_snapshot() -> dict[str, dict[str, float]]:
+    return {
+        participante: {
+            "puntaje": float(puntaje),
+            "total": float(totales_retos_cache.get(participante, 0.0)),
+        }
+        for participante, puntaje in puntajes_retos_cache.items()
+    }
+
+
+def set_puntajes_retos_cache(puntajes_por_participante: dict[str, dict[str, float]]) -> dict[str, dict[str, float]]:
     global ultima_actualizacion
 
     now = time.time()
@@ -116,10 +126,10 @@ def set_puntajes_retos_cache(puntajes_por_participante: dict[str, dict[str, floa
             totales_retos_cache[participante] = total_nuevo
 
         ultima_actualizacion = now
-        return dict(puntajes_retos_cache)
+        return _get_puntajes_retos_detalle_snapshot()
 
 
-def refrescar_puntajes_retos() -> dict[str, float]:
+def refrescar_puntajes_retos() -> dict[str, dict[str, float]]:
     df = leer_hoja_puntajes()
     puntajes_por_participante = obtener_puntajes_por_participante(df)
     return set_puntajes_retos_cache(puntajes_por_participante)

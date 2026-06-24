@@ -18,7 +18,7 @@ HSV_RANGOS = {
         (np.array([0,   0,  180]), np.array([180, 55, 255])),
     ],
     'Negro': [
-        (np.array([0,  0,   0]),   np.array([180, 255,  75])),
+        (np.array([0,  0,   0]),   np.array([180, 255,  120])),
     ],
 }
 UMBRAL_VALIDACION_COLOR = {
@@ -65,14 +65,20 @@ def validar_color_en_roi(frame, x1, y1, x2, y2, nombre, umbral_frac=None):
     roi = frame[y1c:y2c, x1c:x2c]
     if roi.size == 0: return False
     
+    # --- MEJORA ESTRICTA CON CLAHE LOCAL ---
+    # Normalizamos la iluminación aislando la luminancia en espacio LAB
+    lab = cv2.cvtColor(roi, cv2.COLOR_BGR2LAB)
+    l, a, b = cv2.split(lab)
+    clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(4,4))
+    l = clahe.apply(l)
+    roi_clahe = cv2.cvtColor(cv2.merge((l, a, b)), cv2.COLOR_LAB2BGR)
+    
     rh, rw = roi.shape[:2]
-    # Usar máscara circular estática simplificada en lugar de dibujar circulos per-frame
-    # Aproximamos el cálculo creando una rápida en memoria
     Y, X = np.ogrid[:rh, :rw]
     dist_from_center = np.sqrt((X - rw//2)**2 + (Y - rh//2)**2)
     mask = dist_from_center <= min(rw, rh)//2
     
-    hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
+    hsv = cv2.cvtColor(roi_clahe, cv2.COLOR_BGR2HSV)
     color_mask = np.zeros((rh, rw), dtype=bool)
     
     for lo, hi in HSV_RANGOS.get(nombre, []):
@@ -84,13 +90,27 @@ def validar_color_en_roi(frame, x1, y1, x2, y2, nombre, umbral_frac=None):
     
     return (np.count_nonzero(color_mask) / total_px) >= umbral_frac
 
-def nms_mismo_color(detecciones, factor_radio=0.4):
-    if len(detecciones) <= 1: return detecciones
-    ordenadas = sorted(detecciones, key=lambda d: d[2], reverse=True)
-    resultado = []
-    for cx, cy, r in ordenadas:
-        if not any(math.hypot(cx - fx, cy - fy) < (r + fr) * factor_radio for fx, fy, fr in resultado):
-            resultado.append((cx, cy, r))
+def nms_global(detecciones_dict, factor_radio=0.5):
+    # Agrupar todas las detecciones: (color, cx, cy, r)
+    todas = []
+    for color, lista in detecciones_dict.items():
+        for det in lista:
+            todas.append((color, *det))
+            
+    if len(todas) <= 1: return detecciones_dict
+    
+    # Ordenar por tamaño (radio) de mayor a menor para priorizar las cajas más precisas
+    ordenadas = sorted(todas, key=lambda d: d[3], reverse=True)
+    
+    resultado = {k: [] for k in detecciones_dict.keys()}
+    aceptadas = []
+    
+    for color, cx, cy, r in ordenadas:
+        # Si NO choca con ninguna aceptada, la agregamos
+        if not any(math.hypot(cx - fx, cy - fy) < (r + fr) * factor_radio for fx, fy, fr in aceptadas):
+            aceptadas.append((cx, cy, r))
+            resultado[color].append((cx, cy, r))
+            
     return resultado
 
 class TrackerLigero:
@@ -158,8 +178,32 @@ def emparejar_detecciones(trackers, detecciones):
                     asignaciones[i] = d; break
     return asignaciones
 
+def es_falso_positivo_ligero(frame, x1, y1, x2, y2, nombre):
+    roi = frame[max(0, int(y1)):int(y2), max(0, int(x1)):int(x2)]
+    if roi.size == 0: return False
+    
+    hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
+    v_mean = np.mean(hsv[:,:,2])
+    s_mean = np.mean(hsv[:,:,1])
+    
+    if nombre == 'Blanco':
+        # Las sombras o fondos grises suelen ser muy oscuros o tener algo de color amarillento del ambiente
+        if v_mean < 80: return True  # Es una sombra oscura
+        if s_mean > 120: return True # Tiene demasiado color para ser blanco puro
+        
+    elif nombre == 'Rojo':
+        # Los fondos oscuros que YOLO confunde con rojo suelen tener poca saturación
+        if v_mean < 40: return True
+        if s_mean < 50: return True  # Un rojo vivo tiene saturación alta
+        
+    elif nombre == 'Negro':
+        # Descartar destellos blancos o paredes muy iluminadas
+        if v_mean > 140: return True
+        
+    return False
+
 # ==============================================================================
-# ENTRY POINT API
+# PROCESAMIENTO PRINCIPAL
 # ==============================================================================
 def procesar_frame_yolo_api(frame, estado, modelo_yolo, mobile_mode=False):
     """
@@ -187,14 +231,26 @@ def procesar_frame_yolo_api(frame, estado, modelo_yolo, mobile_mode=False):
 
     # Dibujar retícula central
     c = (255, 255, 255)
+    # --- Malla Ligera (Grid overlay) ---
+    step = 40
+    overlay = frame.copy()
+    for x in range(0, fw, step):
+        cv2.line(overlay, (x, 0), (x, fh), (200, 255, 200), 1)
+    for y in range(0, fh, step):
+        cv2.line(overlay, (0, y), (fw, y), (200, 255, 200), 1)
+    # Hacerla semi-transparente
+    cv2.addWeighted(overlay, 0.15, frame, 0.85, 0, frame)
+    # -----------------------------------
+
     cv2.rectangle(frame, (cx_scr-radio_zona, cy_scr-radio_zona), (cx_scr+radio_zona, cy_scr+radio_zona), c, 1)
     cv2.circle(frame, (cx_scr, cy_scr), radio_zona, c, 1)
 
     detecciones_brutas = {'Rojo': [], 'Blanco': [], 'Negro': []}
 
-    # Inferencia Directa YOLO Ultrarrápida (imgsz pequeño para +FPS)
+    # Inferencia Directa YOLO Ultrarrápida
     if modelo_yolo is not None:
-        resultados = modelo_yolo.predict(frame, conf=0.80, imgsz=320, verbose=False) 
+        # Reducimos conf a 0.55 y subimos imgsz a 480 para detectar pelotas oscuras/pequeñas
+        resultados = modelo_yolo.predict(frame, conf=0.55, imgsz=480, verbose=False) 
         if len(resultados) > 0 and resultados[0].boxes is not None:
             cajas = resultados[0].boxes
             for i in range(len(cajas)):
@@ -208,19 +264,19 @@ def procesar_frame_yolo_api(frame, estado, modelo_yolo, mobile_mode=False):
                 # Descartar temprano (O(1)) antes de procesar imagen
                 if not dentro_del_circulo(cx, cy, cx_scr, cy_scr, radio_zona): continue
                 if not es_forma_pelota(x1, y1, x2, y2, frame.shape): continue
-                if not validar_color_en_roi(frame, x1, y1, x2, y2, nombre): continue
+                # Filtro super ligero para descartar sombras y reflejos sin romper YOLO
+                if es_falso_positivo_ligero(frame, x1, y1, x2, y2, nombre): continue
                 
                 r = int((x2-x1 + y2-y1)/4)
                 
                 # Filtrar EXCLUSIVAMENTE PELOTAS: descartamos si la estimación de tamaño (z)
-                # indica que es un artefacto enano (más allá de 10m)
                 z_estimado = estimar_z_fast(r, frame.shape)
                 if z_estimado > 10.0: continue
                 
                 detecciones_brutas[nombre].append((cx, cy, r))
                 
-        for nombre in detecciones_brutas:
-            detecciones_brutas[nombre] = nms_mismo_color(detecciones_brutas[nombre])
+        # NMS Global para no marcar el mismo objeto 2 veces con colores distintos o cajas repetidas
+        detecciones_brutas = nms_global(detecciones_brutas, factor_radio=0.5)
 
     detectado_result = None
     COOLDOWN = 1.5

@@ -1,9 +1,10 @@
-﻿import hashlib
+import hashlib
 import math
 import random
 import threading
 import time
 import base64
+import json
 from pathlib import Path
 
 from flask import Flask, jsonify, render_template, request, send_from_directory, make_response
@@ -21,7 +22,7 @@ from ultralytics import YOLO
 import os
 
 modelo_yolo_global = None
-ruta_modelo = os.path.join(os.path.dirname(__file__), "colores", "detecciÃ³n", "best.pt")
+ruta_modelo = os.path.join(os.path.dirname(__file__), "colores", "detección", "best.pt")
 if os.path.exists(ruta_modelo):
     print(f"Cargando YOLO desde {ruta_modelo}")
     modelo_yolo_global = YOLO(ruta_modelo)
@@ -61,7 +62,7 @@ VISION_CONFIG = {
         "height": 720,
         "delay_ms": 33,
     },
-    "model_path": str(BASE_DIR / "colores" / "detecciÃ³n" / "best.pt"),
+    "model_path": str(BASE_DIR / "colores" / "detección" / "best.pt"),
     "hsv_ranges": {
         "Rojo": [
             (np.array([0, 50, 40]), np.array([12, 255, 255])),
@@ -720,6 +721,34 @@ def vision():
         annotated_b64 = base64.b64encode(buffer).decode("utf-8")
 
         if detectado and "color" in detectado:
+            # --- MÓDULO DE GUARDADO DE IMÁGENES (Galería) ---
+            # Guardamos la imagen procesada en disco para la galería
+            capturas_dir = BASE_DIR / "capturas"
+            capturas_dir.mkdir(exist_ok=True)
+            timestamp = int(time.time())
+            filename = f"captura_{device_id}_{timestamp}.jpg"
+            filepath = capturas_dir / filename
+            cv2.imwrite(str(filepath), frame_annotated)
+            
+            # Guardamos registro en un JSON
+            registro_galeria = BASE_DIR / "galeria.json"
+            galeria_data = []
+            if registro_galeria.exists():
+                with open(registro_galeria, "r", encoding="utf-8") as f:
+                    try: galeria_data = json.load(f)
+                    except: pass
+            
+            galeria_data.append({
+                "filename": filename,
+                "timestamp": timestamp,
+                "device_id": device_id,
+                "detections": detectado["counts"]
+            })
+            
+            with open(registro_galeria, "w", encoding="utf-8") as f:
+                json.dump(galeria_data, f, indent=4)
+            # ------------------------------------------------
+            
             return jsonify({
                 "status": "ok",
                 "detected": True,
@@ -744,7 +773,25 @@ def vision():
         })
 
     except Exception as exc:
+        import traceback
+        traceback.print_exc()
         return jsonify({"status": "error", "msg": str(exc)}), 500
+
+@app.route("/galeria", methods=["GET"])
+def galeria():
+    """Endpoint para que el compañero pueda listar las imágenes guardadas"""
+    registro_galeria = BASE_DIR / "galeria.json"
+    if not registro_galeria.exists():
+        return jsonify([])
+    with open(registro_galeria, "r", encoding="utf-8") as f:
+        try: return jsonify(json.load(f))
+        except: return jsonify([])
+
+from flask import send_from_directory
+@app.route("/capturas/<filename>", methods=["GET"])
+def obtener_captura(filename):
+    """Endpoint para servir las imágenes guardadas a la galería"""
+    return send_from_directory(str(BASE_DIR / "capturas"), filename)
 
 @app.route("/vision_fast", methods=["POST"])
 def vision_fast():

@@ -10,6 +10,8 @@ import {
   TouchableOpacity,
   View,
   LogBox,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Location from 'expo-location';
@@ -208,6 +210,8 @@ export default function App() {
   const [activo, setActivo] = useState(false);
   const [deviceId, setDeviceId] = useState('');
   const [status, setStatus] = useState({ text: 'Esperando...', tone: 'neutral' });
+  const [galeriaVisible, setGaleriaVisible] = useState(false);
+  const [galeriaImagenes, setGaleriaImagenes] = useState([]);
   const [location, setLocation] = useState(null);
   const [speedInfo, setSpeedInfo] = useState({
     speed_kmh: null,
@@ -296,14 +300,21 @@ export default function App() {
         
         if (data.counts) {
             for (const color of ['Rojo', 'Blanco', 'Negro']) {
-               let val = data.counts[color] || 0;
-               // Limites de pelotas por foto (en pantalla)
-               if (color === 'Negro' && val > 2) val = 2;
-               if (color === 'Blanco' && val > 3) val = 3;
-               if (color === 'Rojo' && val > 10) val = 10;
-               
-               // En escaneo manual acumulativo, SUMAMOS lo detectado a lo que ya teniamos
-               countsRef.current[color] += val;
+                let val = data.counts[color] || 0;
+                
+                if (val >= 2) {
+                    // Si hay 2 o más pelotas del MISMO color en la foto, se suman al contador
+                    countsRef.current[color] += val;
+                } else {
+                    // Si solo hay 1 pelota de este color (o 0), no se suma. 
+                    // Solo actualiza si es mayor al máximo detectado antes
+                    countsRef.current[color] = Math.max(countsRef.current[color], val);
+                }
+                
+                // Límites GLOBALES (El rojo máximo 10, Negro 2, Blanco 3)
+                if (color === 'Negro' && countsRef.current[color] > 2) countsRef.current[color] = 2;
+                if (color === 'Blanco' && countsRef.current[color] > 3) countsRef.current[color] = 3;
+                if (color === 'Rojo' && countsRef.current[color] > 10) countsRef.current[color] = 10;
             }
             
             setMaxCounts({ ...countsRef.current });
@@ -331,6 +342,22 @@ export default function App() {
     setDetectedBalls([]);
     setLog('Escaneo reiniciado', 'neutral');
   };
+
+  const abrirGaleria = async () => {
+    try {
+      const resp = await fetch(`${serverUrl}/galeria`);
+      if (resp.ok) {
+        const data = await resp.json();
+        setGaleriaImagenes(data);
+        setGaleriaVisible(true);
+      } else {
+        setLog('No se pudo cargar la galería', 'error');
+      }
+    } catch (e) {
+      setLog('Error al cargar la galería', 'error');
+    }
+  };
+
   // --------------------------------
 
   const initializeDevice = async () => {
@@ -696,18 +723,23 @@ export default function App() {
           </View>
 
           {/* Botones */}
-          <View style={styles.buttonRow}>
-            <TouchableOpacity 
-              style={[styles.button, styles.secondaryButton, { flex: 1, backgroundColor: contandoActivo ? '#7f8c8d' : '#2563eb' }]}
-              onPress={escanearUnaVez}
-              disabled={contandoActivo || ((countsRef.current.Rojo * 1) + (countsRef.current.Blanco * 3) + (countsRef.current.Negro * 5) >= 10)}
-            >
-              <Text style={styles.buttonText}>
-                {((countsRef.current.Rojo * 1) + (countsRef.current.Blanco * 3) + (countsRef.current.Negro * 5) >= 10) ? 'Límite Alcanzado' : (contandoActivo ? 'Procesando...' : 'Escanear Pelotas')}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.button, styles.dangerButton, { marginLeft: 10 }]} onPress={reiniciarEscaneo}>
-              <Text style={styles.buttonText}>Reinicio</Text>
+          <View style={{ marginBottom: 20 }}>
+            <View style={{ flexDirection: 'row', marginBottom: 10 }}>
+              <TouchableOpacity 
+                style={[styles.button, styles.secondaryButton, { flex: 1, backgroundColor: contandoActivo ? '#7f8c8d' : '#2563eb' }]}
+                onPress={escanearUnaVez}
+                disabled={contandoActivo || ((countsRef.current.Rojo * 1) + (countsRef.current.Blanco * 3) + (countsRef.current.Negro * 5) >= 10)}
+              >
+                <Text style={styles.buttonText}>
+                  {((countsRef.current.Rojo * 1) + (countsRef.current.Blanco * 3) + (countsRef.current.Negro * 5) >= 10) ? 'Limit Reached' : (contandoActivo ? 'Processing...' : 'Scan Balls')}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.button, styles.dangerButton, { marginLeft: 10 }]} onPress={reiniciarEscaneo}>
+                <Text style={styles.buttonText}>Reset</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity style={[styles.button, { backgroundColor: '#8e44ad', width: '100%', alignItems: 'center' }]} onPress={abrirGaleria}>
+              <Text style={styles.buttonText}>Gallery</Text>
             </TouchableOpacity>
           </View>
 
@@ -806,6 +838,34 @@ export default function App() {
       <View style={[styles.statusBox, styles[`status_${status.tone}`]]}>
         <Text style={[styles.statusText, styles[`statusText_${status.tone}`]]}>{status.text}</Text>
       </View>
+
+      {/* GALERÍA MODAL */}
+      <Modal visible={galeriaVisible} animationType="slide" onRequestClose={() => setGaleriaVisible(false)}>
+        <View style={{ flex: 1, backgroundColor: '#f8fafc', paddingTop: 40 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 10 }}>
+            <Text style={{ fontSize: 24, fontWeight: 'bold' }}>Galería de Escaneos</Text>
+            <TouchableOpacity onPress={() => setGaleriaVisible(false)} style={{ backgroundColor: '#ef4444', padding: 8, borderRadius: 8 }}>
+              <Text style={{ color: 'white', fontWeight: 'bold' }}>Cerrar</Text>
+            </TouchableOpacity>
+          </View>
+          <FlatList
+            data={galeriaImagenes}
+            keyExtractor={(item) => item.filename}
+            renderItem={({ item }) => (
+              <View style={{ marginBottom: 20, padding: 10, backgroundColor: 'white', marginHorizontal: 10, borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 }}>
+                <Text style={{ fontWeight: 'bold', marginBottom: 5 }}>Detecciones: {JSON.stringify(item.detections)}</Text>
+                <Text style={{ fontSize: 12, color: 'gray', marginBottom: 10 }}>{new Date(item.timestamp * 1000).toLocaleString()}</Text>
+                <Image
+                  source={{ uri: `${serverUrl}/capturas/${item.filename}` }}
+                  style={{ width: '100%', height: 250, resizeMode: 'contain', borderRadius: 8 }}
+                />
+              </View>
+            )}
+            ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 50, color: 'gray' }}>No hay imágenes en la galería.</Text>}
+          />
+        </View>
+      </Modal>
+
     </ScrollView>
   );
 }
@@ -883,7 +943,8 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#ffffff',
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: 'bold',
+    fontFamily: 'Times New Roman',
     textAlign: 'center',
   },
   grid: {

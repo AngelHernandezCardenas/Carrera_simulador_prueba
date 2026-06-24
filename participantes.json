@@ -1,34 +1,28 @@
 {
-  "dev-mqr695oa-wdkaxwa3": {
-    "nombre": "participante_01"
-  },
-  "1b9eda4a-fb26-4867-9ba6-927fcd151839": {
-    "nombre": "participante_02"
-  },
-  "73d5a292-7c89-4ddd-9578-48833d30211f": {
-    "nombre": "participante_03"
-  },
-  "3d9ddeea-2661-4844-a37b-764dbcc7b4c7": {
-    "nombre": "participante_01"
-  },
-  "b9b99812-3c60-4048-8b73-c73ac790c898": {
-    "nombre": "participante_02"
-  },
   "fdf3b3b6-1dbc-4d5a-9c88-4b0f26901a14": {
     "nombre": "participante_01"
   },
   "test": {
     "nombre": "participante_02",
     "device_id": "test",
-    "last_coord": [0.0, 0.0],
+    "last_coord": [
+      0.0,
+      0.0
+    ],
     "checkpoints_visitados": [],
     "cantidad_checkpoints_visitados": 0,
     "cantidad_checkpoints_ponderados_visitados": 0,
     "checkpoint_descarga_visitado": false,
-    "checkpoint_pendiente_mas_cercano": { "id": 1, "nombre": "Checkpoint 1" },
+    "checkpoint_pendiente_mas_cercano": {
+      "id": 1,
+      "nombre": "Checkpoint 1"
+    },
     "checkpoint_pendiente_mas_cercano_id": 1,
     "distancia_checkpoint_pendiente_mas_cercano_m": 11037806.15,
-    "checkpoint_mas_cercano": { "id": 1, "nombre": "Checkpoint 1" },
+    "checkpoint_mas_cercano": {
+      "id": 1,
+      "nombre": "Checkpoint 1"
+    },
     "checkpoint_mas_cercano_id": 1,
     "distancia_checkpoint_mas_cercano_m": 11037806.15,
     "puntuacion_checkpoints": -11037806.15,
@@ -39,7 +33,11 @@
     "puntaje_equipo": 0.0,
     "estado": "corriendo",
     "puntaje_retos": 40.0,
-    "conteo_colores": { "Rojo": 0, "Blanco": 0, "Negro": 0 },
+    "conteo_colores": {
+      "Rojo": 0,
+      "Blanco": 0,
+      "Negro": 0
+    },
     "color_detectado": [],
     "peso_kg": 0.0,
     "peso_entregado_kg": 0.0,
@@ -53,61 +51,126 @@
   "app-mqs6kjls-4krg6vqo": {
     "nombre": "participante_04",
     "device_id": "app-mqs6kjls-4krg6vqo",
-    "last_coord": [25.6524457, -100.2925614],
+    "last_coord": [
+      25.6523898,
+      -100.2925014
+    ],
     "checkpoints_visitados": [],
     "cantidad_checkpoints_visitados": 0,
     "cantidad_checkpoints_ponderados_visitados": 0,
     "checkpoint_descarga_visitado": false,
-    "checkpoint_pendiente_mas_cercano": { "id": 3, "nombre": "Checkpoint 3" },
+    "checkpoint_pendiente_mas_cercano": {
+      "id": 3,
+      "nombre": "Checkpoint 3"
+    },
     "checkpoint_pendiente_mas_cercano_id": 3,
-    "distancia_checkpoint_pendiente_mas_cercano_m": 258.52,
-    "checkpoint_mas_cercano": { "id": 3, "nombre": "Checkpoint 3" },
+    "distancia_checkpoint_pendiente_mas_cercano_m": 250.43,
+    "checkpoint_mas_cercano": {
+      "id": 3,
+      "nombre": "Checkpoint 3"
+    },
     "checkpoint_mas_cercano_id": 3,
-    "distancia_checkpoint_mas_cercano_m": 258.52,
-    "puntuacion_checkpoints": -258.52,
-    "puntaje_checkpoints": 5.55,
+    "distancia_checkpoint_mas_cercano_m": 250.43,
+    "puntuacion_checkpoints": -250.43,
+    "puntaje_checkpoints": 5.61,
     "checkpoints_puntos_entregados": [],
     "puntos_totales": 0,
     "peso": 0,
     "puntaje_equipo": 0.0,
     "estado": "corriendo",
     "puntaje_retos": 40.0,
-    "conteo_colores": { "Rojo": 0, "Blanco": 0, "Negro": 0 },
+    "conteo_colores": {
+      "Rojo": 0,
+      "Blanco": 0,
+      "Negro": 0
+    },
     "color_detectado": [],
     "peso_kg": 0.0,
     "peso_entregado_kg": 0.0,
     "peso_descargado_kg": 0.0,
     "en_checkpoint_descarga_peso": false,
-    "nivel_bateria": 49.7845335890115
+    "nivel_bateria": 7.728450165317792
   },
-  "app-mqsf4rab-4ydbauio": {
+  "a70c6984-544f-4417-8e95-015ee3088b1a": {
+    "nombre": "participante_05"
+  },
+  "d345120c-e338-4ae7-a992-0dd180ff52b9": {
+    "nombre": "participante_06"
+  },
+  "41d4ae4d-62db-41cc-9dab-063701e74fbb": {
+    "nombre": "participante_07"
+  },
+  "fdf6b392-3110-466f-9f92-f21b8bdb8cb6": {
+    "nombre": "participante_08"
+  },
+  "app-mqs944oi-gk57781g": {
+    "nombre": "participante_09"
+  },
+  "67303da8-9175-4aef-9088-832558bd945c": {
+    "nombre": "participante_10"
+  },
+  "91cc62a1-41e8-44e6-8fcf-eed52c1810e1": {
+    "nombre": "participante_11"
+  },
+  "7772d77a-da4f-48be-995b-2e2fa9ce657f": {
+    "nombre": "participante_12"
+  },
+  "5d3b7144-379d-45b9-bc0b-9728ea0f07b0": {
+    "nombre": "participante_13"
+  },
+  "d5dc0b1a-5ae6-4967-bbbf-670629b5c7dc": {
+    "nombre": "participante_14"
+  },
+  "2e1baa2e-1e7e-47a3-bf07-3069d149b449": {
+    "nombre": "participante_15"
+  },
+  "1cc6af13a2b834c9": {
     "nombre": "participante_16",
-    "device_id": "app-mqsf4rab-4ydbauio",
-    "last_coord": [25.65238187374515, -100.29249192417737],
+    "device_id": "1cc6af13a2b834c9",
+    "last_coord": [
+      0.0,
+      0.0
+    ],
     "checkpoints_visitados": [],
     "cantidad_checkpoints_visitados": 0,
     "cantidad_checkpoints_ponderados_visitados": 0,
     "checkpoint_descarga_visitado": false,
-    "checkpoint_pendiente_mas_cercano": { "id": 3, "nombre": "Checkpoint 3" },
-    "checkpoint_pendiente_mas_cercano_id": 3,
-    "distancia_checkpoint_pendiente_mas_cercano_m": 249.2,
-    "checkpoint_mas_cercano": { "id": 3, "nombre": "Checkpoint 3" },
-    "checkpoint_mas_cercano_id": 3,
-    "distancia_checkpoint_mas_cercano_m": 249.2,
-    "puntuacion_checkpoints": -249.2,
-    "puntaje_checkpoints": 5.62,
+    "checkpoint_pendiente_mas_cercano": {
+      "id": 1,
+      "nombre": "Checkpoint 1"
+    },
+    "checkpoint_pendiente_mas_cercano_id": 1,
+    "distancia_checkpoint_pendiente_mas_cercano_m": 11037806.15,
+    "checkpoint_mas_cercano": {
+      "id": 1,
+      "nombre": "Checkpoint 1"
+    },
+    "checkpoint_mas_cercano_id": 1,
+    "distancia_checkpoint_mas_cercano_m": 11037806.15,
+    "puntuacion_checkpoints": -11037806.15,
+    "puntaje_checkpoints": 0.0,
     "checkpoints_puntos_entregados": [],
     "puntos_totales": 0,
     "peso": 0,
     "puntaje_equipo": 0.0,
     "estado": "corriendo",
     "puntaje_retos": 0.0,
-    "conteo_colores": { "Rojo": 0, "Blanco": 0, "Negro": 0 },
+    "conteo_colores": {
+      "Rojo": 0,
+      "Blanco": 0,
+      "Negro": 0
+    },
     "color_detectado": [],
     "peso_kg": 0.0,
     "peso_entregado_kg": 0.0,
     "peso_descargado_kg": 0.0,
     "en_checkpoint_descarga_peso": false,
-    "nivel_bateria": 84.13620007554974
+    "nivel_bateria": 9.558036524375368
+  },
+  "a78a7b41-d520-4a3b-b7b2-07c82811a249": {
+    "nombre": "participante_17"
+  },
+  "1c5f168f-fd7c-4221-aadf-9f6c9165a73b": {
+    "nombre": "participante_18"
   }
 }

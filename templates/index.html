@@ -75,9 +75,18 @@
 
 
     <div id="camaraContainer" style="display: none; margin-bottom: 12px;">
-        <video id="videoCam" autoplay playsinline style="display: none;"></video>
-        <img id="fotoCam" style="width: 100%; border-radius: 8px; background: #000; min-height: 200px; display: block;" />
+        <video id="videoCam" autoplay playsinline style="width: 100%; border-radius: 8px; background: #000; min-height: 200px; display: none;"></video>
+        <img id="fotoCam" style="width: 100%; border-radius: 8px; background: #000; min-height: 200px; display: none;" />
         <canvas id="canvasCam" style="display: none;"></canvas>
+        <div style="display: flex; gap: 10px; margin-top: 10px; align-items: center; justify-content: center;">
+            <button id="btnEscanear" class="secondary" onclick="toggleConteo()" style="margin: 0; flex-grow: 1;">Empezar a Escanear</button>
+            <button id="btnReinicio" onclick="reiniciarEscaneo()" style="margin: 0; background-color: #3b82f6; color: white; display: none;">Reinicio</button>
+        </div>
+        <div style="display: flex; justify-content: center; align-items: center; gap: 24px; min-height: 80px; margin-top: 10px; background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 10px;">
+            <div id="circle-red" style="width: 50px; height: 50px; border-radius: 50%; background-color: red; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 20px;">0</div>
+            <div id="circle-white" style="width: 50px; height: 50px; border-radius: 50%; background-color: white; border: 1px solid #ccc; display: flex; align-items: center; justify-content: center; color: black; font-weight: bold; font-size: 20px;">0</div>
+            <div id="circle-black" style="width: 50px; height: 50px; border-radius: 50%; background-color: black; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 20px;">0</div>
+        </div>
     </div>
 
     <div class="grid">
@@ -115,11 +124,7 @@ Magnitud: --</div>
     </div>
 
 
-        <div class="card full" style="display: flex; justify-content: center; align-items: center; gap: 24px; min-height: 80px;">
-            <div id="circle-red" style="width: 50px; height: 50px; border-radius: 50%; background-color: red; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 20px;">0</div>
-            <div id="circle-white" style="width: 50px; height: 50px; border-radius: 50%; background-color: white; border: 1px solid #ccc; display: flex; align-items: center; justify-content: center; color: black; font-weight: bold; font-size: 20px;">0</div>
-            <div id="circle-black" style="width: 50px; height: 50px; border-radius: 50%; background-color: black; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 20px;">0</div>
-        </div>
+
 
         <div class="card full">
             <div class="label">Escaner de carga visual</div>
@@ -173,10 +178,12 @@ Magnitud: --</div>
     let escaneoBusy = false;
     let pesoKgDetectado = 0;
     let conteoColoresDetectados = { Rojo: 0, Blanco: 0, Negro: 0 };
+    let maxCounts = { Rojo: 0, Blanco: 0, Negro: 0 };
     let coloresDetectados = [];
-    let currentMaxWidth = 1280;
-    let currentJpegQuality = 0.55;
+    let currentMaxWidth = 320;
+    let currentJpegQuality = 0.35;
     let lastFrameTimeMs = 0;
+    let contandoActivo = false;
 
     const DEVICE_ID_KEY = "gps_tracker_device_id";
     const ACCELERATION_SAMPLE_WINDOW = 3;
@@ -595,10 +602,49 @@ Magnitud: --</div>
         if (camaraBtn) camaraBtn.textContent = "Activar camara (Escaner)";
     }
 
+    function toggleConteo() {
+        if (!escaneoActivo) return; // Camara must be on
+        const btn = document.getElementById("btnEscanear");
+        
+        if (contandoActivo) {
+            contandoActivo = false;
+            btn.textContent = "Reanudar Escaneo";
+            btn.style.backgroundColor = "#f39c12"; // Naranja
+            document.getElementById("videoCam").style.display = "block";
+            document.getElementById("fotoCam").style.display = "none";
+            log("Escaneo pausado.", "ok");
+        } else {
+            contandoActivo = true;
+            btn.textContent = "Pausar Escaneo";
+            btn.style.backgroundColor = "#d35400"; // Rojo oscuro
+            document.getElementById("videoCam").style.display = "none";
+            document.getElementById("fotoCam").style.display = "block";
+            log("Escaneo iniciado. Detectando pelotas...", "ok");
+            bucleEscaneo();
+        }
+    }
+
+    function reiniciarEscaneo() {
+        maxCounts = { Rojo: 0, Blanco: 0, Negro: 0 };
+        document.getElementById("circle-red").textContent = "0";
+        document.getElementById("circle-white").textContent = "0";
+        document.getElementById("circle-black").textContent = "0";
+        document.getElementById("cargaActual").textContent = "0 kg";
+        document.getElementById("colorActual").textContent = "Color: --";
+        document.getElementById("btnReinicio").style.display = "none";
+        document.getElementById("btnEscanear").disabled = false;
+        document.getElementById("btnEscanear").textContent = "Empezar a Escanear";
+        document.getElementById("btnEscanear").style.backgroundColor = "";
+    }
+
     async function toggleCamara() {
         if (escaneoActivo) {
             detenerEscaner();
             pesoKgDetectado = 0;
+            contandoActivo = false;
+            document.getElementById("btnEscanear").textContent = "Empezar a Escanear";
+            document.getElementById("btnEscanear").style.backgroundColor = "";
+            maxCounts = { Rojo: 0, Blanco: 0, Negro: 0 };
             conteoColoresDetectados = { Rojo: 0, Blanco: 0, Negro: 0 };
             coloresDetectados = [];
             document.getElementById("cargaActual").textContent = "-- kg";
@@ -618,19 +664,30 @@ Magnitud: --</div>
             });
             video.srcObject = streamCamara;
             document.getElementById("camaraContainer").style.display = "block";
+            document.getElementById("videoCam").style.display = "block";
+            document.getElementById("fotoCam").style.display = "none";
             document.getElementById("camaraBtn").textContent = "Apagar camara";
+            maxCounts = { Rojo: 0, Blanco: 0, Negro: 0 };
+            document.getElementById("circle-red").textContent = "0";
+            document.getElementById("circle-white").textContent = "0";
+            document.getElementById("circle-black").textContent = "0";
+            document.getElementById("cargaActual").textContent = "0 kg";
+            document.getElementById("colorActual").textContent = "Color: --";
+            document.getElementById("btnEscanear").disabled = false;
+            document.getElementById("btnEscanear").textContent = "Empezar a Escanear";
+            document.getElementById("btnEscanear").style.backgroundColor = "";
+            document.getElementById("btnReinicio").style.display = "none";
             escaneoActivo = true;
-            video.onloadedmetadata = () => bucleEscaneo();
-            log("Camara activada. Escaneando colores...", "ok");
+            log("Camara activada. Presiona 'Empezar a Escanear' para detectar.", "ok");
         } catch (e) {
             log("Error al acceder a la camara: " + e.message, "error");
         }
     }
 
     async function bucleEscaneo() {
-        if (!escaneoActivo) return;
+        if (!escaneoActivo || !contandoActivo) return;
         await escanearFrame();
-        setTimeout(bucleEscaneo, 250);
+        setTimeout(bucleEscaneo, 10);
     }
 
     async function escanearFrame() {
@@ -671,11 +728,30 @@ Magnitud: --</div>
                 }
                 if (data.gp_max_width) currentMaxWidth = data.gp_max_width;
                 if (data.gp_jpeg_quality) currentJpegQuality = data.gp_jpeg_quality / 100;
-                if (data.counts) {
-                    document.getElementById("circle-red").textContent = data.counts.Rojo || 0;
-                    document.getElementById("circle-white").textContent = data.counts.Blanco || 0;
-                    document.getElementById("circle-black").textContent = data.counts.Negro || 0;
-                    conteoColoresDetectados = data.counts;
+                if (data.counts && contandoActivo) {
+                    maxCounts.Rojo = Math.max(maxCounts.Rojo, data.counts.Rojo || 0);
+                    maxCounts.Blanco = Math.max(maxCounts.Blanco, data.counts.Blanco || 0);
+                    maxCounts.Negro = Math.max(maxCounts.Negro, data.counts.Negro || 0);
+
+                    // LOGICA DE PESOS (ColoresPrueba.ipynb)
+                    let puntosTotales = (maxCounts.Rojo * 1) + (maxCounts.Blanco * 3) + (maxCounts.Negro * 5);
+                    
+                    if (puntosTotales >= 10) {
+                        contandoActivo = false;
+                        document.getElementById("btnEscanear").textContent = "Límite Alcanzado";
+                        document.getElementById("btnEscanear").style.backgroundColor = "#7f8c8d";
+                        document.getElementById("btnEscanear").disabled = true;
+                        document.getElementById("btnReinicio").style.display = "block";
+                        document.getElementById("videoCam").style.display = "block";
+                        document.getElementById("fotoCam").style.display = "none";
+                        log("¡CANASTA LLENA! Límite de puntos alcanzado. Escaneo detenido.", "error");
+                    }
+
+                    document.getElementById("circle-red").textContent = maxCounts.Rojo;
+                    document.getElementById("circle-white").textContent = maxCounts.Blanco;
+                    document.getElementById("circle-black").textContent = maxCounts.Negro;
+                    
+                    conteoColoresDetectados = maxCounts;
                     coloresDetectados = [];
                     Object.entries(conteoColoresDetectados).forEach(([color, count]) => {
                         for (let i = 0; i < Number(count || 0); i += 1) coloresDetectados.push(color);
@@ -683,11 +759,11 @@ Magnitud: --</div>
                     pesoKgDetectado = (conteoColoresDetectados.Rojo || 0) * 15 +
                         (conteoColoresDetectados.Blanco || 0) * 25 +
                         (conteoColoresDetectados.Negro || 0) * 40;
-                    document.getElementById("cargaActual").textContent = `${pesoKgDetectado} kg`;
+                    document.getElementById("cargaActual").textContent = `${pesoKgDetectado} kg (${puntosTotales} pts)`;
                     document.getElementById("colorActual").textContent = `Color: ${coloresDetectados.join(", ") || "--"}`;
                 }
-                if (data.detected) {
-                    conteoColoresDetectados = data.counts || conteoColoresDetectados;
+                if (data.detected && contandoActivo) {
+                    conteoColoresDetectados = maxCounts;
                     coloresDetectados = [];
                     Object.entries(conteoColoresDetectados).forEach(([color, count]) => {
                         for (let i = 0; i < Number(count || 0); i += 1) coloresDetectados.push(color);
@@ -695,7 +771,8 @@ Magnitud: --</div>
                     pesoKgDetectado = (conteoColoresDetectados.Rojo || 0) * 15 +
                         (conteoColoresDetectados.Blanco || 0) * 25 +
                         (conteoColoresDetectados.Negro || 0) * 40;
-                    document.getElementById("cargaActual").textContent = `${pesoKgDetectado} kg`;
+                    let puntosTotales = (maxCounts.Rojo * 1) + (maxCounts.Blanco * 3) + (maxCounts.Negro * 5);
+                    document.getElementById("cargaActual").textContent = `${pesoKgDetectado} kg (${puntosTotales} pts)`;
                     document.getElementById("colorActual").textContent = `Color: ${coloresDetectados.join(", ") || "--"}`;
                 }
             }

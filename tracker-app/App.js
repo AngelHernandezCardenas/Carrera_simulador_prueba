@@ -14,6 +14,7 @@ import * as Location from 'expo-location';
 import { Accelerometer } from 'expo-sensors';
 import * as TaskManager from 'expo-task-manager';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 
 const LOCATION_TASK_NAME = 'background-location-task';
 const DEVICE_ID_KEY = 'gps_tracker_device_id';
@@ -218,6 +219,16 @@ export default function App() {
   const accelerometerSubscriptionRef = useRef(null);
   const mountedRef = useRef(true);
 
+  // --- CAMERA AND YOLO STATE ---
+  const [permission, requestPermission] = useCameraPermissions();
+  const [escaneoActivo, setEscaneoActivo] = useState(false);
+  const [contandoActivo, setContandoActivo] = useState(false);
+  const [maxCounts, setMaxCounts] = useState({ Rojo: 0, Blanco: 0, Negro: 0 });
+  const [annotatedImage, setAnnotatedImage] = useState(null);
+  const cameraRef = useRef(null);
+  const scanningRef = useRef(false);
+  const bucleEscaneoRef = useRef(false);
+
   const canRegister = useMemo(() => cleanServerUrl(serverUrl).startsWith('http'), [serverUrl]);
 
   useEffect(() => {
@@ -233,6 +244,81 @@ export default function App() {
   const setLog = (text, tone = 'neutral') => {
     setStatus({ text, tone });
   };
+
+  // --- CAMERA SCANNING FUNCTIONS ---
+  const iniciarBucle = async () => {
+    if (scanningRef.current || !bucleEscaneoRef.current || !cameraRef.current) return;
+    scanningRef.current = true;
+
+    try {
+      const photo = await cameraRef.current.takePictureAsync({ base64: true, quality: 0.1 });
+      
+      const resp = await fetch(`${globalServerUrl}/vision`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          device_id: globalDeviceId || 'unknown',
+          image: photo.base64
+        })
+      });
+
+      const data = await resp.json();
+      
+      if (data.status === 'ok') {
+        if (data.annotated_image) {
+          setAnnotatedImage(data.annotated_image);
+        }
+        
+        if (data.counts) {
+          setMaxCounts(prev => {
+            const next = { ...prev };
+            let total = 0;
+            for (const color of ['Rojo', 'Blanco', 'Negro']) {
+               if (data.counts[color] > next[color]) {
+                  next[color] = data.counts[color];
+               }
+               total += next[color];
+            }
+            if (total >= 10) {
+               bucleEscaneoRef.current = false;
+               setEscaneoActivo(false);
+               setContandoActivo(false);
+               setAnnotatedImage(null);
+            }
+            return next;
+          });
+        }
+      }
+    } catch (e) {
+      console.log('Error escaneando:', e);
+    }
+
+    scanningRef.current = false;
+    
+    if (bucleEscaneoRef.current) {
+      setTimeout(iniciarBucle, 10);
+    }
+  };
+
+  const toggleEscaneo = () => {
+    if (escaneoActivo) {
+      setEscaneoActivo(false);
+      setContandoActivo(false);
+      bucleEscaneoRef.current = false;
+    } else {
+      setEscaneoActivo(true);
+      setContandoActivo(true);
+      setAnnotatedImage(null);
+      bucleEscaneoRef.current = true;
+      iniciarBucle();
+    }
+  };
+
+  const reiniciarEscaneo = () => {
+    setMaxCounts({ Rojo: 0, Blanco: 0, Negro: 0 });
+    setAnnotatedImage(null);
+  };
+  // --------------------------------
 
   const initializeDevice = async () => {
     let id = await AsyncStorage.getItem(DEVICE_ID_KEY);
@@ -499,8 +585,72 @@ export default function App() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <StatusBar style="dark" />
-      <Text style={styles.title}>GPS Tracker</Text>
-      <Text style={styles.subtitle}>Captura ubicacion, velocidad y acelerometro del celular.</Text>
+      <Text style={styles.title}>Tracker y Escáner</Text>
+      <Text style={styles.subtitle}>Captura ubicación y escanea pelotas con YOLO.</Text>
+
+      {/* CAMARA Y ESCANEO YOLO */}
+      {!permission ? (
+        <View style={styles.connectionPanel}><Text>Cargando permisos de cámara...</Text></View>
+      ) : !permission.granted ? (
+        <View style={styles.connectionPanel}>
+          <Text style={styles.label}>Cámara y Escáner YOLO</Text>
+          <Text style={{marginBottom: 10}}>Necesitamos permiso para usar la cámara</Text>
+          <TouchableOpacity style={[styles.button, styles.secondaryButton]} onPress={requestPermission}>
+            <Text style={styles.buttonText}>Otorgar Permiso</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <View style={styles.connectionPanel}>
+          <Text style={styles.label}>Cámara y Escáner YOLO</Text>
+          
+          <View style={{ width: '100%', height: 300, backgroundColor: 'black', borderRadius: 8, overflow: 'hidden', marginBottom: 10 }}>
+            {!annotatedImage ? (
+               <CameraView 
+                 style={{ flex: 1 }} 
+                 facing="back" 
+                 ref={cameraRef}
+               />
+            ) : (
+               <Image 
+                 source={{ uri: `data:image/jpeg;base64,${annotatedImage}` }} 
+                 style={{ flex: 1, resizeMode: 'cover' }} 
+               />
+            )}
+          </View>
+
+          {/* Botones */}
+          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
+            <TouchableOpacity 
+              style={[styles.button, styles.secondaryButton, { flex: 1, backgroundColor: !contandoActivo && maxCounts.Rojo+maxCounts.Blanco+maxCounts.Negro >= 10 ? '#7f8c8d' : '#2563eb' }]}
+              onPress={toggleEscaneo}
+              disabled={!contandoActivo && maxCounts.Rojo+maxCounts.Blanco+maxCounts.Negro >= 10}
+            >
+              <Text style={styles.buttonText}>
+                 {(!contandoActivo && maxCounts.Rojo+maxCounts.Blanco+maxCounts.Negro >= 10) ? 'Límite Alcanzado' : (escaneoActivo ? 'Pausar Escaneo' : 'Empezar a Escanear')}
+              </Text>
+            </TouchableOpacity>
+            
+            {(!contandoActivo && maxCounts.Rojo+maxCounts.Blanco+maxCounts.Negro >= 10) && (
+              <TouchableOpacity style={[styles.button, { backgroundColor: '#3b82f6', flex: 0.5 }]} onPress={reiniciarEscaneo}>
+                <Text style={styles.buttonText}>Reinicio</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Contadores */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', backgroundColor: 'white', padding: 10, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0' }}>
+             <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: 'red', justifyContent: 'center', alignItems: 'center' }}>
+               <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 20 }}>{maxCounts.Rojo}</Text>
+             </View>
+             <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: 'white', borderWidth: 1, borderColor: '#ccc', justifyContent: 'center', alignItems: 'center' }}>
+               <Text style={{ color: 'black', fontWeight: 'bold', fontSize: 20 }}>{maxCounts.Blanco}</Text>
+             </View>
+             <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: 'black', justifyContent: 'center', alignItems: 'center' }}>
+               <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 20 }}>{maxCounts.Negro}</Text>
+             </View>
+          </View>
+        </View>
+      )}
 
       <View style={styles.connectionPanel}>
         <Text style={styles.label}>URL del servidor</Text>

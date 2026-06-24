@@ -39,10 +39,10 @@ def get_color_bgr(nombre):
 # ==============================================================================
 def estimar_z_fast(radio_px, frame_shape):
     fh, fw = frame_shape[:2]
-    if radio_px <= 0: return 5.0
+    if radio_px <= 0: return 15.0
     frac = (math.pi * radio_px * radio_px) / (fh * fw)
     z = 1.0 / (frac * 10 + 0.01)
-    return round(max(0.1, min(5.0, z)), 2)
+    return round(max(0.1, min(15.0, z)), 2)
 
 def get_zona_deteccion(frame_shape):
     fh, fw = frame_shape[:2]
@@ -161,7 +161,7 @@ def emparejar_detecciones(trackers, detecciones):
 # ==============================================================================
 # ENTRY POINT API
 # ==============================================================================
-def procesar_frame_yolo_api(frame, estado, modelo_yolo):
+def procesar_frame_yolo_api(frame, estado, modelo_yolo, mobile_mode=False):
     """
     Ruta optimizada para detección en tiempo real.
     - Se elimina CLAHE pesado global.
@@ -211,6 +211,12 @@ def procesar_frame_yolo_api(frame, estado, modelo_yolo):
                 if not validar_color_en_roi(frame, x1, y1, x2, y2, nombre): continue
                 
                 r = int((x2-x1 + y2-y1)/4)
+                
+                # Filtrar EXCLUSIVAMENTE PELOTAS: descartamos si la estimación de tamaño (z)
+                # indica que es un artefacto enano (más allá de 10m)
+                z_estimado = estimar_z_fast(r, frame.shape)
+                if z_estimado > 10.0: continue
+                
                 detecciones_brutas[nombre].append((cx, cy, r))
                 
         for nombre in detecciones_brutas:
@@ -224,6 +230,42 @@ def procesar_frame_yolo_api(frame, estado, modelo_yolo):
               'Blanco': len(detecciones_brutas['Blanco']), 
               'Negro': len(detecciones_brutas['Negro'])}
     estado['counts'] = counts
+
+    # Si es mobile, saltamos el tracker pesado y reportamos directo
+    if mobile_mode:
+        all_balls = []
+        for nombre in ['Negro', 'Rojo', 'Blanco']:
+            for idx, det in enumerate(detecciones_brutas[nombre]):
+                cx, cy, r = det
+                color_bgr = get_color_bgr(nombre)
+                cv2.circle(frame, (cx, cy), r, color_bgr, 3)
+                lbl = f'{nombre} #{idx+1}'
+                cv2.putText(frame, lbl, (cx-r, cy-r-5), cv2.FONT_HERSHEY_SIMPLEX, 0.55, color_bgr, 2)
+                
+                all_balls.append({
+                    "color": nombre,
+                    "x_norm": round(cx / fw, 3),
+                    "y_norm": round(cy / fh, 3),
+                    "r_norm": round(r / fw, 3)
+                })
+                
+                # Reportar detectado instantáneo
+                mapa_cargas = {"Rojo": 1.0, "Blanco": 3.0, "Negro": 5.0}
+                
+                if not detectado_result:
+                    detectado_result = {
+                        "color": nombre,
+                        "carga_kg": mapa_cargas.get(nombre, 0.0),
+                        "orientacion": "No calculado (Optimizado)",
+                        "x_norm": round(cx / fw * 2 - 1, 2),
+                        "y_norm": round(1 - cy / fh * 2, 2),
+                        "counts": counts,
+                        "balls": all_balls
+                    }
+                else:
+                    detectado_result["balls"] = all_balls
+                    
+        return detectado_result, frame
 
     for nombre in ['Negro', 'Rojo', 'Blanco']:
         lista = sorted(detecciones_brutas[nombre], key=lambda d: (d[1]//80, d[0]//80))

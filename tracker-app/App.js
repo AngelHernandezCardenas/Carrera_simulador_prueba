@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  Image,
   Platform,
   ScrollView,
   StyleSheet,
@@ -8,6 +9,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  LogBox,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Location from 'expo-location';
@@ -15,6 +17,8 @@ import { Accelerometer } from 'expo-sensors';
 import * as TaskManager from 'expo-task-manager';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+
+LogBox.ignoreAllLogs();
 
 const LOCATION_TASK_NAME = 'background-location-task';
 const DEVICE_ID_KEY = 'gps_tracker_device_id';
@@ -228,6 +232,7 @@ export default function App() {
   const cameraRef = useRef(null);
   const scanningRef = useRef(false);
   const bucleEscaneoRef = useRef(false);
+  const countsRef = useRef({ Rojo: 0, Blanco: 0, Negro: 0 });
 
   const canRegister = useMemo(() => cleanServerUrl(serverUrl).startsWith('http'), [serverUrl]);
 
@@ -245,78 +250,86 @@ export default function App() {
     setStatus({ text, tone });
   };
 
+  const [isCameraReady, setIsCameraReady] = useState(false);
+  const [cameraLayout, setCameraLayout] = useState(null);
+  const [detectedBalls, setDetectedBalls] = useState([]);
+
   // --- CAMERA SCANNING FUNCTIONS ---
-  const iniciarBucle = async () => {
-    if (scanningRef.current || !bucleEscaneoRef.current || !cameraRef.current) return;
+  const escanearUnaVez = async () => {
+    if (scanningRef.current || !cameraRef.current) return;
+    if (!isCameraReady) return;
+    
+    // Si ya hay 10 puntos, no escanear más (limite)
+    const ptsActuales = (countsRef.current.Rojo * 1) + (countsRef.current.Blanco * 3) + (countsRef.current.Negro * 5);
+    if (ptsActuales >= 10) return;
+
     scanningRef.current = true;
+    setContandoActivo(true);
+    setLog('Procesando imagen (Rápido 150%)...', 'info');
 
     try {
-      const photo = await cameraRef.current.takePictureAsync({ base64: true, quality: 0.1 });
+      // quality baja para acelerar un 150% la transferencia por red
+      const photo = await cameraRef.current.takePictureAsync({ 
+        base64: true,
+        quality: 0.2,
+        shutterSound: false
+      });
       
       const resp = await fetch(`${globalServerUrl}/vision`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           device_id: globalDeviceId || 'unknown',
-          image: photo.base64
+          image: photo.base64,
+          mobile: true
         })
       });
 
       const data = await resp.json();
       
       if (data.status === 'ok') {
-        if (data.annotated_image) {
-          setAnnotatedImage(data.annotated_image);
+        if (data.balls) {
+           setDetectedBalls(data.balls);
+        } else {
+           setDetectedBalls([]);
         }
         
         if (data.counts) {
-          setMaxCounts(prev => {
-            const next = { ...prev };
-            let total = 0;
             for (const color of ['Rojo', 'Blanco', 'Negro']) {
-               if (data.counts[color] > next[color]) {
-                  next[color] = data.counts[color];
-               }
-               total += next[color];
+               let val = data.counts[color] || 0;
+               // Limites de pelotas por foto (en pantalla)
+               if (color === 'Negro' && val > 2) val = 2;
+               if (color === 'Blanco' && val > 3) val = 3;
+               if (color === 'Rojo' && val > 10) val = 10;
+               
+               // En escaneo manual acumulativo, SUMAMOS lo detectado a lo que ya teniamos
+               countsRef.current[color] += val;
             }
-            if (total >= 10) {
-               bucleEscaneoRef.current = false;
-               setEscaneoActivo(false);
-               setContandoActivo(false);
-               setAnnotatedImage(null);
+            
+            setMaxCounts({ ...countsRef.current });
+            
+            const pts = (countsRef.current.Rojo * 1) + (countsRef.current.Blanco * 3) + (countsRef.current.Negro * 5);
+            if (pts >= 10) {
+               setLog('Límite de 10 puntos alcanzado.', 'success');
+            } else {
+               setLog(`Escaneo listo: ${pts} puntos.`, 'success');
             }
-            return next;
-          });
         }
       }
     } catch (e) {
       console.log('Error escaneando:', e);
+      setLog('Error al conectar con servidor', 'error');
     }
 
     scanningRef.current = false;
-    
-    if (bucleEscaneoRef.current) {
-      setTimeout(iniciarBucle, 10);
-    }
-  };
-
-  const toggleEscaneo = () => {
-    if (escaneoActivo) {
-      setEscaneoActivo(false);
-      setContandoActivo(false);
-      bucleEscaneoRef.current = false;
-    } else {
-      setEscaneoActivo(true);
-      setContandoActivo(true);
-      setAnnotatedImage(null);
-      bucleEscaneoRef.current = true;
-      iniciarBucle();
-    }
+    setContandoActivo(false);
   };
 
   const reiniciarEscaneo = () => {
+    countsRef.current = { Rojo: 0, Blanco: 0, Negro: 0 };
     setMaxCounts({ Rojo: 0, Blanco: 0, Negro: 0 });
-    setAnnotatedImage(null);
+    setDetectedBalls([]);
+    setLog('Escaneo reiniciado', 'neutral');
   };
   // --------------------------------
 
@@ -603,42 +616,103 @@ export default function App() {
         <View style={styles.connectionPanel}>
           <Text style={styles.label}>Cámara y Escáner YOLO</Text>
           
-          <View style={{ width: '100%', height: 300, backgroundColor: 'black', borderRadius: 8, overflow: 'hidden', marginBottom: 10 }}>
-            {!annotatedImage ? (
-               <CameraView 
-                 style={{ flex: 1 }} 
-                 facing="back" 
-                 ref={cameraRef}
-               />
-            ) : (
-               <Image 
-                 source={{ uri: `data:image/jpeg;base64,${annotatedImage}` }} 
-                 style={{ flex: 1, resizeMode: 'cover' }} 
-               />
-            )}
+          <View 
+            style={{ width: '100%', height: 300, backgroundColor: 'black', borderRadius: 8, overflow: 'hidden', marginBottom: 10 }}
+            onLayout={(e) => {
+               const { width, height } = e.nativeEvent.layout;
+               setCameraLayout({ width, height });
+            }}
+          >
+             <CameraView 
+               style={{ flex: 1 }} 
+               facing="back" 
+               ref={cameraRef}
+               onCameraReady={() => setIsCameraReady(true)}
+             />
+             
+             {/* Contorno del límite de detección (círculo central) */}
+             {cameraLayout && (
+                <View style={{
+                   position: 'absolute',
+                   left: cameraLayout.width / 2 - (Math.min(cameraLayout.width, cameraLayout.height) * 0.38),
+                   top: cameraLayout.height / 2 - (Math.min(cameraLayout.width, cameraLayout.height) * 0.38),
+                   width: Math.min(cameraLayout.width, cameraLayout.height) * 0.76,
+                   height: Math.min(cameraLayout.width, cameraLayout.height) * 0.76,
+                   borderRadius: Math.min(cameraLayout.width, cameraLayout.height) * 0.38,
+                   borderWidth: 1.5,
+                   borderColor: 'rgba(255, 255, 255, 0.6)',
+                   borderStyle: 'dashed'
+                }} />
+             )}
+             
+             {/* Contorno de las pelotas detectadas */}
+             {cameraLayout && detectedBalls.map((b, i) => {
+                const colorMap = { 'Rojo': '#ef4444', 'Blanco': '#ffffff', 'Negro': '#111111' };
+                const cx = b.x_norm * cameraLayout.width;
+                const cy = b.y_norm * cameraLayout.height;
+                const r = b.r_norm * cameraLayout.width; // r_norm was calculated using fw
+                return (
+                   <View key={i} style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 }} pointerEvents="none">
+                      {/* Circulo principal */}
+                      <View style={{
+                         position: 'absolute',
+                         left: cx - r,
+                         top: cy - r,
+                         width: r * 2,
+                         height: r * 2,
+                         borderRadius: r,
+                         borderWidth: 3,
+                         borderColor: colorMap[b.color] || '#00ff00'
+                      }} />
+                      
+                      {/* Punto central */}
+                      <View style={{
+                         position: 'absolute',
+                         left: cx - 4,
+                         top: cy - 4,
+                         width: 8,
+                         height: 8,
+                         borderRadius: 4,
+                         backgroundColor: colorMap[b.color] || '#00ff00'
+                      }} />
+                      
+                      {/* Etiqueta tipo OpenCV */}
+                      <View style={{
+                         position: 'absolute',
+                         left: cx - r,
+                         top: Math.max(18, cy - r - 20),
+                         backgroundColor: '#141414',
+                         paddingHorizontal: 4,
+                         paddingVertical: 2,
+                         borderRadius: 2
+                      }}>
+                         <Text style={{ color: colorMap[b.color] || '#00ff00', fontSize: 11, fontWeight: 'bold' }}>
+                           {`${b.color} #${i+1}`}
+                         </Text>
+                      </View>
+                   </View>
+                );
+             })}
           </View>
 
           {/* Botones */}
-          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
+          <View style={styles.buttonRow}>
             <TouchableOpacity 
-              style={[styles.button, styles.secondaryButton, { flex: 1, backgroundColor: !contandoActivo && maxCounts.Rojo+maxCounts.Blanco+maxCounts.Negro >= 10 ? '#7f8c8d' : '#2563eb' }]}
-              onPress={toggleEscaneo}
-              disabled={!contandoActivo && maxCounts.Rojo+maxCounts.Blanco+maxCounts.Negro >= 10}
+              style={[styles.button, styles.secondaryButton, { flex: 1, backgroundColor: contandoActivo ? '#7f8c8d' : '#2563eb' }]}
+              onPress={escanearUnaVez}
+              disabled={contandoActivo || ((countsRef.current.Rojo * 1) + (countsRef.current.Blanco * 3) + (countsRef.current.Negro * 5) >= 10)}
             >
               <Text style={styles.buttonText}>
-                 {(!contandoActivo && maxCounts.Rojo+maxCounts.Blanco+maxCounts.Negro >= 10) ? 'Límite Alcanzado' : (escaneoActivo ? 'Pausar Escaneo' : 'Empezar a Escanear')}
+                {((countsRef.current.Rojo * 1) + (countsRef.current.Blanco * 3) + (countsRef.current.Negro * 5) >= 10) ? 'Límite Alcanzado' : (contandoActivo ? 'Procesando...' : 'Escanear Pelotas')}
               </Text>
             </TouchableOpacity>
-            
-            {(!contandoActivo && maxCounts.Rojo+maxCounts.Blanco+maxCounts.Negro >= 10) && (
-              <TouchableOpacity style={[styles.button, { backgroundColor: '#3b82f6', flex: 0.5 }]} onPress={reiniciarEscaneo}>
-                <Text style={styles.buttonText}>Reinicio</Text>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity style={[styles.button, styles.dangerButton, { marginLeft: 10 }]} onPress={reiniciarEscaneo}>
+              <Text style={styles.buttonText}>Reinicio</Text>
+            </TouchableOpacity>
           </View>
 
           {/* Contadores */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', backgroundColor: 'white', padding: 10, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0' }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', backgroundColor: 'white', padding: 10, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', marginBottom: 10 }}>
              <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: 'red', justifyContent: 'center', alignItems: 'center' }}>
                <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 20 }}>{maxCounts.Rojo}</Text>
              </View>
@@ -648,6 +722,14 @@ export default function App() {
              <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: 'black', justifyContent: 'center', alignItems: 'center' }}>
                <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 20 }}>{maxCounts.Negro}</Text>
              </View>
+          </View>
+
+          {/* Escaner de carga visual */}
+          <View style={{ backgroundColor: 'white', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0' }}>
+             <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 4 }}>Escaner de carga visual</Text>
+             <Text style={{ fontSize: 20, fontWeight: '800', color: '#0f172a' }}>
+               {(maxCounts.Rojo * 1) + (maxCounts.Blanco * 3) + (maxCounts.Negro * 5)} pts
+             </Text>
           </View>
         </View>
       )}

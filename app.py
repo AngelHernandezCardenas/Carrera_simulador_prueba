@@ -357,6 +357,7 @@ def manifest():
 
 @app.route("/registrar", methods=["POST"])
 def registrar():
+    print("Recibida petición POST en /registrar")
     data = request.json or {}
     device_id, device_ip, user_agent = get_device_info(data)
 
@@ -438,7 +439,7 @@ def gps():
         if peso_detectado_kg is not None:
             participant_entry["peso_kg"] = peso_detectado_kg
 
-        inside_descarga = should_reset_peso(latitude, longitude)
+        inside_descarga = is_near_reset_checkpoint(latitude, longitude)
         was_inside_descarga = bool(participant_entry.get("en_checkpoint_descarga_peso", False))
         if inside_descarga and not was_inside_descarga:
             peso_actual_kg = safe_float(participant_entry.get("peso_kg"), 0.0)
@@ -678,8 +679,10 @@ def gps():
 
 @app.route("/vision", methods=["POST"])
 def vision():
+    print("Recibida petición POST en /vision")
     data = request.json or {}
     if "image" not in data or "device_id" not in data:
+        print("Datos faltantes en /vision")
         return jsonify({"status": "error", "msg": "Datos de imagen o dispositivo faltantes"}), 400
 
     device_id = data["device_id"]
@@ -706,8 +709,10 @@ def vision():
             scale = gp_max_w / w_orig
             frame = cv2.resize(frame, (gp_max_w, int(h_orig * scale)), interpolation=cv2.INTER_AREA)
 
+        mobile_mode = data.get("mobile", False)
+        
         t_start = time.time()
-        detectado, frame_annotated = procesar_frame_yolo_api(frame, estado, modelo_yolo_global)
+        detectado, frame_annotated = procesar_frame_yolo_api(frame, estado, modelo_yolo_global, mobile_mode=mobile_mode)
 
         jpeg_q = 35
         encode_params = [cv2.IMWRITE_JPEG_QUALITY, jpeg_q]
@@ -722,6 +727,7 @@ def vision():
                 "carga_kg": detectado["carga_kg"],
                 "orientacion": detectado["orientacion"],
                 "counts": detectado["counts"],
+                "balls": detectado.get("balls", []),
                 "annotated_image": annotated_b64,
                 "gp_max_width": gp_max_w,
                 "gp_jpeg_quality": jpeg_q,
@@ -731,6 +737,7 @@ def vision():
             "status": "ok",
             "detected": False,
             "counts": estado.get("counts") if not detectado else detectado.get("counts"),
+            "balls": [],
             "annotated_image": annotated_b64,
             "gp_max_width": gp_max_w,
             "gp_jpeg_quality": jpeg_q,
@@ -738,6 +745,69 @@ def vision():
 
     except Exception as exc:
         return jsonify({"status": "error", "msg": str(exc)}), 500
+
+@app.route("/vision_fast", methods=["POST"])
+def vision_fast():
+    device_id = request.headers.get("X-Device-Id")
+    if not device_id:
+        return jsonify({"status": "error", "msg": "X-Device-Id faltante"}), 400
+
+    image_bytes = request.data
+    if not image_bytes:
+        return jsonify({"status": "error", "msg": "Datos de imagen binaria faltantes"}), 400
+
+    try:
+        import json
+        np_arr = np.frombuffer(image_bytes, np.uint8)
+        frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+
+        if frame is None:
+            return jsonify({"status": "error", "msg": "No se pudo decodificar el frame binario"}), 400
+
+        if device_id not in device_trackers:
+            device_trackers[device_id] = {}
+
+        estado = device_trackers[device_id]
+
+        gp_max_w = 640  # Aumentado para mejor resolución
+        h_orig, w_orig = frame.shape[:2]
+        if w_orig > gp_max_w:
+            scale = gp_max_w / w_orig
+            frame = cv2.resize(frame, (gp_max_w, int(h_orig * scale)), interpolation=cv2.INTER_AREA)
+
+        detectado, frame_annotated = procesar_frame_yolo_api(frame, estado, modelo_yolo_global)
+
+        jpeg_q = 65  # Mejor calidad visual
+        encode_params = [cv2.IMWRITE_JPEG_QUALITY, jpeg_q]
+        _, buffer = cv2.imencode(".jpg", frame_annotated, encode_params)
+        
+        # Enviar respuesta binaria directamente
+        response = make_response(buffer.tobytes())
+        response.headers['Content-Type'] = 'image/jpeg'
+        
+        # Enviar metadatos ocultos en las cabeceras HTTP
+        meta_data = {
+            "status": "ok",
+            "detected": bool(detectado),
+            "counts": estado.get("counts") if not detectado else detectado.get("counts"),
+            "gp_max_width": gp_max_w,
+            "gp_jpeg_quality": jpeg_q,
+        }
+        if detectado:
+            meta_data.update({
+                "color": detectado.get("color"),
+                "carga_kg": detectado.get("carga_kg"),
+                "orientacion": detectado.get("orientacion")
+            })
+            
+        response.headers['X-Vision-Data'] = json.dumps(meta_data)
+        
+        return response
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"status": "error", "msg": str(e)}), 500
 
 # ---------------------------------------------------------------------------
 # Entry point

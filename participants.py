@@ -1,10 +1,14 @@
 import json
+from config import PARTICIPANTS_FILE, MAX_PARTICIPANTES, participants_lock
 
-from config import MAX_PARTICIPANTES, PARTICIPANTS_FILE
 
-
+# Cache en memoria de los participantes
 participants_cache: dict = {}
 
+
+# ---------------------------------------------------------------------------
+# Persistencia
+# ---------------------------------------------------------------------------
 
 def load_participants() -> dict:
     try:
@@ -21,9 +25,13 @@ def save_participants(participants: dict) -> None:
 
 def reset_participants() -> None:
     """Reinicia los participantes al levantar el servidor."""
-    participants_cache.clear()
-    save_participants(participants_cache)
+    # Desactivamos la limpieza para no perder a los usuarios.
+    pass
 
+
+# ---------------------------------------------------------------------------
+# Migración de formato antiguo
+# ---------------------------------------------------------------------------
 
 def _migrar_participantes_si_necesario() -> None:
     """Convierte el formato viejo {device_id: 'nombre'} al nuevo {device_id: {nombre: ...}}."""
@@ -35,6 +43,10 @@ def _migrar_participantes_si_necesario() -> None:
     if cambiado:
         save_participants(participants_cache)
 
+
+# ---------------------------------------------------------------------------
+# Lógica de negocio
+# ---------------------------------------------------------------------------
 
 def get_or_create_participant(device_id: str) -> str | None:
     if not device_id:
@@ -51,6 +63,10 @@ def get_or_create_participant(device_id: str) -> str | None:
     save_participants(participants_cache)
     return nombre
 
+
+# ---------------------------------------------------------------------------
+# Inicialización al importar
+# ---------------------------------------------------------------------------
 
 participants_cache.update(load_participants())
 _migrar_participantes_si_necesario()

@@ -178,8 +178,7 @@ def sincronizar_puntajes(intervalo_segundos: float = 1.0) -> None:
                     [
                         {
                             "participante": participante,
-                            "puntaje_retos": valores["puntaje"],
-                            "total": valores["total"],
+                            "puntaje_retos": valores
                         }
                         for participante, valores in puntajes_por_participante.items()
                     ]

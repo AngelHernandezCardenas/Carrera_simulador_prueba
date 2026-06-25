@@ -6,7 +6,7 @@ import math
 # ==============================================================================
 # CONFIGURACION LIGERA
 # ==============================================================================
-LIMITES_PELOTAS = {'Rojo': 10, 'Negro': 2, 'Blanco': 3}
+LIMITES_PELOTAS = {'Rojo': 20, 'Negro': 2, 'Blanco': 3}
 MESH_FRACTION = 0.38
 
 HSV_RANGOS = {
@@ -22,9 +22,9 @@ HSV_RANGOS = {
     ],
 }
 UMBRAL_VALIDACION_COLOR = {
-    'Rojo':   0.08,
-    'Blanco': 0.25,
-    'Negro':  0.08,
+    'Rojo':   0.12,
+    'Blanco': 0.20,   # Las pelotas grises-blancas tienen menos píxeles "blancos puros"
+    'Negro':  0.12,
 }
 
 def get_color_bgr(nombre):
@@ -51,11 +51,15 @@ def get_zona_deteccion(frame_shape):
 def dentro_del_circulo(px, py, cx, cy, radio):
     return math.hypot(px - cx, py - cy) <= radio
 
-def es_forma_pelota(x1, y1, x2, y2, frame_shape, max_aspect=1.25, min_frac=0.0003, max_frac=0.50):
+def es_forma_pelota(x1, y1, x2, y2, frame_shape, max_aspect=1.6, min_frac=0.0003, max_frac=0.45):
     w, h = x2 - x1, y2 - y1
     if w <= 0 or h <= 0: return False
     if max(w, h) / (min(w, h) + 1e-9) > max_aspect: return False
-    return min_frac <= ((w * h) / (frame_shape[1] * frame_shape[0])) <= max_frac
+    # Filtro de circularidad: el área del bounding box debe ser similar al área de un círculo
+    # Para una pelota real, el círculo inscrito ocupa ~78% del cuadrado
+    # Si es un objeto rectangular (ratón, teclado), esta fracción baja mucho
+    area_ratio = (w * h) / (frame_shape[1] * frame_shape[0])
+    return min_frac <= area_ratio <= max_frac
 
 def validar_color_en_roi(frame, x1, y1, x2, y2, nombre, umbral_frac=None):
     if umbral_frac is None: umbral_frac = UMBRAL_VALIDACION_COLOR.get(nombre, 0.08)
@@ -91,7 +95,7 @@ def validar_color_en_roi(frame, x1, y1, x2, y2, nombre, umbral_frac=None):
     return (np.count_nonzero(color_mask) / total_px) >= umbral_frac
 
 def nms_global(detecciones_dict, factor_radio=0.5):
-    # Agrupar todas las detecciones: (color, cx, cy, r)
+    # Agrupar todas las detecciones: (color, cx, cy, r, contour (opcional))
     todas = []
     for color, lista in detecciones_dict.items():
         for det in lista:
@@ -105,11 +109,17 @@ def nms_global(detecciones_dict, factor_radio=0.5):
     resultado = {k: [] for k in detecciones_dict.keys()}
     aceptadas = []
     
-    for color, cx, cy, r in ordenadas:
+    for item in ordenadas:
+        color, cx, cy, r = item[0:4]
+        contour = item[4] if len(item) > 4 else None
+        
         # Si NO choca con ninguna aceptada, la agregamos
         if not any(math.hypot(cx - fx, cy - fy) < (r + fr) * factor_radio for fx, fy, fr in aceptadas):
             aceptadas.append((cx, cy, r))
-            resultado[color].append((cx, cy, r))
+            if contour is not None:
+                resultado[color].append((cx, cy, r, contour))
+            else:
+                resultado[color].append((cx, cy, r))
             
     return resultado
 
@@ -178,7 +188,7 @@ def emparejar_detecciones(trackers, detecciones):
                     asignaciones[i] = d; break
     return asignaciones
 
-def es_falso_positivo_ligero(frame, x1, y1, x2, y2, nombre):
+def es_falso_positivo_ligero(frame, x1, y1, x2, y2, nombre, background_profile=None):
     roi = frame[max(0, int(y1)):int(y2), max(0, int(x1)):int(x2)]
     if roi.size == 0: return False
     
@@ -187,25 +197,59 @@ def es_falso_positivo_ligero(frame, x1, y1, x2, y2, nombre):
     s_mean = np.mean(hsv[:,:,1])
     
     if nombre == 'Blanco':
-        # Las sombras o fondos grises suelen ser muy oscuros o tener algo de color amarillento del ambiente
-        if v_mean < 80: return True  # Es una sombra oscura
-        if s_mean > 120: return True # Tiene demasiado color para ser blanco puro
+        # Las pelotas blancas en interior tienen sombra y son gris-beige, no blanco puro
+        if v_mean < 95: return True   # Demasiado oscuro para ser pelota blanca/gris
+        if s_mean > 110: return True  # Demasiado saturado (colores), no es blanca
         
     elif nombre == 'Rojo':
-        # Los fondos oscuros que YOLO confunde con rojo suelen tener poca saturación
-        if v_mean < 40: return True
-        if s_mean < 50: return True  # Un rojo vivo tiene saturación alta
+        if v_mean < 30: return True
+        if s_mean < 50: return True
         
     elif nombre == 'Negro':
-        # Descartar destellos blancos o paredes muy iluminadas
-        if v_mean > 140: return True
+        if v_mean > 100: return True  # Objetos negros deben ser bien oscuros
         
+    # --- FILTRO AGRESIVO USANDO CALIBRACIÓN ---
+    if background_profile is not None:
+        bg_v = background_profile.get('v_mean', 200)
+        
+        if nombre == 'Blanco':
+            # Relajado para recuperar la súper detección: 
+            # Una sombra es muy oscura (e.g. 50% del fondo), una pelota blanca es brillante (e.g. 80-100% del fondo).
+            if v_mean < bg_v * 0.60: 
+                print(f"[TELEMETRIA] Falso positivo Blanco evitado. V:{v_mean:.1f} < BG_ratio:{bg_v*0.60:.1f}")
+                return True
+        elif nombre == 'Negro':
+            # Una sombra es oscura pero no tanto. Una pelota negra verdadera tiene V muy bajo.
+            if v_mean > bg_v * 0.45:
+                print(f"[TELEMETRIA] Falso positivo Negro (Sombra/Contorno) evitado. V:{v_mean:.1f} > {bg_v*0.45:.1f}")
+                return True
+                
+    # --- FILTRO DE FORMA (CIRCULARIDAD) PARA CONTORNOS FALSOS ---
+    # Convertimos a gris y usamos Otsu para separar el objeto del fondo
+    gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    
+    # Buscamos contornos tanto en la mascara normal como invertida (el objeto puede ser claro u oscuro)
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours_inv, _ = cv2.findContours(cv2.bitwise_not(thresh), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    all_contours = list(contours) + list(contours_inv)
+    if all_contours:
+        c = max(all_contours, key=cv2.contourArea)
+        area = cv2.contourArea(c)
+        perimeter = cv2.arcLength(c, True)
+        if perimeter > 0:
+            circularidad = (4 * np.pi * area) / (perimeter * perimeter)
+            if circularidad < 0.45:
+                print(f"[TELEMETRIA] Objeto {nombre} rechazado por falta de circularidad ({circularidad:.2f} < 0.45)")
+                return True # No es una pelota, es un contorno alargado o irregular
+            
     return False
 
 # ==============================================================================
 # PROCESAMIENTO PRINCIPAL
 # ==============================================================================
-def procesar_frame_yolo_api(frame, estado, modelo_yolo, mobile_mode=False):
+def procesar_frame_yolo_api(frame, estado, modelo_yolo, mobile_mode=False, calibrate_mode=False):
     """
     Ruta optimizada para detección en tiempo real.
     - Se elimina CLAHE pesado global.
@@ -229,6 +273,8 @@ def procesar_frame_yolo_api(frame, estado, modelo_yolo, mobile_mode=False):
     fh, fw = frame.shape[:2]
     cx_scr, cy_scr, radio_zona = get_zona_deteccion(frame.shape)
 
+    background_profile = estado.get('background_profile')
+
     # Dibujar retícula central
     c = (255, 255, 255)
     # --- Malla Ligera (Grid overlay) ---
@@ -249,10 +295,29 @@ def procesar_frame_yolo_api(frame, estado, modelo_yolo, mobile_mode=False):
 
     # Inferencia Directa YOLO Ultrarrápida
     if modelo_yolo is not None:
-        # Reducimos conf a 0.55 y subimos imgsz a 480 para detectar pelotas oscuras/pequeñas
-        resultados = modelo_yolo.predict(frame, conf=0.55, imgsz=480, verbose=False) 
+        # conf=0.25: balance entre detectar todas las pelotas y evitar falsos positivos
+        resultados = modelo_yolo.predict(frame, conf=0.25, iou=0.45, imgsz=640, verbose=False) 
         if len(resultados) > 0 and resultados[0].boxes is not None:
             cajas = resultados[0].boxes
+            masks = resultados[0].masks if hasattr(resultados[0], 'masks') else None
+            
+            # --- ON-THE-FLY BACKGROUND ESTIMATION ---
+            mask_bg = np.zeros((fh, fw), dtype=np.uint8)
+            cv2.circle(mask_bg, (cx_scr, cy_scr), radio_zona, 255, -1)
+            for i in range(len(cajas)):
+                x1, y1, x2, y2 = map(int, cajas.xyxy[i].tolist())
+                cv2.rectangle(mask_bg, (x1, y1), (x2, y2), 0, -1)
+                
+            bg_pixels = cv2.bitwise_and(frame, frame, mask=mask_bg)
+            hsv_bg = cv2.cvtColor(bg_pixels, cv2.COLOR_BGR2HSV)
+            v_channel = hsv_bg[:,:,2]
+            valid_v = v_channel[mask_bg == 255]
+            if len(valid_v) > 0:
+                bg_v = np.median(valid_v)
+                estado['background_profile'] = {'v_mean': bg_v}
+                background_profile = estado['background_profile']
+            # ----------------------------------------
+            
             for i in range(len(cajas)):
                 cls_id = int(cajas.cls[i].item())
                 nombre = {0: 'Rojo', 1: 'Blanco', 2: 'Negro'}.get(cls_id)
@@ -265,18 +330,42 @@ def procesar_frame_yolo_api(frame, estado, modelo_yolo, mobile_mode=False):
                 if not dentro_del_circulo(cx, cy, cx_scr, cy_scr, radio_zona): continue
                 if not es_forma_pelota(x1, y1, x2, y2, frame.shape): continue
                 # Filtro super ligero para descartar sombras y reflejos sin romper YOLO
-                if es_falso_positivo_ligero(frame, x1, y1, x2, y2, nombre): continue
+                if es_falso_positivo_ligero(frame, x1, y1, x2, y2, nombre, background_profile): continue
+                # Validar que el color dominante en el ROI sea el color detectado
+                # Esto evita contar una pelota de otro color que se haya cruzado
+                if not validar_color_en_roi(frame, x1, y1, x2, y2, nombre): continue
                 
                 r = int((x2-x1 + y2-y1)/4)
                 
+                # Filtro de circularidad sobre el radio estimado vs el área del bounding box
+                # Una pelota real debe ser aproximadamente circular (area_circulo / area_bbox > 0.50)
+                w_box, h_box = x2-x1, y2-y1
+                circularidad = (math.pi * r * r) / (w_box * h_box + 1e-9)
+                if circularidad < 0.50: continue
+                
                 # Filtrar EXCLUSIVAMENTE PELOTAS: descartamos si la estimación de tamaño (z)
                 z_estimado = estimar_z_fast(r, frame.shape)
-                if z_estimado > 10.0: continue
+                if z_estimado > 14.0: continue
                 
-                detecciones_brutas[nombre].append((cx, cy, r))
+                contour = None
+                if masks is not None and masks.xy is not None and len(masks.xy) > i:
+                    seg = masks.xy[i]
+                    if len(seg) > 0:
+                        contour = np.array(seg, dtype=np.int32).reshape((-1, 1, 2))
+                        # Usar el círculo mínimo pero limitado al tamaño del bounding box
+                        (fx, fy), fr = cv2.minEnclosingCircle(contour)
+                        # Limitar el radio para que no sea mayor al del bounding box
+                        r_max = int((x2-x1 + y2-y1)/4)
+                        cx, cy, r = int(fx), int(fy), min(int(fr), r_max)
+                
+                if contour is not None:
+                    detecciones_brutas[nombre].append((cx, cy, r, contour))
+                else:
+                    detecciones_brutas[nombre].append((cx, cy, r))
                 
         # NMS Global para no marcar el mismo objeto 2 veces con colores distintos o cajas repetidas
-        detecciones_brutas = nms_global(detecciones_brutas, factor_radio=0.5)
+        # factor_radio 0.75 para que si dos detecciones se solapan >75% del radio se cuenten como 1
+        detecciones_brutas = nms_global(detecciones_brutas, factor_radio=0.75)
 
     detectado_result = None
     COOLDOWN = 1.5
@@ -292,11 +381,17 @@ def procesar_frame_yolo_api(frame, estado, modelo_yolo, mobile_mode=False):
         all_balls = []
         for nombre in ['Negro', 'Rojo', 'Blanco']:
             for idx, det in enumerate(detecciones_brutas[nombre]):
-                cx, cy, r = det
-                color_bgr = get_color_bgr(nombre)
-                cv2.circle(frame, (cx, cy), r, color_bgr, 3)
-                lbl = f'{nombre} #{idx+1}'
-                cv2.putText(frame, lbl, (cx-r, cy-r-5), cv2.FONT_HERSHEY_SIMPLEX, 0.55, color_bgr, 2)
+                if len(det) > 3 and det[3] is not None:
+                    cx, cy, r, contour = det
+                    color_bgr = get_color_bgr(nombre)
+                    cv2.circle(frame, (cx, cy), r, color_bgr, 2)
+                else:
+                    cx, cy, r = det[:3]
+                    color_bgr = get_color_bgr(nombre)
+                    cv2.circle(frame, (cx, cy), r, color_bgr, 2)
+                    
+                lbl = f'{idx+1}'
+                cv2.putText(frame, lbl, (cx-r, cy-r-5), cv2.FONT_HERSHEY_COMPLEX, 0.5, color_bgr, 1)
                 
                 all_balls.append({
                     "color": nombre,
@@ -327,6 +422,7 @@ def procesar_frame_yolo_api(frame, estado, modelo_yolo, mobile_mode=False):
         lista = sorted(detecciones_brutas[nombre], key=lambda d: (d[1]//80, d[0]//80))
         asignaciones = emparejar_detecciones(trackers[nombre], lista)
         
+        visible_count = 0
         for idx, det in enumerate(asignaciones):
             tr = trackers[nombre][idx]
             result = tr.actualizar(det)
@@ -334,6 +430,7 @@ def procesar_frame_yolo_api(frame, estado, modelo_yolo, mobile_mode=False):
                 temporizadores[nombre][idx] = 0.0
                 continue
             
+            visible_count += 1
             cx, cy, r = result
             if temporizadores[nombre][idx] == 0.0: temporizadores[nombre][idx] = t_act
             
@@ -342,9 +439,14 @@ def procesar_frame_yolo_api(frame, estado, modelo_yolo, mobile_mode=False):
             y_norm = round(1 - cy / fh * 2, 2)
             
             # Anotar Frame
-            cv2.circle(frame, (cx, cy), r, color_bgr, 3)
-            lbl = f'{nombre} #{idx+1}'
-            cv2.putText(frame, lbl, (cx-r, cy-r-5), cv2.FONT_HERSHEY_SIMPLEX, 0.55, color_bgr, 2)
+            if det is not None and len(det) > 3 and det[3] is not None:
+                # Dibujar círculo ajustado en lugar del contorno poligonal crudo
+                cv2.circle(frame, (cx, cy), r, color_bgr, 2)
+            else:
+                cv2.circle(frame, (cx, cy), r, color_bgr, 2)
+                
+            lbl = f'{visible_count}'
+            cv2.putText(frame, lbl, (cx-r, cy-r-5), cv2.FONT_HERSHEY_COMPLEX, 0.5, color_bgr, 1)
             
             # Registrar Detección y Puntos
             if (t_act - ultimo_intento.get(nombre, 0.0)) >= COOLDOWN and not detectado_result:

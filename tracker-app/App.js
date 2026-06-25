@@ -12,6 +12,9 @@ import {
   LogBox,
   Modal,
   FlatList,
+  Animated,
+  Easing,
+  Dimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Location from 'expo-location';
@@ -19,6 +22,7 @@ import { Accelerometer } from 'expo-sensors';
 import * as TaskManager from 'expo-task-manager';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import ImageViewer from 'react-native-image-zoom-viewer';
 
 LogBox.ignoreAllLogs();
 
@@ -73,9 +77,9 @@ const haversineMeters = (lat1, lon1, lat2, lon2) => {
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(toRad(lat1)) *
-      Math.cos(toRad(lat2)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
+    Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) *
+    Math.sin(dLon / 2);
   return 2 * earthRadius * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
@@ -181,7 +185,14 @@ const sendGps = async (loc) => {
       }),
     });
 
-    const data = await resp.json();
+    const respText = await resp.text();
+    let data;
+    try {
+      data = JSON.parse(respText);
+    } catch (e) {
+      throw new Error(`Invalid GPS response (${resp.status}): ${respText.substring(0, 100)}`);
+    }
+
     if (!resp.ok && data.status !== 'limite_participantes') {
       throw new Error(data.msg || `Error del servidor: ${resp.status}`);
     }
@@ -212,6 +223,9 @@ export default function App() {
   const [status, setStatus] = useState({ text: 'Esperando...', tone: 'neutral' });
   const [galeriaVisible, setGaleriaVisible] = useState(false);
   const [galeriaImagenes, setGaleriaImagenes] = useState([]);
+  const [imagenExpandida, setImagenExpandida] = useState(null);
+  const [mostrarContorno, setMostrarContorno] = useState(true);
+  const [zoomLevel, setZoomLevel] = useState(1);
   const [location, setLocation] = useState(null);
   const [speedInfo, setSpeedInfo] = useState({
     speed_kmh: null,
@@ -258,11 +272,41 @@ export default function App() {
   const [cameraLayout, setCameraLayout] = useState(null);
   const [detectedBalls, setDetectedBalls] = useState([]);
 
+  const spinValue = useRef(new Animated.Value(0)).current;
+  const loopRef = useRef(null);
+
+  useEffect(() => {
+    if (contandoActivo) {
+      loopRef.current = Animated.loop(
+        Animated.timing(
+          spinValue,
+          {
+            toValue: 1,
+            duration: 2000,
+            easing: Easing.linear,
+            useNativeDriver: true
+          }
+        )
+      );
+      loopRef.current.start();
+    } else {
+      if (loopRef.current) {
+        loopRef.current.stop();
+      }
+      spinValue.setValue(0);
+    }
+  }, [contandoActivo, spinValue]);
+
+  const spin = spinValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg']
+  });
+
   // --- CAMERA SCANNING FUNCTIONS ---
   const escanearUnaVez = async () => {
     if (scanningRef.current || !cameraRef.current) return;
     if (!isCameraReady) return;
-    
+
     // Si ya hay 10 puntos, no escanear más (limite)
     const ptsActuales = (countsRef.current.Rojo * 1) + (countsRef.current.Blanco * 3) + (countsRef.current.Negro * 5);
     if (ptsActuales >= 10) return;
@@ -273,12 +317,12 @@ export default function App() {
 
     try {
       // quality baja para acelerar un 150% la transferencia por red
-      const photo = await cameraRef.current.takePictureAsync({ 
+      const photo = await cameraRef.current.takePictureAsync({
         base64: true,
         quality: 0.2,
         shutterSound: false
       });
-      
+
       const resp = await fetch(`${globalServerUrl}/vision`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -289,42 +333,55 @@ export default function App() {
         })
       });
 
-      const data = await resp.json();
-      
+      const respText = await resp.text();
+      let data;
+      try {
+        data = JSON.parse(respText);
+      } catch (e) {
+        throw new Error(`Invalid server response (${resp.status}): ${respText.substring(0, 100)}`);
+      }
+
       if (data.status === 'ok') {
         if (data.balls) {
-           setDetectedBalls(data.balls);
+          setDetectedBalls(data.balls);
         } else {
-           setDetectedBalls([]);
+          setDetectedBalls([]);
         }
-        
+
         if (data.counts) {
-            for (const color of ['Rojo', 'Blanco', 'Negro']) {
-                let val = data.counts[color] || 0;
-                
-                if (val >= 2) {
-                    // Si hay 2 o más pelotas del MISMO color en la foto, se suman al contador
-                    countsRef.current[color] += val;
-                } else {
-                    // Si solo hay 1 pelota de este color (o 0), no se suma. 
-                    // Solo actualiza si es mayor al máximo detectado antes
-                    countsRef.current[color] = Math.max(countsRef.current[color], val);
-                }
-                
-                // Límites GLOBALES (El rojo máximo 10, Negro 2, Blanco 3)
-                if (color === 'Negro' && countsRef.current[color] > 2) countsRef.current[color] = 2;
-                if (color === 'Blanco' && countsRef.current[color] > 3) countsRef.current[color] = 3;
-                if (color === 'Rojo' && countsRef.current[color] > 10) countsRef.current[color] = 10;
-            }
-            
-            setMaxCounts({ ...countsRef.current });
-            
-            const pts = (countsRef.current.Rojo * 1) + (countsRef.current.Blanco * 3) + (countsRef.current.Negro * 5);
-            if (pts >= 10) {
-               setLog('Límite de 10 puntos alcanzado.', 'success');
+          for (const color of ['Rojo', 'Blanco', 'Negro']) {
+            let val = data.counts[color] || 0;
+
+            if (val >= 2) {
+              // Si hay 2 o más pelotas del MISMO color en la foto, se suman al contador
+              countsRef.current[color] += val;
             } else {
-               setLog(`Escaneo listo: ${pts} puntos.`, 'success');
+              // Si solo hay 1 pelota de este color (o 0), no se suma. 
+              // Solo actualiza si es mayor al máximo detectado antes
+              countsRef.current[color] = Math.max(countsRef.current[color], val);
             }
+
+            // Límites GLOBALES (El rojo máximo 10, Negro 2, Blanco 3)
+            if (color === 'Negro' && countsRef.current[color] > 2) countsRef.current[color] = 2;
+            if (color === 'Blanco' && countsRef.current[color] > 3) countsRef.current[color] = 3;
+            if (color === 'Rojo' && countsRef.current[color] > 10) countsRef.current[color] = 10;
+          }
+
+          setMaxCounts({ ...countsRef.current });
+
+          const pts = (countsRef.current.Rojo * 1) + (countsRef.current.Blanco * 3) + (countsRef.current.Negro * 5);
+          if (pts >= 10) {
+            setLog('Límite de 10 puntos alcanzado.', 'success');
+          } else {
+            setLog(`Escaneo listo: ${pts} puntos.`, 'success');
+          }
+
+          // Desaparecer los contornos después de 3 segundos
+          setTimeout(() => {
+            if (mountedRef.current) {
+              setDetectedBalls([]);
+            }
+          }, 3000);
         }
       }
     } catch (e) {
@@ -358,6 +415,28 @@ export default function App() {
     }
   };
 
+  const limpiarGaleria = async () => {
+    try {
+      const resp = await fetch(`${globalServerUrl}/limpiar_galeria`, { method: 'POST' });
+      const respText = await resp.text();
+      let data;
+      try {
+        data = JSON.parse(respText);
+      } catch (e) {
+        throw new Error(`Invalid response (${resp.status}): ${respText.substring(0, 100)}`);
+      }
+
+      if (data.status === 'ok') {
+        setGaleriaImagenes([]);
+        setLog('Galería limpiada', 'neutral');
+      } else {
+        setLog('No se pudo limpiar la galería', 'error');
+      }
+    } catch (e) {
+      setLog('Error al limpiar la galería', 'error');
+    }
+  };
+
   // --------------------------------
 
   const initializeDevice = async () => {
@@ -367,7 +446,10 @@ export default function App() {
       await AsyncStorage.setItem(DEVICE_ID_KEY, id);
     }
 
-    const savedUrl = (await AsyncStorage.getItem(SERVER_URL_KEY)) || 'https://TU-TUNEL.trycloudflare.com';
+    let savedUrl = await AsyncStorage.getItem(SERVER_URL_KEY);
+    // FORCE NEW TUNNEL URL
+    savedUrl = 'https://sperm-composed-entrance-caps.trycloudflare.com';
+    
     const savedParticipant = await AsyncStorage.getItem(PARTICIPANTE_KEY);
 
     globalDeviceId = id;
@@ -605,14 +687,14 @@ export default function App() {
       });
       setLog(
         `Ubicacion obtenida\n` +
-          `Participante: ${globalParticipante}\n` +
-          `Lat: ${loc.coords.latitude.toFixed(6)}\n` +
-          `Lon: ${loc.coords.longitude.toFixed(6)}\n` +
-          `Velocidad: ${fmt(speed.speed_kmh, 2)} km/h (${fmt(speed.speed_mps, 2)} m/s)\n` +
-          `Aceleracion: ${fmt(speed.acceleration_mps2, 3)} m/s2\n` +
-          `Acelerometro: ${globalAccelData.permission_state}\n` +
-          `Precision: +/-${fmt(loc.coords.accuracy, 0)} m\n` +
-          `Hora: ${new Date().toLocaleTimeString()}`,
+        `Participante: ${globalParticipante}\n` +
+        `Lat: ${loc.coords.latitude.toFixed(6)}\n` +
+        `Lon: ${loc.coords.longitude.toFixed(6)}\n` +
+        `Velocidad: ${fmt(speed.speed_kmh, 2)} km/h (${fmt(speed.speed_mps, 2)} m/s)\n` +
+        `Aceleracion: ${fmt(speed.acceleration_mps2, 3)} m/s2\n` +
+        `Acelerometro: ${globalAccelData.permission_state}\n` +
+        `Precision: +/-${fmt(loc.coords.accuracy, 0)} m\n` +
+        `Hora: ${new Date().toLocaleTimeString()}`,
         'ok'
       );
     } catch (error) {
@@ -634,7 +716,7 @@ export default function App() {
       ) : !permission.granted ? (
         <View style={styles.connectionPanel}>
           <Text style={styles.label}>Cámara y Escáner YOLO</Text>
-          <Text style={{marginBottom: 10}}>Necesitamos permiso para usar la cámara</Text>
+          <Text style={{ marginBottom: 10 }}>Necesitamos permiso para usar la cámara</Text>
           <TouchableOpacity style={[styles.button, styles.secondaryButton]} onPress={requestPermission}>
             <Text style={styles.buttonText}>Otorgar Permiso</Text>
           </TouchableOpacity>
@@ -642,90 +724,109 @@ export default function App() {
       ) : (
         <View style={styles.connectionPanel}>
           <Text style={styles.label}>Cámara y Escáner YOLO</Text>
-          
-          <View 
+
+          <View
             style={{ width: '100%', height: 300, backgroundColor: 'black', borderRadius: 8, overflow: 'hidden', marginBottom: 10 }}
             onLayout={(e) => {
-               const { width, height } = e.nativeEvent.layout;
-               setCameraLayout({ width, height });
+              const { width, height } = e.nativeEvent.layout;
+              setCameraLayout({ width, height });
             }}
           >
-             <CameraView 
-               style={{ flex: 1 }} 
-               facing="back" 
-               ref={cameraRef}
-               onCameraReady={() => setIsCameraReady(true)}
-             />
-             
-             {/* Contorno del límite de detección (círculo central) */}
-             {cameraLayout && (
-                <View style={{
-                   position: 'absolute',
-                   left: cameraLayout.width / 2 - (Math.min(cameraLayout.width, cameraLayout.height) * 0.38),
-                   top: cameraLayout.height / 2 - (Math.min(cameraLayout.width, cameraLayout.height) * 0.38),
-                   width: Math.min(cameraLayout.width, cameraLayout.height) * 0.76,
-                   height: Math.min(cameraLayout.width, cameraLayout.height) * 0.76,
-                   borderRadius: Math.min(cameraLayout.width, cameraLayout.height) * 0.38,
-                   borderWidth: 1.5,
-                   borderColor: 'rgba(255, 255, 255, 0.6)',
-                   borderStyle: 'dashed'
-                }} />
-             )}
-             
-             {/* Contorno de las pelotas detectadas */}
-             {cameraLayout && detectedBalls.map((b, i) => {
+            <CameraView
+              style={{ flex: 1 }}
+              facing="back"
+              ref={cameraRef}
+              onCameraReady={() => setIsCameraReady(true)}
+            />
+
+            {/* Contorno del límite de detección (círculo central) */}
+            {cameraLayout && (
+              <Animated.View style={{
+                position: 'absolute',
+                left: cameraLayout.width / 2 - (Math.min(cameraLayout.width, cameraLayout.height) * 0.38),
+                top: cameraLayout.height / 2 - (Math.min(cameraLayout.width, cameraLayout.height) * 0.38),
+                width: Math.min(cameraLayout.width, cameraLayout.height) * 0.76,
+                height: Math.min(cameraLayout.width, cameraLayout.height) * 0.76,
+                borderRadius: Math.min(cameraLayout.width, cameraLayout.height) * 0.38,
+                borderWidth: 1.5,
+                borderColor: 'rgba(255, 255, 255, 0.6)',
+                borderStyle: 'dashed',
+                transform: [{rotate: spin}]
+              }} />
+            )}
+
+
+
+            {/* Contorno de las pelotas detectadas */}
+            {cameraLayout && (() => {
+              const colorCounts = { Rojo: 0, Blanco: 0, Negro: 0 };
+              return detectedBalls.map((b, i) => {
                 const colorMap = { 'Rojo': '#ef4444', 'Blanco': '#ffffff', 'Negro': '#111111' };
+                const nameMap = { 'Rojo': 'Red', 'Blanco': 'White', 'Negro': 'Black' };
+                colorCounts[b.color] = (colorCounts[b.color] || 0) + 1;
+                const enName = nameMap[b.color] || b.color;
+                const currentCount = colorCounts[b.color];
+                
                 const cx = b.x_norm * cameraLayout.width;
                 const cy = b.y_norm * cameraLayout.height;
                 const r = b.r_norm * cameraLayout.width; // r_norm was calculated using fw
                 return (
-                   <View key={i} style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 }} pointerEvents="none">
-                      {/* Circulo principal */}
-                      <View style={{
-                         position: 'absolute',
-                         left: cx - r,
-                         top: cy - r,
-                         width: r * 2,
-                         height: r * 2,
-                         borderRadius: r,
-                         borderWidth: 3,
-                         borderColor: colorMap[b.color] || '#00ff00'
-                      }} />
-                      
-                      {/* Punto central */}
-                      <View style={{
-                         position: 'absolute',
-                         left: cx - 4,
-                         top: cy - 4,
-                         width: 8,
-                         height: 8,
-                         borderRadius: 4,
-                         backgroundColor: colorMap[b.color] || '#00ff00'
-                      }} />
-                      
-                      {/* Etiqueta tipo OpenCV */}
-                      <View style={{
-                         position: 'absolute',
-                         left: cx - r,
-                         top: Math.max(18, cy - r - 20),
-                         backgroundColor: '#141414',
-                         paddingHorizontal: 4,
-                         paddingVertical: 2,
-                         borderRadius: 2
-                      }}>
-                         <Text style={{ color: colorMap[b.color] || '#00ff00', fontSize: 11, fontWeight: 'bold' }}>
-                           {`${b.color} #${i+1}`}
-                         </Text>
+                  <View key={i} style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 }} pointerEvents="none">
+                    {/* Circulo principal */}
+                    <View style={{
+                      position: 'absolute',
+                      left: cx - r,
+                      top: cy - r,
+                      width: r * 2,
+                      height: r * 2,
+                      borderRadius: r,
+                      borderWidth: 3,
+                      borderColor: colorMap[b.color] || '#00ff00'
+                    }} />
+
+                    {/* Punto central */}
+                    <View style={{
+                      position: 'absolute',
+                      left: cx - 4,
+                      top: cy - 4,
+                      width: 8,
+                      height: 8,
+                      borderRadius: 4,
+                      backgroundColor: colorMap[b.color] || '#00ff00'
+                    }} />
+
+                    {/* Etiqueta tipo OpenCV Mejorada (Text con stroke) */}
+                    <View style={{
+                      position: 'absolute',
+                      left: cx - r,
+                      top: Math.max(18, cy - r - 25),
+                      paddingHorizontal: 4,
+                      paddingVertical: 2,
+                    }}>
+                      <View>
+                        <Text style={{ position: 'absolute', left: -1, top: -1, fontSize: 16, fontWeight: '900', color: b.color === 'Negro' ? 'white' : 'black' }}>{currentCount}</Text>
+                        <Text style={{ position: 'absolute', left: 1, top: -1, fontSize: 16, fontWeight: '900', color: b.color === 'Negro' ? 'white' : 'black' }}>{currentCount}</Text>
+                        <Text style={{ position: 'absolute', left: -1, top: 1, fontSize: 16, fontWeight: '900', color: b.color === 'Negro' ? 'white' : 'black' }}>{currentCount}</Text>
+                        <Text style={{ position: 'absolute', left: 1, top: 1, fontSize: 16, fontWeight: '900', color: b.color === 'Negro' ? 'white' : 'black' }}>{currentCount}</Text>
+                        <Text style={{ 
+                          color: b.color === 'Blanco' ? 'white' : (b.color === 'Negro' ? 'black' : 'red'), 
+                          fontSize: 16, 
+                          fontWeight: '900' 
+                        }}>
+                          {currentCount}
+                        </Text>
                       </View>
-                   </View>
+                    </View>
+                  </View>
                 );
-             })}
+              });
+            })()}
           </View>
 
           {/* Botones */}
           <View style={{ marginBottom: 20 }}>
             <View style={{ flexDirection: 'row', marginBottom: 10 }}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.button, styles.secondaryButton, { flex: 1, backgroundColor: contandoActivo ? '#7f8c8d' : '#2563eb' }]}
                 onPress={escanearUnaVez}
                 disabled={contandoActivo || ((countsRef.current.Rojo * 1) + (countsRef.current.Blanco * 3) + (countsRef.current.Negro * 5) >= 10)}
@@ -734,34 +835,36 @@ export default function App() {
                   {((countsRef.current.Rojo * 1) + (countsRef.current.Blanco * 3) + (countsRef.current.Negro * 5) >= 10) ? 'Limit Reached' : (contandoActivo ? 'Processing...' : 'Scan Balls')}
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.button, styles.dangerButton, { marginLeft: 10 }]} onPress={reiniciarEscaneo}>
+            </View>
+            <View style={{ flexDirection: 'row', marginBottom: 10 }}>
+              <TouchableOpacity style={[styles.button, styles.dangerButton, { flex: 1, marginRight: 5 }]} onPress={reiniciarEscaneo}>
                 <Text style={styles.buttonText}>Reset</Text>
               </TouchableOpacity>
-            </View>
-            <TouchableOpacity style={[styles.button, { backgroundColor: '#8e44ad', width: '100%', alignItems: 'center' }]} onPress={abrirGaleria}>
+              <TouchableOpacity style={[styles.button, { flex: 1, backgroundColor: '#8e44ad', marginLeft: 5, alignItems: 'center' }]} onPress={abrirGaleria}>
               <Text style={styles.buttonText}>Gallery</Text>
             </TouchableOpacity>
+          </View>
           </View>
 
           {/* Contadores */}
           <View style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', backgroundColor: 'white', padding: 10, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', marginBottom: 10 }}>
-             <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: 'red', justifyContent: 'center', alignItems: 'center' }}>
-               <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 20 }}>{maxCounts.Rojo}</Text>
-             </View>
-             <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: 'white', borderWidth: 1, borderColor: '#ccc', justifyContent: 'center', alignItems: 'center' }}>
-               <Text style={{ color: 'black', fontWeight: 'bold', fontSize: 20 }}>{maxCounts.Blanco}</Text>
-             </View>
-             <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: 'black', justifyContent: 'center', alignItems: 'center' }}>
-               <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 20 }}>{maxCounts.Negro}</Text>
-             </View>
+            <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: 'red', justifyContent: 'center', alignItems: 'center' }}>
+              <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 20 }}>{maxCounts.Rojo}</Text>
+            </View>
+            <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: 'white', borderWidth: 1, borderColor: '#ccc', justifyContent: 'center', alignItems: 'center' }}>
+              <Text style={{ color: 'black', fontWeight: 'bold', fontSize: 20 }}>{maxCounts.Blanco}</Text>
+            </View>
+            <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: 'black', justifyContent: 'center', alignItems: 'center' }}>
+              <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 20 }}>{maxCounts.Negro}</Text>
+            </View>
           </View>
 
           {/* Escaner de carga visual */}
           <View style={{ backgroundColor: 'white', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0' }}>
-             <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 4 }}>Escaner de carga visual</Text>
-             <Text style={{ fontSize: 20, fontWeight: '800', color: '#0f172a' }}>
-               {(maxCounts.Rojo * 1) + (maxCounts.Blanco * 3) + (maxCounts.Negro * 5)} pts
-             </Text>
+            <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 4 }}>Escaner de carga visual</Text>
+            <Text style={{ fontSize: 20, fontWeight: '800', color: '#0f172a' }}>
+              {(maxCounts.Rojo * 1) + (maxCounts.Blanco * 3) + (maxCounts.Negro * 5)} pts
+            </Text>
           </View>
         </View>
       )}
@@ -843,27 +946,85 @@ export default function App() {
       <Modal visible={galeriaVisible} animationType="slide" onRequestClose={() => setGaleriaVisible(false)}>
         <View style={{ flex: 1, backgroundColor: '#f8fafc', paddingTop: 40 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 10 }}>
-            <Text style={{ fontSize: 24, fontWeight: 'bold' }}>Galería de Escaneos</Text>
-            <TouchableOpacity onPress={() => setGaleriaVisible(false)} style={{ backgroundColor: '#ef4444', padding: 8, borderRadius: 8 }}>
-              <Text style={{ color: 'white', fontWeight: 'bold' }}>Cerrar</Text>
-            </TouchableOpacity>
+            <Text style={{ fontSize: 24, fontWeight: 'bold' }}>Scan Gallery</Text>
+            <View style={{ flexDirection: 'row' }}>
+              <TouchableOpacity onPress={limpiarGaleria} style={{ backgroundColor: '#f59e0b', padding: 8, borderRadius: 8, marginRight: 10 }}>
+                <Text style={{ color: 'white', fontWeight: 'bold' }}>Clear</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setGaleriaVisible(false)} style={{ backgroundColor: '#ef4444', padding: 8, borderRadius: 8 }}>
+                <Text style={{ color: 'white', fontWeight: 'bold' }}>Close</Text>
+              </TouchableOpacity>
+            </View>
           </View>
           <FlatList
             data={galeriaImagenes}
             keyExtractor={(item) => item.filename}
             renderItem={({ item }) => (
               <View style={{ marginBottom: 20, padding: 10, backgroundColor: 'white', marginHorizontal: 10, borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 }}>
-                <Text style={{ fontWeight: 'bold', marginBottom: 5 }}>Detecciones: {JSON.stringify(item.detections)}</Text>
-                <Text style={{ fontSize: 12, color: 'gray', marginBottom: 10 }}>{new Date(item.timestamp * 1000).toLocaleString()}</Text>
-                <Image
-                  source={{ uri: `${serverUrl}/capturas/${item.filename}` }}
-                  style={{ width: '100%', height: 250, resizeMode: 'contain', borderRadius: 8 }}
-                />
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
+                  <Text style={{ fontWeight: 'bold', marginRight: 10 }}>Detections:</Text>
+                  {item.detections && Object.entries(item.detections).map(([color, count]) => {
+                    if (count === 0) return null;
+                    const colorStr = String(color).toLowerCase();
+                    const isWhite = colorStr.includes('blanco') || colorStr.includes('white');
+                    const isRed = colorStr.includes('rojo') || colorStr.includes('red');
+                    const isBlack = colorStr.includes('negro') || colorStr.includes('black');
+
+                    let textColor = '#000000';
+                    let strokeColor = '#d1d5db'; // Gris claro para el negro
+                    if (isWhite) { textColor = '#ffffff'; strokeColor = '#000000'; }
+                    if (isRed) { textColor = '#ef4444'; strokeColor = '#000000'; }
+                    
+                    return (
+                      <View key={color} style={{ marginRight: 15, alignItems: 'center', justifyContent: 'center' }}>
+                        <View>
+                          {/* Hack de contorno (stroke) para React Native */}
+                          <Text style={{ position: 'absolute', left: -1, top: -1, fontSize: 12, fontFamily: 'serif', fontWeight: '900', color: strokeColor }}>{`${color}: ${count}`}</Text>
+                          <Text style={{ position: 'absolute', left: 1, top: -1, fontSize: 12, fontFamily: 'serif', fontWeight: '900', color: strokeColor }}>{`${color}: ${count}`}</Text>
+                          <Text style={{ position: 'absolute', left: -1, top: 1, fontSize: 12, fontFamily: 'serif', fontWeight: '900', color: strokeColor }}>{`${color}: ${count}`}</Text>
+                          <Text style={{ position: 'absolute', left: 1, top: 1, fontSize: 12, fontFamily: 'serif', fontWeight: '900', color: strokeColor }}>{`${color}: ${count}`}</Text>
+                          <Text style={{ fontSize: 12, fontFamily: 'serif', fontWeight: '900', color: textColor }}>{`${color}: ${count}`}</Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+                <Text style={{ fontSize: 12, color: 'gray', marginBottom: 10 }}>{new Date(item.timestamp * 1000).toLocaleString()} - {item.participante || item.device_id}</Text>
+                <TouchableOpacity onPress={() => { setImagenExpandida(item); setMostrarContorno(true); }}>
+                  <Image
+                    source={{ uri: `${serverUrl}/capturas/${item.filename}` }}
+                    style={{ width: '100%', height: 250, resizeMode: 'contain', borderRadius: 8 }}
+                  />
+                </TouchableOpacity>
               </View>
             )}
-            ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 50, color: 'gray' }}>No hay imágenes en la galería.</Text>}
+            ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 50, color: 'gray' }}>No images in the gallery.</Text>}
           />
         </View>
+      </Modal>
+
+      {/* MODAL IMAGEN EXPANDIDA */}
+      <Modal visible={!!imagenExpandida} transparent={true} animationType="fade" onRequestClose={() => { setImagenExpandida(null); }}>
+        {imagenExpandida && (
+          <ImageViewer
+            key={mostrarContorno ? 'annotated' : 'clean'}
+            imageUrls={[{ url: `${serverUrl}/capturas/${mostrarContorno ? imagenExpandida.filename : imagenExpandida.filename.replace('.jpg', '_clean.jpg')}` }]}
+            enableSwipeDown={true}
+            onSwipeDown={() => setImagenExpandida(null)}
+            renderIndicator={() => null}
+            saveToLocalByLongPress={false}
+            renderHeader={() => (
+              <View style={{ position: 'absolute', top: 40, left: 0, right: 0, zIndex: 10, paddingHorizontal: 20, flexDirection: 'row', justifyContent: 'space-between' }}>
+                <TouchableOpacity onPress={() => setMostrarContorno(!mostrarContorno)} style={{ backgroundColor: '#2563eb', padding: 10, borderRadius: 8 }}>
+                  <Text style={{ color: 'white', fontWeight: 'bold' }}>{mostrarContorno ? 'Hide Contours' : 'Show Contours'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setImagenExpandida(null)} style={{ backgroundColor: '#ef4444', padding: 10, borderRadius: 8 }}>
+                  <Text style={{ color: 'white', fontWeight: 'bold' }}>Close</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          />
+        )}
       </Modal>
 
     </ScrollView>

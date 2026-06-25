@@ -710,10 +710,26 @@ def vision():
             scale = gp_max_w / w_orig
             frame = cv2.resize(frame, (gp_max_w, int(h_orig * scale)), interpolation=cv2.INTER_AREA)
 
+        # Hacer copia limpia ANTES de que procesar_frame_yolo_api modifique el frame
+        frame_clean = frame.copy()
+
         mobile_mode = data.get("mobile", False)
+        calibrate_mode = data.get("calibrate", False)
         
         t_start = time.time()
-        detectado, frame_annotated = procesar_frame_yolo_api(frame, estado, modelo_yolo_global, mobile_mode=mobile_mode)
+        detectado, frame_annotated = procesar_frame_yolo_api(frame, estado, modelo_yolo_global, mobile_mode=mobile_mode, calibrate_mode=calibrate_mode)
+
+        # Agregar marca de agua
+        from datetime import datetime
+        with participants_lock:
+            participante_nombre = "Desconocido"
+            if device_id in participants_cache:
+                entry = participants_cache[device_id]
+                participante_nombre = entry.get("nombre", "Desconocido") if isinstance(entry, dict) else str(entry)
+
+        dt_now = datetime.now()
+        fecha_hora = dt_now.strftime("%Y-%m-%d %H:%M:%S")
+        # No imprimimos la marca de agua en la imagen directamente según lo solicitado
 
         jpeg_q = 35
         encode_params = [cv2.IMWRITE_JPEG_QUALITY, jpeg_q]
@@ -722,13 +738,18 @@ def vision():
 
         if detectado and "color" in detectado:
             # --- MÓDULO DE GUARDADO DE IMÁGENES (Galería) ---
-            # Guardamos la imagen procesada en disco para la galería
             capturas_dir = BASE_DIR / "capturas"
             capturas_dir.mkdir(exist_ok=True)
-            timestamp = int(time.time())
-            filename = f"captura_{device_id}_{timestamp}.jpg"
+            timestamp = int(dt_now.timestamp())
+            safe_name = participante_nombre.replace(" ", "_").replace("/", "-")
+            filename = f"captura_{safe_name}_{timestamp}.jpg"
+            
             filepath = capturas_dir / filename
             cv2.imwrite(str(filepath), frame_annotated)
+            
+            # Guardar también la imagen sin contornos (clean)
+            filepath_clean = capturas_dir / filename.replace(".jpg", "_clean.jpg")
+            cv2.imwrite(str(filepath_clean), frame_clean)
             
             # Guardamos registro en un JSON
             registro_galeria = BASE_DIR / "galeria.json"
@@ -742,6 +763,8 @@ def vision():
                 "filename": filename,
                 "timestamp": timestamp,
                 "device_id": device_id,
+                "participante": participante_nombre,
+                "fecha_hora": fecha_hora,
                 "detections": detectado["counts"]
             })
             
@@ -786,6 +809,27 @@ def galeria():
     with open(registro_galeria, "r", encoding="utf-8") as f:
         try: return jsonify(json.load(f))
         except: return jsonify([])
+
+@app.route("/limpiar_galeria", methods=["POST", "DELETE"])
+def limpiar_galeria():
+    """Endpoint para vaciar la galería y eliminar las imágenes físicas"""
+    registro_galeria = BASE_DIR / "galeria.json"
+    capturas_dir = BASE_DIR / "capturas"
+    
+    # Limpiar el JSON
+    if registro_galeria.exists():
+        with open(registro_galeria, "w", encoding="utf-8") as f:
+            json.dump([], f)
+            
+    # Eliminar las imágenes
+    if capturas_dir.exists():
+        for archivo in capturas_dir.glob("*.jpg"):
+            try:
+                archivo.unlink()
+            except Exception as e:
+                print(f"No se pudo eliminar {archivo}: {e}")
+                
+    return jsonify({"status": "ok", "msg": "Galería limpiada"})
 
 from flask import send_from_directory
 @app.route("/capturas/<filename>", methods=["GET"])

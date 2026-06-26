@@ -94,6 +94,19 @@ def get_device_info(data: dict) -> tuple[str, str, str]:
 
     return device_id, device_ip, user_agent
 
+def get_participant_name_for_device(device_id: str, fallback: str = "Desconocido") -> str:
+    if not device_id:
+        return fallback
+
+    with participants_lock:
+        entry = participants_cache.get(device_id)
+
+    if isinstance(entry, dict):
+        return entry.get("nombre") or fallback
+    if isinstance(entry, str):
+        return entry
+    return fallback
+
 
 def clamp(value: float, minimum: float, maximum: float) -> float:
     return max(minimum, min(maximum, value))
@@ -220,6 +233,127 @@ def get_checkpoint_by_id(checkpoint_id: int) -> dict | None:
     return None
 
 
+def get_checkpoint_name(checkpoint: dict | None) -> str:
+    if not checkpoint:
+        return "Sin checkpoint"
+
+    checkpoint_id = checkpoint.get("id", "")
+    return (
+        checkpoint.get("nombre")
+        or checkpoint.get("Rectoria")
+        or checkpoint.get("Rectoria-Descarga")
+        or checkpoint.get("Jubileo")
+        or checkpoint.get("Carreton")
+        or checkpoint.get("Bilio-Aulas4")
+        or checkpoint.get("Biotecnologia-Centrales")
+        or f"Checkpoint {checkpoint_id}"
+    )
+
+
+def get_participants_for_view() -> list[str]:
+    with participants_lock:
+        participant_names = [
+            entry.get("nombre") if isinstance(entry, dict) else str(entry)
+            for entry in participants_cache.values()
+        ]
+
+    return sorted(
+        (name for name in participant_names if name),
+        key=lambda name: (get_participant_position(name) or 999999, name),
+    )
+
+
+def safe_filename_part(value) -> str:
+    text_value = str(value or "").strip().replace(" ", "_").replace("/", "-")
+    safe_value = "".join(
+        char if char.isalnum() or char in ("_", "-") else "_"
+        for char in text_value
+    ).strip("_")
+    return safe_value or "sin_dato"
+
+
+def get_gallery_checkpoint_context(device_id: str) -> dict:
+    if not device_id:
+        return {}
+
+    with participants_lock:
+        entry = participants_cache.get(device_id)
+        entry = dict(entry) if isinstance(entry, dict) else {}
+
+    last_coord = entry.get("last_coord")
+    if not last_coord or len(last_coord) < 2:
+        return {}
+
+    try:
+        lat = float(last_coord[0])
+        lon = float(last_coord[1])
+    except (TypeError, ValueError):
+        return {}
+
+    checkpoint_matches = []
+    for checkpoint in CHECKPOINTS:
+        distance = haversine_distance_m(
+            lat,
+            lon,
+            float(checkpoint["lat"]),
+            float(checkpoint["lon"]),
+        )
+        radius = float(checkpoint.get("radio_m", 5.0))
+        if distance <= radius:
+            checkpoint_matches.append((distance, checkpoint))
+
+    if not checkpoint_matches:
+        return {}
+
+    distance, checkpoint = min(checkpoint_matches, key=lambda item: item[0])
+    checkpoint_id = int(checkpoint["id"])
+    checkpoint_name = get_checkpoint_name(checkpoint)
+
+    return {
+        "checkpoint_id": checkpoint_id,
+        "checkpoint_nombre": checkpoint_name,
+        "checkpoint_slug": f"checkpoint_{checkpoint_id}",
+        "distancia_checkpoint_m": round(distance, 2),
+    }
+
+
+def enrich_gallery_item(item: dict) -> dict:
+    enriched = dict(item)
+    device_id = enriched.get("device_id")
+    enriched["participante"] = enriched.get("participante") or get_participant_name_for_device(device_id, device_id or "Desconocido")
+
+    checkpoint_id = enriched.get("checkpoint_id")
+    if checkpoint_id and not enriched.get("checkpoint_nombre"):
+        checkpoint = get_checkpoint_by_id(int(checkpoint_id))
+        if checkpoint:
+            enriched["checkpoint_nombre"] = get_checkpoint_name(checkpoint)
+    if checkpoint_id and not enriched.get("checkpoint_slug"):
+        enriched["checkpoint_slug"] = f"checkpoint_{int(checkpoint_id)}"
+
+    return enriched
+
+
+def load_gallery_items() -> list[dict]:
+    registro_galeria = BASE_DIR / "galeria.json"
+    if not registro_galeria.exists():
+        return []
+
+    with open(registro_galeria, "r", encoding="utf-8") as f:
+        try:
+            gallery_data = json.load(f)
+        except Exception:
+            return []
+
+    if not isinstance(gallery_data, list):
+        return []
+
+    return [
+        enrich_gallery_item(item)
+        for item in gallery_data
+        if isinstance(item, dict)
+    ]
+
+
 def get_peso_from_payload(data: dict, current_peso: float) -> float:
     try:
         if data.get("peso") is not None:
@@ -341,9 +475,31 @@ def index():
 def mapa():
     return render_template(
         "mapa.html",
-        checkpoints=CHECKPOINTS,
+        checkpoints=[{**checkpoint, "nombre": get_checkpoint_name(checkpoint)} for checkpoint in CHECKPOINTS],
         non_scoring_checkpoint_ids=[PESO_RESET_CHECKPOINT_ID],
+        participantes=get_participants_for_view(),
+        galeria=load_gallery_items(),
     )
+
+
+@app.route("/fotos_checkpoints")
+def fotos_checkpoints():
+    return render_template(
+        "fotos_checkpoints.html",
+        checkpoints=[{**checkpoint, "nombre": get_checkpoint_name(checkpoint)} for checkpoint in CHECKPOINTS],
+        participantes=get_participants_for_view(),
+        galeria=load_gallery_items(),
+    )
+
+
+@app.route("/estado_mapa", methods=["GET"])
+def estado_mapa():
+    return jsonify({
+        "checkpoints": [{**checkpoint, "nombre": get_checkpoint_name(checkpoint)} for checkpoint in CHECKPOINTS],
+        "non_scoring_checkpoint_ids": [PESO_RESET_CHECKPOINT_ID],
+        "participantes": get_participants_for_view(),
+        "galeria": load_gallery_items(),
+    })
 
 
 @app.route("/sw.js")
@@ -721,11 +877,7 @@ def vision():
 
         # Agregar marca de agua
         from datetime import datetime
-        with participants_lock:
-            participante_nombre = "Desconocido"
-            if device_id in participants_cache:
-                entry = participants_cache[device_id]
-                participante_nombre = entry.get("nombre", "Desconocido") if isinstance(entry, dict) else str(entry)
+        participante_nombre = get_participant_name_for_device(device_id)
 
         dt_now = datetime.now()
         fecha_hora = dt_now.strftime("%Y-%m-%d %H:%M:%S")
@@ -737,20 +889,38 @@ def vision():
         annotated_b64 = base64.b64encode(buffer).decode("utf-8")
 
         if detectado and "color" in detectado:
-            # --- MÓDULO DE GUARDADO DE IMÁGENES (Galería) ---
+            checkpoint_context = get_gallery_checkpoint_context(device_id)
+            if not checkpoint_context:
+                return jsonify({
+                    "status": "ok",
+                    "detected": True,
+                    "saved": False,
+                    "msg": "Foto detectada, pero no se guardo porque el participante no esta dentro de un checkpoint.",
+                    "color": detectado["color"],
+                    "carga_kg": detectado["carga_kg"],
+                    "orientacion": detectado["orientacion"],
+                    "counts": detectado["counts"],
+                    "balls": detectado.get("balls", []),
+                    "annotated_image": annotated_b64,
+                    "gp_max_width": gp_max_w,
+                    "gp_jpeg_quality": jpeg_q,
+                })
+
+            # --- Modulo de guardado de imagenes (Galeria) ---
             capturas_dir = BASE_DIR / "capturas"
             capturas_dir.mkdir(exist_ok=True)
             timestamp = int(dt_now.timestamp())
-            safe_name = participante_nombre.replace(" ", "_").replace("/", "-")
-            filename = f"captura_{safe_name}_{timestamp}.jpg"
-            
+            safe_name = safe_filename_part(participante_nombre)
+            checkpoint_slug = checkpoint_context["checkpoint_slug"]
+            filename = f"captura_{safe_name}_{checkpoint_slug}_{timestamp}.jpg"
+
             filepath = capturas_dir / filename
             cv2.imwrite(str(filepath), frame_annotated)
-            
-            # Guardar también la imagen sin contornos (clean)
+
+            # Guardar tambien la imagen sin contornos (clean)
             filepath_clean = capturas_dir / filename.replace(".jpg", "_clean.jpg")
             cv2.imwrite(str(filepath_clean), frame_clean)
-            
+
             # Guardamos registro en un JSON
             registro_galeria = BASE_DIR / "galeria.json"
             galeria_data = []
@@ -758,23 +928,30 @@ def vision():
                 with open(registro_galeria, "r", encoding="utf-8") as f:
                     try: galeria_data = json.load(f)
                     except: pass
-            
-            galeria_data.append({
+
+            gallery_item = {
                 "filename": filename,
                 "timestamp": timestamp,
                 "device_id": device_id,
                 "participante": participante_nombre,
                 "fecha_hora": fecha_hora,
                 "detections": detectado["counts"]
-            })
-            
+            }
+            gallery_item.update(checkpoint_context)
+            galeria_data.append(gallery_item)
+
             with open(registro_galeria, "w", encoding="utf-8") as f:
                 json.dump(galeria_data, f, indent=4)
             # ------------------------------------------------
-            
+
             return jsonify({
                 "status": "ok",
                 "detected": True,
+                "saved": True,
+                "filename": filename,
+                "checkpoint_id": checkpoint_context["checkpoint_id"],
+                "checkpoint_nombre": checkpoint_context["checkpoint_nombre"],
+                "distancia_checkpoint_m": checkpoint_context["distancia_checkpoint_m"],
                 "color": detectado["color"],
                 "carga_kg": detectado["carga_kg"],
                 "orientacion": detectado["orientacion"],
@@ -802,13 +979,8 @@ def vision():
 
 @app.route("/galeria", methods=["GET"])
 def galeria():
-    """Endpoint para que el compañero pueda listar las imágenes guardadas"""
-    registro_galeria = BASE_DIR / "galeria.json"
-    if not registro_galeria.exists():
-        return jsonify([])
-    with open(registro_galeria, "r", encoding="utf-8") as f:
-        try: return jsonify(json.load(f))
-        except: return jsonify([])
+    """Endpoint para listar las imagenes guardadas con participante y checkpoint."""
+    return jsonify(load_gallery_items())
 
 @app.route("/limpiar_galeria", methods=["POST", "DELETE"])
 def limpiar_galeria():
@@ -906,5 +1078,3 @@ def vision_fast():
 
 if __name__ == "__main__":
     socketio.run(app, host="0.0.0.0", port=5000, debug=False, allow_unsafe_werkzeug=True)
-
-

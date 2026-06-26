@@ -1,0 +1,289 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Fotos por checkpoint</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0b0f19;
+            --panel: rgba(15, 23, 42, 0.92);
+            --panel-soft: rgba(30, 41, 59, 0.78);
+            --border: rgba(255, 255, 255, 0.12);
+            --text: #f8fafc;
+            --muted: #94a3b8;
+            --accent: #3b82f6;
+            --danger: #ef4444;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        .shell {
+            width: min(1120px, calc(100% - 32px));
+            margin: 0 auto;
+            padding: 28px 0 40px;
+        }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 18px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 24px;
+            line-height: 1.15;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .back-link,
+        .select-wrap select {
+            border: 1px solid var(--border);
+            background: var(--panel-soft);
+            color: var(--text);
+            border-radius: 8px;
+            font: inherit;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            min-height: 40px;
+            padding: 0 14px;
+            text-decoration: none;
+            font-weight: 700;
+        }
+
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 24px 48px rgba(0, 0, 0, 0.32);
+        }
+
+        .controls {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 18px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .select-wrap {
+            display: grid;
+            gap: 7px;
+            min-width: min(360px, 100%);
+        }
+
+        label {
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+
+        select {
+            min-height: 42px;
+            padding: 0 12px;
+            cursor: pointer;
+        }
+
+        .summary {
+            color: var(--muted);
+            font-size: 14px;
+            text-align: right;
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 620px;
+        }
+
+        th,
+        td {
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+        }
+
+        th {
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+
+        tr:last-child td {
+            border-bottom: 0;
+        }
+
+        .status-no,
+        .status-yes {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 52px;
+            min-height: 28px;
+            border-radius: 999px;
+            font-weight: 800;
+        }
+
+        .status-no {
+            background: rgba(239, 68, 68, 0.12);
+            border: 1px solid rgba(239, 68, 68, 0.28);
+            color: #fecaca;
+        }
+
+        .status-yes {
+            background: rgba(16, 185, 129, 0.14);
+            border: 1px solid rgba(16, 185, 129, 0.32);
+            color: #bbf7d0;
+        }
+
+        .photo-link {
+            color: #bfdbfe;
+            font-weight: 800;
+            text-decoration: none;
+        }
+
+        .empty {
+            padding: 28px 18px;
+            color: var(--muted);
+        }
+
+        @media (max-width: 720px) {
+            .topbar,
+            .controls {
+                align-items: stretch;
+                flex-direction: column;
+            }
+
+            .summary {
+                text-align: left;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <main class="shell">
+        <div class="topbar">
+            <h1>Fotos por checkpoint</h1>
+            <a class="back-link" href="{{ url_for('mapa') }}">Volver al mapa</a>
+        </div>
+
+        <section class="panel">
+            <div class="controls">
+                <div class="select-wrap">
+                    <label for="checkpoint-select">Checkpoint</label>
+                    <select id="checkpoint-select">
+                        {% for checkpoint in checkpoints %}
+                        <option value="{{ checkpoint.id }}">{{ checkpoint.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="summary">
+                    <strong id="participant-count">{{ participantes|length }}</strong> participantes registrados
+                </div>
+            </div>
+
+            <div class="table-wrap">
+                {% if participantes %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Checkpoint</th>
+                            <th>Participante</th>
+                            <th>Foto subida</th>
+                        </tr>
+                    </thead>
+                    <tbody id="photo-table-body"></tbody>
+                </table>
+                {% else %}
+                <div class="empty">No hay participantes registrados.</div>
+                {% endif %}
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const checkpoints = {{ checkpoints | tojson }};
+        const participantes = {{ participantes | tojson }};
+        const galeria = {{ galeria | tojson }};
+        const select = document.getElementById('checkpoint-select');
+        const tableBody = document.getElementById('photo-table-body');
+
+        function getSelectedCheckpoint() {
+            const selectedId = Number(select.value);
+            return checkpoints.find((checkpoint) => Number(checkpoint.id) === selectedId) || checkpoints[0];
+        }
+
+        function getPhotoCheckpointId(photo) {
+            const id = Number(photo.checkpoint_id || photo.checkpoint_mas_cercano_id || (photo.checkpoint && photo.checkpoint.id));
+            return Number.isFinite(id) ? id : null;
+        }
+
+        function getPhotoParticipant(photo) {
+            return photo.participante || photo.device_id || 'Desconocido';
+        }
+
+        function renderTable() {
+            if (!tableBody) return;
+            const checkpoint = getSelectedCheckpoint();
+            const checkpointId = Number(checkpoint.id);
+
+            tableBody.innerHTML = participantes.map((participante) => {
+                const photos = galeria
+                    .filter((photo) => getPhotoParticipant(photo) === participante)
+                    .filter((photo) => getPhotoCheckpointId(photo) === checkpointId)
+                    .sort((a, b) => Number(b.timestamp || 0) - Number(a.timestamp || 0));
+                const latest = photos[0];
+
+                return `
+                    <tr>
+                        <td>${checkpoint.nombre}</td>
+                        <td>${participante}</td>
+                        <td>${latest
+                            ? `<span class="status-yes">Si</span> <a class="photo-link" href="/capturas/${latest.filename}" target="_blank">Ver foto</a>`
+                            : '<span class="status-no">No</span>'}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        if (select) {
+            select.addEventListener('change', renderTable);
+            renderTable();
+        }
+    </script>
+</body>
+
+</html>

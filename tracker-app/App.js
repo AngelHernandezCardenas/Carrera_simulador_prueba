@@ -328,6 +328,7 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           device_id: globalDeviceId || 'unknown',
+          participante: globalParticipante || 'Desconocido',
           image: photo.base64,
           mobile: true
         })
@@ -351,15 +352,10 @@ export default function App() {
         if (data.counts) {
           for (const color of ['Rojo', 'Blanco', 'Negro']) {
             let val = data.counts[color] || 0;
-
-            if (val >= 2) {
-              // Si hay 2 o más pelotas del MISMO color en la foto, se suman al contador
-              countsRef.current[color] += val;
-            } else {
-              // Si solo hay 1 pelota de este color (o 0), no se suma. 
-              // Solo actualiza si es mayor al máximo detectado antes
-              countsRef.current[color] = Math.max(countsRef.current[color], val);
-            }
+            
+            // The user wants to keep only the maximum number of balls seen across scans
+            // instead of accumulating them every time.
+            countsRef.current[color] = Math.max(countsRef.current[color], val);
 
             // Límites GLOBALES (El rojo máximo 10, Negro 2, Blanco 3)
             if (color === 'Negro' && countsRef.current[color] > 2) countsRef.current[color] = 2;
@@ -448,7 +444,7 @@ export default function App() {
 
     let savedUrl = await AsyncStorage.getItem(SERVER_URL_KEY);
     // FORCE NEW TUNNEL URL
-    savedUrl = 'https://sperm-composed-entrance-caps.trycloudflare.com';
+    savedUrl = 'https://address-reference-reports-beautiful.trycloudflare.com';
     
     const savedParticipant = await AsyncStorage.getItem(PARTICIPANTE_KEY);
 
@@ -959,10 +955,15 @@ export default function App() {
           <FlatList
             data={galeriaImagenes}
             keyExtractor={(item) => item.filename}
-            renderItem={({ item }) => (
+            renderItem={({ item }) => {
+              const formatParticipantName = (name) => {
+                if (!name || String(name).toLowerCase() === 'desconocido') return 'Unknown Participant';
+                return String(name).replace(/participante[_ ]?/i, 'Participant ');
+              };
+              return (
               <View style={{ marginBottom: 20, padding: 10, backgroundColor: 'white', marginHorizontal: 10, borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
-                  <Text style={{ fontWeight: 'bold', marginRight: 10 }}>Detections:</Text>
+                  <Text style={{ fontWeight: 'bold', marginRight: 10 }}>{formatParticipantName(item.participante || item.device_id)} Detections:</Text>
                   {item.detections && Object.entries(item.detections).map(([color, count]) => {
                     if (count === 0) return null;
                     const colorStr = String(color).toLowerCase();
@@ -989,7 +990,7 @@ export default function App() {
                     );
                   })}
                 </View>
-                <Text style={{ fontSize: 12, color: 'gray', marginBottom: 10 }}>{new Date(item.timestamp * 1000).toLocaleString()} - {item.participante || item.device_id}</Text>
+                <Text style={{ fontSize: 12, color: 'gray', marginBottom: 10 }}>{new Date(item.timestamp * 1000).toLocaleString()} - {formatParticipantName(item.participante || item.device_id)}</Text>
                 <TouchableOpacity onPress={() => { setImagenExpandida(item); setMostrarContorno(true); }}>
                   <Image
                     source={{ uri: `${serverUrl}/capturas/${item.filename}` }}
@@ -997,7 +998,7 @@ export default function App() {
                   />
                 </TouchableOpacity>
               </View>
-            )}
+            )}}
             ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 50, color: 'gray' }}>No images in the gallery.</Text>}
           />
         </View>
@@ -1007,8 +1008,12 @@ export default function App() {
       <Modal visible={!!imagenExpandida} transparent={true} animationType="fade" onRequestClose={() => { setImagenExpandida(null); }}>
         {imagenExpandida && (
           <ImageViewer
-            key={mostrarContorno ? 'annotated' : 'clean'}
-            imageUrls={[{ url: `${serverUrl}/capturas/${mostrarContorno ? imagenExpandida.filename : imagenExpandida.filename.replace('.jpg', '_clean.jpg')}` }]}
+            imageUrls={[
+              { url: mostrarContorno 
+                ? `${serverUrl}/capturas/${imagenExpandida.filename}` 
+                : `${serverUrl}/capturas/${imagenExpandida.filename.replace('.jpg', '_clean.jpg')}` }
+            ]}
+            index={0}
             enableSwipeDown={true}
             onSwipeDown={() => setImagenExpandida(null)}
             renderIndicator={() => null}

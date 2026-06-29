@@ -85,13 +85,18 @@ def _reenviar_al_mapa(datos: dict) -> None:
     }
 
     try:
+        print(f"[BRIDGE] [INFO] Intentando enviar datos al servidor principal: {BRIDGE_GPS_URL} ...")
         r = _requests.post(BRIDGE_GPS_URL, json=payload, timeout=3)
         if r.status_code == 200:
-            print(f"[BRIDGE] ✓ Punto enviado al mapa principal ({lat:.5f}, {lon:.5f})")
+            print(f"[BRIDGE] [EXITO] Punto enviado al mapa principal ({lat:.5f}, {lon:.5f}). Datos: {payload}")
         else:
-            print(f"[BRIDGE] ✗ Servidor respondió {r.status_code}")
+            print(f"[BRIDGE] [ERROR] Servidor respondio con codigo {r.status_code}. Respuesta: {r.text}")
+    except _requests.exceptions.Timeout:
+        print(f"[BRIDGE] [ERROR] Timeout (tiempo de espera agotado) al conectar al mapa principal.")
+    except _requests.exceptions.ConnectionError:
+        print(f"[BRIDGE] [ERROR] Falla de conexion al intentar alcanzar el mapa principal.")
     except Exception as e:
-        print(f"[BRIDGE] ✗ No se pudo conectar al mapa principal: {e}")
+        print(f"[BRIDGE] [ERROR] Excepcion desconocida al conectar al mapa principal: {e}")
 
 # ── App ────────────────────────────────────────────────────────────────────────
 app = Flask(__name__)
@@ -100,6 +105,7 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 
 # ── Estado en memoria ─────────────────────────────────────────────────────────
 _lock = threading.Lock()
+_last_known_telemetry: dict[str, dict] = {}
 # Almacena el último paquete por dispositivo
 dispositivos: dict[str, dict] = {}
 # Historial de los últimos 200 paquetes (todos los dispositivos mezclados)
@@ -320,7 +326,7 @@ DASHBOARD_HTML = """
 
 <header>
   <div>
-    <h1>🛰️ Relieve Monitor</h1>
+    <h1>️ Relieve Monitor</h1>
     <div class="subtitle">Raspberry Pi · Telemetría en tiempo real</div>
   </div>
   <div style="display:flex;align-items:center;font-size:0.82rem;color:var(--muted)">
@@ -332,7 +338,7 @@ DASHBOARD_HTML = """
 <main>
   <div class="grid-devices" id="devicesGrid">
     <div class="empty-state" id="emptyState">
-      <div class="icon">📡</div>
+      <div class="icon"></div>
       <p>Esperando datos de la Raspberry Pi…<br>
          Asegúrate de que el servidor esté corriendo<br>
          y que la URL del servidor en la Rasp apunte aquí.</p>
@@ -354,6 +360,11 @@ DASHBOARD_HTML = """
             <th>W</th>
             <th>SOC %</th>
             <th>TTG min</th>
+            <th>Motor V</th>
+            <th>Motor I</th>
+            <th>Motor W</th>
+            <th>RPM</th>
+            <th>Temp °C</th>
           </tr>
         </thead>
         <tbody id="logBody"></tbody>
@@ -414,7 +425,7 @@ DASHBOARD_HTML = """
       : null;
 
     card.innerHTML = `
-      <div class="device-name">📡 ${id}</div>
+      <div class="device-name"> ${id}</div>
       <div class="device-ts">Último dato: ${d.timestamp ?? '—'}</div>
       <div class="metrics">
         <div class="metric full">
@@ -427,20 +438,24 @@ DASHBOARD_HTML = """
           </div>
         </div>
         <div class="metric">
-          <div class="metric-label">Voltaje</div>
+          <div class="metric-label">Voltaje Bat</div>
           <div class="metric-value accent">${fmt(d.voltaje, 2)} V</div>
         </div>
         <div class="metric">
-          <div class="metric-label">Corriente</div>
+          <div class="metric-label">Corriente Bat</div>
           <div class="metric-value yellow">${fmt(d.corriente, 2)} A</div>
         </div>
         <div class="metric">
-          <div class="metric-label">Potencia</div>
+          <div class="metric-label">Potencia Bat</div>
           <div class="metric-value">${fmt(d.potencia, 1)} W</div>
         </div>
         <div class="metric">
-          <div class="metric-label">Tiempo restante</div>
-          <div class="metric-value ${d.ttg_min > 0 ? 'green' : 'muted'}">${d.ttg_min != null ? d.ttg_min + ' min' : '—'}</div>
+          <div class="metric-label">Motor V / A / W</div>
+          <div class="metric-value" style="font-size:0.85rem">${fmt(d.motor_voltaje, 2)}V ${fmt(d.motor_corriente, 2)}A ${fmt(d.motor_potencia, 1)}W</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Motor RPM / Temp</div>
+          <div class="metric-value" style="font-size:0.85rem">${d.motor_rpm ?? '—'} / ${d.motor_temp ?? '—'}°C</div>
         </div>
         <div class="metric">
           <div class="metric-label">Latitud</div>
@@ -451,7 +466,7 @@ DASHBOARD_HTML = """
           <div class="metric-value" style="font-size:0.85rem">${lonRaw}</div>
         </div>
       </div>
-      ${mapsUrl ? `<a href="${mapsUrl}" target="_blank" class="gps-link">🗺️ Ver en Google Maps</a>` : ''}
+      ${mapsUrl ? `<a href="${mapsUrl}" target="_blank" class="gps-link">️ Ver en Google Maps</a>` : ''}
     `;
   }
 
@@ -470,6 +485,11 @@ DASHBOARD_HTML = """
       <td>${fmt(p.potencia, 1)}</td>
       <td>${fmt(p.soc, 1)}</td>
       <td>${p.ttg_min ?? '—'}</td>
+      <td>${fmt(p.motor_voltaje, 2)}</td>
+      <td>${fmt(p.motor_corriente, 2)}</td>
+      <td>${fmt(p.motor_potencia, 1)}</td>
+      <td>${p.motor_rpm ?? '—'}</td>
+      <td>${p.motor_temp ?? '—'}</td>
     `;
     tbody.insertBefore(tr, tbody.firstChild);
     // Limitar filas en pantalla a 100
@@ -500,30 +520,59 @@ def recibir_datos():
       dispositivo_id, timestamp, latitud, longitud,
       voltaje, corriente, potencia, soc, ttg_min
     """
-    data = request.get_json(force=True, silent=True)
+    try:
+        data = request.get_json(force=True, silent=False)
+        print(f"[INFO] Datos recibidos en /datos: {data}")
+    except Exception as e:
+        print(f"[ERROR] Falla al decodificar JSON recibido de la Rasp: {e}")
+        return jsonify({"status": "error", "msg": "JSON invalido"}), 400
+
     if not data:
-        return jsonify({"status": "error", "msg": "JSON inválido"}), 400
+        print("[ERROR] Peticion sin datos (JSON vacio).")
+        return jsonify({"status": "error", "msg": "JSON vacio"}), 400
 
     # Aseguramos timestamp si la Rasp no lo manda
     if "timestamp" not in data:
         data["timestamp"] = datetime.now().isoformat()
+        print("[WARN] Timestamp faltante en los datos de la Rasp, agregando localmente.")
 
     dispositivo_id = data.get("dispositivo_id", "desconocido")
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    print(
-        f"[{ts}] 📡 {dispositivo_id} | "
-        f"GPS: {data.get('latitud','?')},{data.get('longitud','?')} | "
-        f"SOC: {data.get('soc','?')}% | "
-        f"{data.get('voltaje','?')}V / {data.get('corriente','?')}A / {data.get('potencia','?')}W"
-    )
-
-    # Guardar en memoria
+    # Guardar en memoria y aplicar parche de hardware
     with _lock:
+        if dispositivo_id not in _last_known_telemetry:
+            _last_known_telemetry[dispositivo_id] = {}
+            
+        last = _last_known_telemetry[dispositivo_id]
+        
+        for k, v in list(data.items()):
+            if k in ["dispositivo_id", "timestamp"]:
+                continue
+            # Si el hardware mandó vacío o nulo, recuperamos el último valor válido
+            if v in [None, ""]:
+                if k in last:
+                    data[k] = last[k]
+            else:
+                last[k] = v
+                
+        # --- GPS FALSO TEMPORAL ---
+        # Si nunca hubo GPS, ponemos una coordenada de prueba para que aparezca en el mapa
+        if data.get("latitud") in [None, ""]:
+            data["latitud"] = 25.6866
+            data["longitud"] = -100.3161
+
         dispositivos[dispositivo_id] = data
         historial.append(data)
         if len(historial) > HISTORIAL_MAX:
             historial.pop(0)
+
+    print(
+        f"[{ts}] [RECIBIDO] Dispositivo: {dispositivo_id} | "
+        f"GPS: {data.get('latitud','?')},{data.get('longitud','?')} | "
+        f"BAT: {data.get('voltaje','?')}V {data.get('corriente','?')}A {data.get('potencia','?')}W SOC:{data.get('soc','?')}% TTG:{data.get('ttg_min','?')}m | "
+        f"MOT: {data.get('motor_voltaje','?')}V {data.get('motor_corriente','?')}A {data.get('motor_potencia','?')}W RPM:{data.get('motor_rpm','?')} T:{data.get('motor_temp','?')}C"
+    )
 
     # Emitir al dashboard propio
     socketio.emit("nuevo_paquete", data)
@@ -564,7 +613,7 @@ def on_connect():
 if __name__ == "__main__":
     port = int(os.environ.get("RELIEVE_PORT", 5001))
     print("=" * 60)
-    print("  🛰️  Relieve Monitor — Servidor de Raspberry Pi")
+    print("  ️  Relieve Monitor — Servidor de Raspberry Pi")
     print("=" * 60)
     print(f"  Dashboard : http://localhost:{port}/")
     print(f"  Endpoint  : http://localhost:{port}/datos  (POST)")
@@ -573,4 +622,4 @@ if __name__ == "__main__":
     print("  En la Raspberry Pi, cambia SERVER_URL a:")
     print(f"  https://<tu-tunel>.trycloudflare.com/datos")
     print("=" * 60)
-    socketio.run(app, host="0.0.0.0", port=port, debug=False)
+    socketio.run(app, host="0.0.0.0", port=port, debug=False, allow_unsafe_werkzeug=True)

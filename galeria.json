@@ -1,273 +1,66 @@
 [
     {
-        "filename": "captura_participante_01_checkpoint_1_1782343008.jpg",
-        "timestamp": 1782343008,
+        "filename": "captura_participante_18_manual_1782749158.jpg",
+        "timestamp": 1782749158,
         "device_id": "app-mqs6kjls-4krg6vqo",
-        "detections": {
-            "Rojo": 0,
-            "Blanco": 1,
-            "Negro": 0
-        },
-        "participante": "participante_01",
-        "checkpoint_id": 1,
-        "checkpoint_nombre": "Checkpoint 1",
-        "checkpoint_slug": "checkpoint_1",
-        "distancia_checkpoint_m": 0.0
-    },
-    {
-        "filename": "captura_participante_01_checkpoint_2_1782343013.jpg",
-        "timestamp": 1782343013,
-        "device_id": "app-mqs6kjls-4krg6vqo",
-        "detections": {
-            "Rojo": 0,
-            "Blanco": 1,
-            "Negro": 0
-        },
-        "participante": "participante_01",
-        "checkpoint_id": 2,
-        "checkpoint_nombre": "Checkpoint 2",
-        "checkpoint_slug": "checkpoint_2",
-        "distancia_checkpoint_m": 0.0
-    },
-    {
-        "filename": "captura_participante_01_checkpoint_3_1782343015.jpg",
-        "timestamp": 1782343015,
-        "device_id": "app-mqs6kjls-4krg6vqo",
-        "detections": {
-            "Rojo": 0,
-            "Blanco": 1,
-            "Negro": 0
-        },
-        "participante": "participante_01",
-        "checkpoint_id": 3,
-        "checkpoint_nombre": "Checkpoint 3",
-        "checkpoint_slug": "checkpoint_3",
-        "distancia_checkpoint_m": 0.0
-    },
-    {
-        "filename": "captura_participante_01_checkpoint_4_1782343019.jpg",
-        "timestamp": 1782343019,
-        "device_id": "app-mqs6kjls-4krg6vqo",
-        "detections": {
-            "Rojo": 0,
-            "Blanco": 1,
-            "Negro": 1
-        },
-        "participante": "participante_01",
-        "checkpoint_id": 4,
-        "checkpoint_nombre": "Checkpoint 4",
-        "checkpoint_slug": "checkpoint_4",
-        "distancia_checkpoint_m": 0.0
-    },
-    {
-        "filename": "captura_participante_01_checkpoint_5_1782343029.jpg",
-        "timestamp": 1782343029,
-        "device_id": "app-mqs6kjls-4krg6vqo",
+        "participante": "participante_18",
+        "fecha_hora": "2026-06-29 10:05:58",
         "detections": {
             "Rojo": 1,
             "Blanco": 1,
             "Negro": 1
         },
-        "participante": "participante_01",
-        "checkpoint_id": 5,
-        "checkpoint_nombre": "Checkpoint 5",
-        "checkpoint_slug": "checkpoint_5",
+        "checkpoint_id": 0,
+        "checkpoint_nombre": "Manual / Sin GPS",
+        "checkpoint_slug": "manual",
         "distancia_checkpoint_m": 0.0
     },
     {
-        "filename": "captura_participante_02_checkpoint_1_1782343048.jpg",
-        "timestamp": 1782343048,
+        "filename": "captura_participante_18_manual_1782749164.jpg",
+        "timestamp": 1782749164,
         "device_id": "app-mqs6kjls-4krg6vqo",
+        "participante": "participante_18",
+        "fecha_hora": "2026-06-29 10:06:04",
         "detections": {
             "Rojo": 1,
             "Blanco": 1,
             "Negro": 1
         },
-        "participante": "participante_02",
-        "checkpoint_id": 1,
-        "checkpoint_nombre": "Checkpoint 1",
-        "checkpoint_slug": "checkpoint_1",
+        "checkpoint_id": 0,
+        "checkpoint_nombre": "Manual / Sin GPS",
+        "checkpoint_slug": "manual",
         "distancia_checkpoint_m": 0.0
     },
     {
-        "filename": "captura_participante_02_checkpoint_2_1782343297.jpg",
-        "timestamp": 1782343297,
+        "filename": "captura_participante_18_manual_1782749168.jpg",
+        "timestamp": 1782749168,
         "device_id": "app-mqs6kjls-4krg6vqo",
+        "participante": "participante_18",
+        "fecha_hora": "2026-06-29 10:06:08",
         "detections": {
             "Rojo": 1,
             "Blanco": 2,
             "Negro": 1
         },
-        "participante": "participante_02",
-        "checkpoint_id": 2,
-        "checkpoint_nombre": "Checkpoint 2",
-        "checkpoint_slug": "checkpoint_2",
+        "checkpoint_id": 0,
+        "checkpoint_nombre": "Manual / Sin GPS",
+        "checkpoint_slug": "manual",
         "distancia_checkpoint_m": 0.0
     },
     {
-        "filename": "captura_participante_02_checkpoint_3_1782343302.jpg",
-        "timestamp": 1782343302,
+        "filename": "captura_participante_18_manual_1782749323.jpg",
+        "timestamp": 1782749323,
         "device_id": "app-mqs6kjls-4krg6vqo",
+        "participante": "participante_18",
+        "fecha_hora": "2026-06-29 10:08:43",
         "detections": {
             "Rojo": 1,
-            "Blanco": 2,
+            "Blanco": 1,
             "Negro": 1
         },
-        "participante": "participante_02",
-        "checkpoint_id": 3,
-        "checkpoint_nombre": "Checkpoint 3",
-        "checkpoint_slug": "checkpoint_3",
+        "checkpoint_id": 0,
+        "checkpoint_nombre": "Manual / Sin GPS",
+        "checkpoint_slug": "manual",
         "distancia_checkpoint_m": 0.0
-    },
-    {
-        "filename": "captura_participante_02_checkpoint_4_1782343306.jpg",
-        "timestamp": 1782343306,
-        "device_id": "app-mqs6kjls-4krg6vqo",
-        "detections": {
-            "Rojo": 1,
-            "Blanco": 2,
-            "Negro": 1
-        },
-        "participante": "participante_02",
-        "checkpoint_id": 4,
-        "checkpoint_nombre": "Checkpoint 4",
-        "checkpoint_slug": "checkpoint_4",
-        "distancia_checkpoint_m": 0.0
-    },
-    {
-        "filename": "captura_participante_02_checkpoint_5_1782343315.jpg",
-        "timestamp": 1782343315,
-        "device_id": "app-mqs6kjls-4krg6vqo",
-        "detections": {
-            "Rojo": 1,
-            "Blanco": 1,
-            "Negro": 0
-        },
-        "participante": "participante_02",
-        "checkpoint_id": 5,
-        "checkpoint_nombre": "Checkpoint 5",
-        "checkpoint_slug": "checkpoint_5",
-        "distancia_checkpoint_m": 0.0
-    },
-    {
-        "filename": "captura_app-mqs6kjls-4krg6vqo_1782343318.jpg",
-        "timestamp": 1782343318,
-        "device_id": "app-mqs6kjls-4krg6vqo",
-        "detections": {
-            "Rojo": 1,
-            "Blanco": 1,
-            "Negro": 0
-        },
-        "participante": "participante_04"
-    },
-    {
-        "filename": "captura_app-mqs6kjls-4krg6vqo_1782343321.jpg",
-        "timestamp": 1782343321,
-        "device_id": "app-mqs6kjls-4krg6vqo",
-        "detections": {
-            "Rojo": 1,
-            "Blanco": 2,
-            "Negro": 1
-        },
-        "participante": "participante_04"
-    },
-    {
-        "filename": "captura_app-mqs6kjls-4krg6vqo_1782343546.jpg",
-        "timestamp": 1782343546,
-        "device_id": "app-mqs6kjls-4krg6vqo",
-        "detections": {
-            "Rojo": 1,
-            "Blanco": 1,
-            "Negro": 1
-        },
-        "participante": "participante_04"
-    },
-    {
-        "filename": "captura_app-mqs6kjls-4krg6vqo_1782343555.jpg",
-        "timestamp": 1782343555,
-        "device_id": "app-mqs6kjls-4krg6vqo",
-        "detections": {
-            "Rojo": 1,
-            "Blanco": 1,
-            "Negro": 1
-        },
-        "participante": "participante_04"
-    },
-    {
-        "filename": "captura_app-mqs6kjls-4krg6vqo_1782343557.jpg",
-        "timestamp": 1782343557,
-        "device_id": "app-mqs6kjls-4krg6vqo",
-        "detections": {
-            "Rojo": 1,
-            "Blanco": 1,
-            "Negro": 1
-        },
-        "participante": "participante_04"
-    },
-    {
-        "filename": "captura_app-mqs6kjls-4krg6vqo_1782343559.jpg",
-        "timestamp": 1782343559,
-        "device_id": "app-mqs6kjls-4krg6vqo",
-        "detections": {
-            "Rojo": 1,
-            "Blanco": 1,
-            "Negro": 1
-        },
-        "participante": "participante_04"
-    },
-    {
-        "filename": "captura_app-mqs6kjls-4krg6vqo_1782343563.jpg",
-        "timestamp": 1782343563,
-        "device_id": "app-mqs6kjls-4krg6vqo",
-        "detections": {
-            "Rojo": 1,
-            "Blanco": 1,
-            "Negro": 1
-        },
-        "participante": "participante_04"
-    },
-    {
-        "filename": "captura_app-mqs6kjls-4krg6vqo_1782343570.jpg",
-        "timestamp": 1782343570,
-        "device_id": "app-mqs6kjls-4krg6vqo",
-        "detections": {
-            "Rojo": 2,
-            "Blanco": 1,
-            "Negro": 1
-        },
-        "participante": "participante_04"
-    },
-    {
-        "filename": "captura_app-mqs6kjls-4krg6vqo_1782343885.jpg",
-        "timestamp": 1782343885,
-        "device_id": "app-mqs6kjls-4krg6vqo",
-        "detections": {
-            "Rojo": 2,
-            "Blanco": 1,
-            "Negro": 1
-        },
-        "participante": "participante_04"
-    },
-    {
-        "filename": "captura_app-mqs6kjls-4krg6vqo_1782343893.jpg",
-        "timestamp": 1782343893,
-        "device_id": "app-mqs6kjls-4krg6vqo",
-        "detections": {
-            "Rojo": 1,
-            "Blanco": 1,
-            "Negro": 1
-        },
-        "participante": "participante_04"
-    },
-    {
-        "filename": "captura_app-mqs6kjls-4krg6vqo_1782343895.jpg",
-        "timestamp": 1782343895,
-        "device_id": "app-mqs6kjls-4krg6vqo",
-        "detections": {
-            "Rojo": 1,
-            "Blanco": 1,
-            "Negro": 1
-        },
-        "participante": "participante_04"
     }
 ]

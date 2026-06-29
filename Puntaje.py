@@ -84,7 +84,7 @@ def leer_hoja_puntajes() -> pd.DataFrame:
         },
     )
 
-    with urlopen(request, timeout=10) as response:
+    with urlopen(request, timeout=15) as response:
         csv_text = response.read().decode("utf-8-sig")
 
     return pd.read_csv(StringIO(csv_text))

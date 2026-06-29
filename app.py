@@ -550,12 +550,12 @@ def gps():
     device_id, device_ip, user_agent = get_device_info(data)
 
     with participants_lock:
-        participante = get_or_create_participant(device_id)
+        participante = get_or_create_participant(device_id) 
 
     if not participante:
         return jsonify({
             "status": "limite_participantes",
-            "msg": f"Ya se alcanzÃ³ el lÃ­mite de {MAX_PARTICIPANTES} participantes.",
+            "msg": f"Ya se alcanzó el limite de {MAX_PARTICIPANTES} participantes.",
         }), 403
 
     if should_skip_gps_save(device_id):
@@ -891,20 +891,13 @@ def vision():
         if detectado and "color" in detectado:
             checkpoint_context = get_gallery_checkpoint_context(device_id)
             if not checkpoint_context:
-                return jsonify({
-                    "status": "ok",
-                    "detected": True,
-                    "saved": False,
-                    "msg": "Foto detectada, pero no se guardo porque el participante no esta dentro de un checkpoint.",
-                    "color": detectado["color"],
-                    "carga_kg": detectado["carga_kg"],
-                    "orientacion": detectado["orientacion"],
-                    "counts": detectado["counts"],
-                    "balls": detectado.get("balls", []),
-                    "annotated_image": annotated_b64,
-                    "gp_max_width": gp_max_w,
-                    "gp_jpeg_quality": jpeg_q,
-                })
+                # Si no está en un checkpoint, asignar uno manual para que siempre se guarde la foto
+                checkpoint_context = {
+                    "checkpoint_id": 0,
+                    "checkpoint_nombre": "Manual / Sin GPS",
+                    "checkpoint_slug": "manual",
+                    "distancia_checkpoint_m": 0.0
+                }
 
             # --- Modulo de guardado de imagenes (Galeria) ---
             capturas_dir = BASE_DIR / "capturas"

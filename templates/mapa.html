@@ -674,7 +674,7 @@
                     <button id="btn-timer-start" class="btn-3d" onclick="startGlobalTimer(event)">Iniciar</button>
                     <button id="btn-timer-stop" class="btn-3d" onclick="stopGlobalTimer(event)" disabled>Detener</button>
                     <button id="btn-theme" class="btn-3d" onclick="event.stopPropagation(); toggleTheme()">Día</button>
-                    <button id="btn-photos" class="btn-3d" onclick="togglePhotoPanel(event)">Fotos CP</button>
+                    <button id="btn-photos" class="btn-3d" onclick="togglePhotoPanel(event)">Registro fotos</button>
                     <button id="btn-3d" class="btn-3d active" onclick="event.stopPropagation(); toggle3D()">3D: ON</button>
                 </div>
             </div>
@@ -783,14 +783,19 @@
                 : sortParticipants(Array.from(new Set(photoGallery.map(getPhotoParticipant))));
 
             const rows = participants.map((participante) => {
+                const formatParticipantName = (name) => {
+                    if (!name || String(name).toLowerCase() === 'desconocido') return 'Unknown Participant';
+                    return String(name).replace(/participante[_ ]?/i, 'Participant ');
+                };
                 const photos = getPhotosForParticipant(participante, checkpointFilter);
                 const latest = photos[0];
+                const displayName = formatParticipantName(participante);
 
                 if (!latest) {
                     return `
                         <div class="photo-row">
                             <div>
-                                <div class="photo-row-title">${participante}</div>
+                                <div class="photo-row-title">${displayName}</div>
                                 <div class="photo-row-meta">${checkpointFilter === 'all' ? 'Sin foto registrada' : 'Sin foto en este checkpoint'}</div>
                                 <span class="photo-status no">No</span>
                             </div>
@@ -802,12 +807,12 @@
                 return `
                     <div class="photo-row">
                         <div>
-                            <div class="photo-row-title">${participante}</div>
+                            <div class="photo-row-title">${displayName}</div>
                             <div class="photo-row-meta">${getPhotoCheckpointName(latest)}</div>
                             <div class="photo-row-meta">${formatPhotoDate(latest)} - ${photos.length} foto${photos.length === 1 ? '' : 's'}</div>
                             <span class="photo-status yes">Si</span>
                         </div>
-                        <img class="photo-thumb" src="/capturas/${latest.filename}" alt="Foto de ${participante}" onclick="window.open('/capturas/${latest.filename}', '_blank')">
+                        <img class="photo-thumb" src="/capturas/${latest.filename}" alt="Foto de ${displayName}" onclick="window.open('/capturas/${latest.filename}', '_blank')">
                     </div>
                 `;
             }).join('');

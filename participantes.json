@@ -4,5 +4,139 @@
   },
   "eeaf791c-c3bd-4be4-9302-1496f08c2ef9": {
     "nombre": "participante_02"
+  },
+  "dev-mqv49i9g-wd9wcpf7": {
+    "nombre": "participante_03"
+  },
+  "e35e2e8c-bedb-451c-8e54-58f3f1b4102c": {
+    "nombre": "participante_04"
+  },
+  "4415d7c0-23c8-4ea9-86c0-dcac2e11484e": {
+    "nombre": "participante_05"
+  },
+  "7d28f64a-5359-495e-947a-29dd27c73af7": {
+    "nombre": "participante_06"
+  },
+  "dev-mqv8j5sd-3897zdnc": {
+    "nombre": "participante_07"
+  },
+  "4867311f-67a6-4f75-b390-aba2b024701a": {
+    "nombre": "participante_08"
+  },
+  "dev-mqv8k4n7-gclt8ops": {
+    "nombre": "participante_09"
+  },
+  "dev-mqvad4sj-qu7a9sib": {
+    "nombre": "participante_10"
+  },
+  "21b523b4-5fb9-4188-8e14-90839f988f5b": {
+    "nombre": "participante_11"
+  },
+  "eca2df89-a4cf-47b3-9cc5-6e2b83903fdd": {
+    "nombre": "participante_12"
+  },
+  "590f1d64-3404-406d-ab55-df9c2978b92f": {
+    "nombre": "participante_13"
+  },
+  "78a99d09-81b5-46a6-a905-73e066286161": {
+    "nombre": "participante_14"
+  },
+  "Raspberry_Relieve1": {
+    "nombre": "participante_15",
+    "device_id": "Raspberry_Relieve1",
+    "last_coord": [
+      25.6866,
+      -100.3161
+    ],
+    "checkpoints_visitados": [],
+    "cantidad_checkpoints_visitados": 0,
+    "cantidad_checkpoints_ponderados_visitados": 0,
+    "checkpoint_descarga_visitado": false,
+    "checkpoint_pendiente_mas_cercano": {
+      "id": 3,
+      "nombre": "Checkpoint 3"
+    },
+    "checkpoint_pendiente_mas_cercano_id": 3,
+    "distancia_checkpoint_pendiente_mas_cercano_m": 4690.73,
+    "checkpoint_mas_cercano": {
+      "id": 3,
+      "nombre": "Checkpoint 3"
+    },
+    "checkpoint_mas_cercano_id": 3,
+    "distancia_checkpoint_mas_cercano_m": 4690.73,
+    "puntuacion_checkpoints": -4690.73,
+    "puntaje_checkpoints": 0.0,
+    "checkpoints_puntos_entregados": [],
+    "puntos_totales": 0,
+    "peso": 0,
+    "puntaje_equipo": 0.0,
+    "estado": "corriendo",
+    "puntaje_retos": 40.0,
+    "conteo_colores": {
+      "Rojo": 0,
+      "Blanco": 0,
+      "Negro": 0
+    },
+    "color_detectado": [],
+    "peso_kg": 0.0,
+    "peso_entregado_kg": 0.0,
+    "peso_descargado_kg": 0.0,
+    "en_checkpoint_descarga_peso": false,
+    "nivel_bateria": 8.585855969982742
+  },
+  "1a8116d8-56ad-48f2-aa33-651b0347078a": {
+    "nombre": "participante_16"
+  },
+  "6548427d-989f-485c-af8f-ea3d81226f60": {
+    "nombre": "participante_17"
+  },
+  "app-mqs6kjls-4krg6vqo": {
+    "nombre": "participante_18",
+    "device_id": "app-mqs6kjls-4krg6vqo",
+    "last_coord": [
+      25.7791391,
+      -100.4693497
+    ],
+    "checkpoints_visitados": [],
+    "cantidad_checkpoints_visitados": 0,
+    "cantidad_checkpoints_ponderados_visitados": 0,
+    "checkpoint_descarga_visitado": false,
+    "checkpoint_pendiente_mas_cercano": {
+      "id": 3,
+      "nombre": "Checkpoint 3"
+    },
+    "checkpoint_pendiente_mas_cercano_id": 3,
+    "distancia_checkpoint_pendiente_mas_cercano_m": 22882.54,
+    "checkpoint_mas_cercano": {
+      "id": 3,
+      "nombre": "Checkpoint 3"
+    },
+    "checkpoint_mas_cercano_id": 3,
+    "distancia_checkpoint_mas_cercano_m": 22882.54,
+    "puntuacion_checkpoints": -22882.54,
+    "puntaje_checkpoints": 0.0,
+    "checkpoints_puntos_entregados": [],
+    "puntos_totales": 0,
+    "peso": 0,
+    "puntaje_equipo": 0.0,
+    "estado": "corriendo",
+    "puntaje_retos": 0.0,
+    "conteo_colores": {
+      "Rojo": 0,
+      "Blanco": 0,
+      "Negro": 0
+    },
+    "color_detectado": [],
+    "peso_kg": 0.0,
+    "peso_entregado_kg": 0.0,
+    "peso_descargado_kg": 0.0,
+    "en_checkpoint_descarga_peso": false,
+    "nivel_bateria": 20.77426420111699
+  },
+  "dev-mqve2a37-vnsmty10": {
+    "nombre": "participante_19"
+  },
+  "fa7dfd0a-3888-4656-abdb-85a7f519b773": {
+    "nombre": "participante_20"
   }
 }

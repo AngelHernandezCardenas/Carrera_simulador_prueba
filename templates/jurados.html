@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de jurados</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 520px; margin: 30px auto; padding: 20px; background: #f8fafc; color: #0f172a; }
+        .sub { color: #475569; margin-bottom: 18px; }
+        button { width: 100%; padding: 14px; margin-bottom: 10px; border: 0; border-radius: 10px; background: #0f766e; color: white; font-size: 16px; font-weight: 700; }
+        button:disabled { background: #94a3b8; }
+        video, img { width: 100%; min-height: 220px; border-radius: 10px; background: #000; object-fit: contain; }
+        .actions, .counts { display: flex; gap: 10px; margin-top: 10px; }
+        .actions button { flex: 1; }
+        .counts { justify-content: center; gap: 24px; padding: 16px; background: white; border-radius: 12px; }
+        .ball { width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center; font-size: 20px; font-weight: 800; }
+        #red { background: red; color: white; } #white { background: white; border: 1px solid #ccc; } #black { background: black; color: white; }
+        .panel { margin-top: 12px; padding: 14px; background: white; border: 1px solid #e2e8f0; border-radius: 12px; }
+        #load { font-size: 22px; font-weight: 800; }
+    </style>
+</head>
+<body>
+    <h2>Panel de jurados</h2>
+    <div class="sub">Captura y análisis visual de la carga.</div>
+    <button id="cameraButton">Activar cámara</button>
+    <section id="camera" hidden>
+        <video id="video" autoplay playsinline></video>
+        <img id="photo" alt="Fotografía analizada" hidden>
+        <canvas id="canvas" hidden></canvas>
+        <div class="actions">
+            <button id="scanButton">Empezar a escanear</button>
+            <button id="resetButton" hidden>Reiniciar</button>
+        </div>
+        <div class="counts">
+            <div id="red" class="ball">0</div>
+            <div id="white" class="ball">0</div>
+            <div id="black" class="ball">0</div>
+        </div>
+    </section>
+    <div class="panel"><div>Carga visual</div><div id="load">-- pts</div><div id="colors">Color: --</div></div>
+    <div id="status" class="panel">Esperando...</div>
+
+<script>
+const elements = Object.fromEntries(["cameraButton","camera","video","photo","canvas","scanButton","resetButton","red","white","black","load","colors","status"].map(id => [id, document.getElementById(id)]));
+let stream = null, scanning = false, busy = false, maxWidth = 640;
+let counts = { Rojo: 0, Blanco: 0, Negro: 0 };
+function deviceId() {
+    const key = "gps_tracker_device_id";
+    let value = localStorage.getItem(key);
+    if (!value) {
+        value = crypto.randomUUID ? crypto.randomUUID() : "dev-" + Date.now().toString(36);
+        localStorage.setItem(key, value);
+    }
+    return value;
+}
+function showResults() {
+    elements.red.textContent = counts.Rojo;
+    elements.white.textContent = counts.Blanco;
+    elements.black.textContent = counts.Negro;
+    const points = counts.Rojo + counts.Blanco * 3 + counts.Negro * 5;
+    const names = Object.entries(counts).filter(([, value]) => value).map(([name]) => name);
+    elements.load.textContent = `${points} pts`;
+    elements.colors.textContent = `Color: ${names.join(", ") || "--"}`;
+    return points;
+}
+async function toggleCamera() {
+    if (stream) {
+        scanning = false;
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+        elements.camera.hidden = true;
+        elements.cameraButton.textContent = "Activar cámara";
+        elements.status.textContent = "Cámara apagada.";
+        return;
+    }
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } } });
+        elements.video.srcObject = stream;
+        elements.camera.hidden = false;
+        elements.video.hidden = false;
+        elements.photo.hidden = true;
+        elements.cameraButton.textContent = "Apagar cámara";
+        elements.status.textContent = "Cámara lista.";
+    } catch (error) {
+        elements.status.textContent = "No se pudo abrir la cámara: " + error.message;
+    }
+}
+function toggleScan() {
+    if (!stream) return;
+    scanning = !scanning;
+    elements.scanButton.textContent = scanning ? "Pausar escaneo" : "Reanudar escaneo";
+    elements.video.hidden = scanning;
+    elements.photo.hidden = !scanning;
+    if (scanning) scanLoop();
+}
+function reset() {
+    counts = { Rojo: 0, Blanco: 0, Negro: 0 };
+    scanning = false;
+    elements.scanButton.disabled = false;
+    elements.scanButton.textContent = "Empezar a escanear";
+    elements.resetButton.hidden = true;
+    elements.video.hidden = false;
+    elements.photo.hidden = true;
+    showResults();
+}
+async function scanLoop() {
+    if (!stream || !scanning) return;
+    await scanFrame();
+    setTimeout(scanLoop, 10);
+}
+async function scanFrame() {
+    if (busy || !elements.video.videoWidth) return;
+    busy = true;
+    const scale = Math.min(1, maxWidth / elements.video.videoWidth);
+    elements.canvas.width = Math.round(elements.video.videoWidth * scale);
+    elements.canvas.height = Math.round(elements.video.videoHeight * scale);
+    elements.canvas.getContext("2d").drawImage(elements.video, 0, 0, elements.canvas.width, elements.canvas.height);
+    try {
+        const blob = await new Promise(resolve => elements.canvas.toBlob(resolve, "image/jpeg", 0.65));
+        const response = await fetch("/vision_fast", { method: "POST", headers: { "X-Device-Id": deviceId() }, body: blob });
+        const metadata = JSON.parse(response.headers.get("X-Vision-Data") || "{}");
+        if (!response.ok) throw new Error(metadata.msg || `Error ${response.status}`);
+        const image = await response.blob();
+        const url = URL.createObjectURL(image);
+        elements.photo.onload = () => URL.revokeObjectURL(url);
+        elements.photo.src = url;
+        if (metadata.gp_max_width) maxWidth = metadata.gp_max_width;
+        if (metadata.counts && scanning) {
+            for (const color of Object.keys(counts)) counts[color] = Math.max(counts[color], Number(metadata.counts[color] || 0));
+            if (showResults() >= 10) {
+                scanning = false;
+                elements.scanButton.textContent = "Límite alcanzado";
+                elements.scanButton.disabled = true;
+                elements.resetButton.hidden = false;
+                elements.video.hidden = false;
+                elements.photo.hidden = true;
+                elements.status.textContent = "Canasta llena. Escaneo detenido.";
+            }
+        }
+    } catch (error) {
+        elements.status.textContent = "Error durante el análisis: " + error.message;
+    } finally {
+        busy = false;
+    }
+}
+elements.cameraButton.addEventListener("click", toggleCamera);
+elements.scanButton.addEventListener("click", toggleScan);
+elements.resetButton.addEventListener("click", reset);
+</script>
+</body>
+</html>

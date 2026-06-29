@@ -446,9 +446,7 @@ export default function App() {
       await AsyncStorage.setItem(DEVICE_ID_KEY, id);
     }
 
-    let savedUrl = await AsyncStorage.getItem(SERVER_URL_KEY);
-    // FORCE NEW TUNNEL URL
-    savedUrl = 'https://sperm-composed-entrance-caps.trycloudflare.com';
+    const savedUrl = (await AsyncStorage.getItem(SERVER_URL_KEY)) || '';
     
     const savedParticipant = await AsyncStorage.getItem(PARTICIPANTE_KEY);
 

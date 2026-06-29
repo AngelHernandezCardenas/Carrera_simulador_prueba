@@ -9,7 +9,10 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "UIBackgroundModes": ["location", "fetch"],
+        "UIBackgroundModes": [
+          "location",
+          "fetch"
+        ],
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Permite rastrear tu ubicación en segundo plano.",
         "NSLocationWhenInUseUsageDescription": "Permite rastrear tu ubicación para el mapa."
       }
@@ -35,7 +38,8 @@
         {
           "locationAlwaysAndWhenInUsePermission": "Permite rastrear tu ubicación en segundo plano."
         }
-      ]
+      ],
+      "expo-status-bar"
     ],
     "web": {
       "favicon": "./assets/favicon.png"

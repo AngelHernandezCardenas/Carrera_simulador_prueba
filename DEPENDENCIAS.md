@@ -54,5 +54,5 @@ Las librerías principales que usa el proyecto móvil son:
 
 Para arrancar el servidor de desarrollo móvil, recuerda que el comando es:
 ```bash
-npx expo start --tunnel
+npx expo start
 ```

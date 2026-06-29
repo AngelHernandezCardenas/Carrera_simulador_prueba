@@ -49,9 +49,9 @@ La aplicación móvil está construida con React Native (Expo) y sirve para tran
    ```bash
    cd ~/Persona1/tracker-app
    ```
-3. Arranca el servidor de Expo utilizando un túnel propio para evitar problemas de red local:
+3. Arranca Expo en modo LAN (la computadora y el teléfono deben estar en la misma red Wi-Fi):
    ```bash
-   npx expo start --tunnel
+   npx expo start
    ```
 4. Aparecerá un código QR en la terminal.
 5. Abre la aplicación **Expo Go** en tu teléfono (Android o iOS) y escanea el código QR para abrir la app.
@@ -63,7 +63,7 @@ La aplicación móvil está construida con React Native (Expo) y sirve para tran
 Una vez que tengas la aplicación abierta en tu teléfono:
 
 1. Verás un campo de texto que dice **"URL del Servidor"**.
-2. **Pega ahí la URL de Cloudflare** que copiaste en el paso 2 (ej. `https://alguna-palabra-rara.trycloudflare.com`).
+2. **Pega ahí la URL de Cloudflare** que copiaste en el paso 2 (ej. `https://alguna-palabra-rara.trycloudflare.com`). Esa URL corresponde al servidor Flask; no es el túnel de Expo.
 3. Pon un nombre para el corredor en "Nombre del Corredor".
 4. Presiona el botón **"Registrar y Conectar"**.
 5. Finalmente, presiona **"Iniciar Captura"**.

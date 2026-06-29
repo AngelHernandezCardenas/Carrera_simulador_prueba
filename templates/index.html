@@ -33,7 +33,9 @@
             font-weight: 700;
         }
         button.secondary { background: #0f766e; }
-        button:disabled { background: #93c5fd; cursor: not-allowed; }
+        button.danger { background: #dc2626; }
+        button:disabled { background: #93c5fd !important; cursor: not-allowed; }
+        button.disabled-gray { background: #7f8c8d !important; cursor: not-allowed; }
         #estado {
             margin-top: 14px;
             padding: 14px;
@@ -57,56 +59,212 @@
             border-radius: 12px;
             padding: 12px;
             box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+            margin-bottom: 10px;
         }
         .card.full { grid-column: 1 / -1; }
-        .label { font-size: 12px; color: #64748b; margin-bottom: 4px; }
-        .value { font-size: 20px; font-weight: 800; color: #0f172a; }
+        .label { font-size: 12px; color: #64748b; margin-bottom: 4px; text-transform: uppercase; font-weight: bold; }
+        .value { font-size: 20px; font-weight: 900; color: #0f172a; }
         .small { font-size: 13px; color: #475569; white-space: pre-line; line-height: 1.4; }
+        
+        .camera-container {
+            display: none;
+            position: relative;
+            width: 100%;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 10px;
+            background: black;
+        }
+        #videoFeed {
+            width: 100%;
+            height: 300px;
+            object-fit: cover;
+            display: block;
+        }
+        #overlayCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        .dashed-circle {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 76%;
+            padding-bottom: 76%;
+            border-radius: 50%;
+            border: 2px dashed rgba(255,255,255,0.6);
+            pointer-events: none;
+        }
+        
+        /* Animation for the dashed circle */
+        @keyframes spin { 100% { transform: translate(-50%, -50%) rotate(360deg); } }
+        .spin-anim { animation: spin 2s linear infinite; }
+        
+        .score-panel {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            background: white;
+            padding: 10px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            margin-bottom: 10px;
+        }
+        .circle-score {
+            width: 50px;
+            height: 50px;
+            border-radius: 25px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            font-size: 20px;
+        }
+        .circle-red { background: red; color: white; }
+        .circle-white { background: white; color: black; border: 1px solid #ccc; }
+        .circle-black { background: black; color: white; }
+        
+        /* Modal Gallery */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.8); z-index: 1000; padding: 20px; overflow-y: auto;
+        }
+        .modal-content {
+            background: white; border-radius: 12px; padding: 20px;
+            max-width: 440px; margin: 20px auto;
+        }
+        .modal-header {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;
+        }
+        .gallery-item {
+            margin-bottom: 20px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .gallery-item img { width: 100%; display: block; max-height: 300px; object-fit: contain; background: black; }
+        .gallery-info { padding: 10px; font-size: 14px; background: #f8fafc; }
+        
+        /* Image Viewer Modal */
+        .image-viewer-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: #000; z-index: 2000; flex-direction: column;
+        }
+        .image-viewer-header {
+            display: flex; justify-content: space-between; padding: 15px;
+            background: rgba(0,0,0,0.5); position: absolute; top: 0; left: 0; right: 0; z-index: 2010;
+        }
+        .image-viewer-content {
+            flex: 1; display: flex; align-items: center; justify-content: center;
+            overflow: auto; width: 100%; height: 100%;
+        }
+        .image-viewer-content img {
+            max-width: 100%; max-height: 100%; object-fit: contain;
+            transition: transform 0.2s; transform-origin: center center;
+        }
     </style>
 </head>
 <body>
     <h2>GPS Tracker</h2>
-    <div class="sub">Captura ubicación, velocidad y acelerómetro del celular.</div>
+    <div class="sub">Captures phone location, speed and accelerometer.</div>
 
-    <button id="sensorBtn" class="secondary" onclick="activarSensores()">Activar acelerómetro manual</button>
+    <button id="sensorBtn" class="secondary" onclick="activarSensores()">Activate manual accelerometer</button>
+    <button id="camaraBtn" class="secondary" onclick="toggleCamara()">Turn on camera</button>
+    <button id="btnCaptura" class="primary" onclick="iniciarOdetener()">Start capture</button>
+
+    <div class="camera-container" id="cameraContainer">
+        <video id="videoFeed" autoplay playsinline muted></video>
+        <canvas id="overlayCanvas"></canvas>
+        <div id="dashedCircle" class="dashed-circle"></div>
+    </div>
+
+    <div id="scannerControls" style="display:none;">
+        <div class="grid" style="grid-template-columns: 1fr 1fr 1fr; gap: 5px; margin-top: 0;">
+            <button id="btnScan" class="primary" onclick="escanearUnaVez()" style="margin-bottom: 0; padding: 14px 10px;">Scan</button>
+            <button id="btnReset" class="danger" onclick="reiniciarEscaneo()" style="margin-bottom: 0; padding: 14px 10px;">Reset</button>
+            <button id="btnGaleria" style="background: #8e44ad; color: white; margin-bottom: 0; padding: 14px 10px;" onclick="abrirGaleria()">Gallery</button>
+        </div>
+
+        <div class="score-panel" style="margin-top: 10px;">
+            <div class="circle-score circle-red"><span id="cntRojo">0</span></div>
+            <div class="circle-score circle-white"><span id="cntBlanco">0</span></div>
+            <div class="circle-score circle-black"><span id="cntNegro">0</span></div>
+        </div>
+
+        <div class="card full" style="margin-top: 0; text-transform: none;">
+            <div class="label" style="text-transform: none;">Visual load scanner</div>
+            <div class="value" id="puntosTotal">0 pts</div>
+            <div class="small" id="coloresList">Color: </div>
+        </div>
+    </div>
 
     <div class="grid">
         <div class="card">
-            <div class="label">Velocidad</div>
+            <div class="label">Speed</div>
             <div class="value" id="velocidad">0.00 km/h</div>
-            <div class="small" id="velocidadFuente">Fuente: esperando GPS</div>
+            <div class="small" id="velocidadFuente">Source: waiting for GPS</div>
         </div>
 
         <div class="card">
-            <div class="label">Precisión GPS</div>
+            <div class="label">GPS Accuracy</div>
             <div class="value" id="precision">-- m</div>
-            <div class="small" id="hora">Hora: --</div>
+            <div class="small" id="hora">Time: --</div>
         </div>
 
         <div class="card full">
-            <div class="label">Checkpoint ponderado más cercano</div>
+            <div class="label">Nearest weighted checkpoint</div>
             <div class="value" id="checkpointCercano">--</div>
-            <div class="small" id="distanciaCheckpointCercano">Distancia: -- m</div>
+            <div class="small" id="distanciaCheckpointCercano">Distance: -- m</div>
         </div>
 
         <div class="card full">
-            <div class="label">Acelerómetro con gravedad</div>
+            <div class="label">Accelerometer with gravity</div>
             <div class="small" id="acelG">X: --
 Y: --
 Z: --
-Magnitud: --</div>
+Magnitude: --</div>
         </div>
 
         <div class="card full">
-            <div class="label">AceleraciÃ³n</div>
-            <div class="value" id="aceleracionReal">-- m/sÂ²</div>
-            <div class="small">Velocidad / tiempo, 3 muestras</div>
+            <div class="label">Acceleration</div>
+            <div class="value" id="aceleracionReal">-- m/s²</div>
+            <div class="small">Speed / time, 3 samples</div>
         </div>
     </div>
 
+    <div id="estado">Waiting...</div>
 
+    <!-- Modal de Galería -->
+    <div class="modal-overlay" id="galleryModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 style="margin: 0;">Capture Gallery</h3>
+                <div style="display: flex;">
+                    <button class="danger" style="padding: 6px 12px; width: auto; font-size: 12px; margin-bottom: 0; margin-right: 5px;" onclick="limpiarGaleria()">Clear</button>
+                    <button class="secondary" style="padding: 6px 12px; width: auto; font-size: 12px; margin-bottom: 0;" onclick="cerrarGaleria()">Close</button>
+                </div>
+            </div>
+            <div id="galleryContent">Loading...</div>
+        </div>
     </div>
-    <div id="estado">Esperando...</div>
+
+    <!-- Visor de Imagen a Pantalla Completa -->
+    <div class="image-viewer-overlay" id="imageViewer">
+        <div class="image-viewer-header">
+            <div style="display: flex; gap: 10px;">
+                <button class="secondary" style="width: auto; padding: 6px 12px; margin: 0; font-size: 18px; line-height: 1;" onclick="zoomVisor(0.5)">+</button>
+                <button class="secondary" style="width: auto; padding: 6px 12px; margin: 0; font-size: 18px; line-height: 1;" onclick="zoomVisor(-0.5)">-</button>
+                <button class="primary" style="width: auto; padding: 6px 12px; margin: 0;" id="btnToggleContour" onclick="toggleContorno()">Toggle Contour</button>
+            </div>
+            <button class="danger" style="width: auto; padding: 6px 12px; margin: 0;" onclick="cerrarVisor()">Close</button>
+        </div>
+        <div class="image-viewer-content" id="imageViewerContent">
+            <img id="visorImg" src="" alt="Zoomable Image" ondblclick="zoomVisorReset()">
+        </div>
+    </div>
 
 <script>
     // Service Worker Registration (PWA)
@@ -122,18 +280,12 @@ Magnitud: --</div>
         try {
             if ('wakeLock' in navigator) {
                 wakeLock = await navigator.wakeLock.request('screen');
-                console.log('Wake Lock activado');
             }
-        } catch (err) {
-            console.warn('Wake Lock error:', err);
-        }
+        } catch (err) {}
     }
     function releaseWakeLock() {
         if (wakeLock !== null) {
-            wakeLock.release().then(() => {
-                wakeLock = null;
-                console.log('Wake Lock liberado');
-            });
+            wakeLock.release().then(() => { wakeLock = null; });
         }
     }
 
@@ -148,17 +300,14 @@ Magnitud: --</div>
     let ultimoEnvioGpsMs = 0;
     let gpsPollTimer = null;
     let ultimaPosicionGps = null;
+    
+    // Scanner state
     let streamCamara = null;
-    let escaneoActivo = false;
+    let camaraActiva = false;
     let escaneoBusy = false;
-    let pesoKgDetectado = 0;
-    let conteoColoresDetectados = { Rojo: 0, Blanco: 0, Negro: 0 };
     let maxCounts = { Rojo: 0, Blanco: 0, Negro: 0 };
-    let coloresDetectados = [];
-    let currentMaxWidth = 320;
-    let currentJpegQuality = 0.35;
-    let lastFrameTimeMs = 0;
-    let contandoActivo = false;
+    let totalPoints = 0;
+    let renderTimerId = null;
 
     const DEVICE_ID_KEY = "gps_tracker_device_id";
     const ACCELERATION_SAMPLE_WINDOW = 3;
@@ -176,391 +325,519 @@ Magnitud: --</div>
     // -------------------------------------------------------------------------
     // Utilidades
     // -------------------------------------------------------------------------
-
-    function numOrNull(value) {
-        return Number.isFinite(value) ? value : null;
-    }
-
-    function fmt(value, dec = 2) {
-        return Number.isFinite(value) ? value.toFixed(dec) : "--";
-    }
-
-    function getCheckpointLabel(checkpoint) {
-        if (!checkpoint) return "--";
-        return checkpoint.nombre || `Checkpoint ${checkpoint.id}`;
-    }
+    function numOrNull(value) { return Number.isFinite(value) ? value : null; }
+    function fmt(value, dec = 2) { return Number.isFinite(value) ? value.toFixed(dec) : "--"; }
+    function getCheckpointLabel(c) { return c ? (c.nombre || `Checkpoint ${c.id}`) : "--"; }
 
     function actualizarCheckpointCercano(data) {
-        const checkpoint = data.checkpoint_mas_cercano;
-        const distance = Number(data.distancia_checkpoint_mas_cercano_m);
-        document.getElementById("checkpointCercano").textContent = getCheckpointLabel(checkpoint);
-        document.getElementById("distanciaCheckpointCercano").textContent =
-            `Distancia: ${fmt(distance, 2)} m`;
+        const c = data.checkpoint_mas_cercano;
+        const dist = Number(data.distancia_checkpoint_mas_cercano_m);
+        document.getElementById("checkpointCercano").textContent = getCheckpointLabel(c);
+        document.getElementById("distanciaCheckpointCercano").textContent = `Distancia: ${fmt(dist, 2)} m`;
     }
 
     function calcularMagnitud(x, y, z) {
         if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) return null;
-        return Math.sqrt(x * x + y * y + z * z);
+        return Math.sqrt(x*x + y*y + z*z);
     }
-
     function toRad(deg) { return deg * Math.PI / 180; }
-
     function distanciaHaversineMetros(lat1, lon1, lat2, lon2) {
         const R = 6371000;
-        const dLat = toRad(lat2 - lat1);
-        const dLon = toRad(lon2 - lon1);
-        const a =
-            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+        const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)*Math.sin(dLon/2);
         return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
     // -------------------------------------------------------------------------
-    // Panel acelerómetro
+    // Acelerómetro
     // -------------------------------------------------------------------------
-
     function actualizarPanelAcelerometro() {
-        document.getElementById("acelG").textContent =
-            `X: ${fmt(accelData.gx, 3)} m/s²\n` +
-            `Y: ${fmt(accelData.gy, 3)} m/s²\n` +
-            `Z: ${fmt(accelData.gz, 3)} m/s²\n` +
-            `Magnitud: ${fmt(accelData.g_magnitude, 3)} m/s²`;
-        document.getElementById("aceleracionReal").textContent =
-            `${fmt(accelData.acceleration_mps2, 3)} m/sÂ²`;
+        document.getElementById("acelG").textContent = 
+            `X: ${fmt(accelData.gx, 3)} m/s²\nY: ${fmt(accelData.gy, 3)} m/s²\nZ: ${fmt(accelData.gz, 3)} m/s²\nMagnitud: ${fmt(accelData.g_magnitude, 3)} m/s²`;
+        document.getElementById("aceleracionReal").textContent = `${fmt(accelData.acceleration_mps2, 3)} m/s²`;
     }
 
     function onDeviceMotion(event) {
         const ag = event.accelerationIncludingGravity || {};
-
-        accelData.gx          = numOrNull(ag.x);
-        accelData.gy          = numOrNull(ag.y);
-        accelData.gz          = numOrNull(ag.z);
+        accelData.gx = numOrNull(ag.x); accelData.gy = numOrNull(ag.y); accelData.gz = numOrNull(ag.z);
         accelData.g_magnitude = calcularMagnitud(accelData.gx, accelData.gy, accelData.gz);
-
-        accelData.interval_ms         = numOrNull(event.interval);
+        accelData.interval_ms = numOrNull(event.interval);
         accelData.sensor_timestamp_ms = Date.now();
-        accelData.supported           = true;
-        accelData.permission_state    = "granted";
-
+        accelData.supported = true;
+        accelData.permission_state = "granted";
         actualizarPanelAcelerometro();
     }
 
     async function activarSensores() {
         if (!window.DeviceMotionEvent) {
-            accelData.supported        = false;
-            accelData.permission_state = "not_supported";
-            log("Este navegador no soporta DeviceMotionEvent/acelerómetro.", "error");
-            return;
+            accelData.supported = false; accelData.permission_state = "not_supported";
+            log("Browser does not support DeviceMotionEvent.", "error"); return;
         }
-
         try {
-            // iOS requiere permiso explícito dentro de un gesto del usuario
             if (typeof DeviceMotionEvent.requestPermission === "function") {
-                const permiso = await DeviceMotionEvent.requestPermission();
-                accelData.permission_state = permiso;
-                if (permiso !== "granted") {
-                    log("Permiso de acelerómetro denegado.", "error");
-                    return;
-                }
-            } else {
-                accelData.permission_state = "granted";
-            }
-
+                const p = await DeviceMotionEvent.requestPermission();
+                accelData.permission_state = p;
+                if (p !== "granted") { log("Permission denied.", "error"); return; }
+            } else { accelData.permission_state = "granted"; }
             window.removeEventListener("devicemotion", onDeviceMotion);
             window.addEventListener("devicemotion", onDeviceMotion);
-
             accelData.supported = true;
-            document.getElementById("sensorBtn").textContent = "Acelerómetro activo";
+            document.getElementById("sensorBtn").textContent = "Accelerometer active";
             document.getElementById("sensorBtn").disabled = true;
-
-            log("Acelerómetro activado. Ahora puedes iniciar la captura.", "ok");
-        } catch (error) {
+            log("Accelerometer activated.", "ok");
+        } catch (e) {
             accelData.permission_state = "error";
-            log("No se pudo activar el acelerómetro:\n" + error.message, "error");
+            log("Error activating accelerometer: " + e.message, "error");
         }
     }
 
     // -------------------------------------------------------------------------
     // Velocidad
     // -------------------------------------------------------------------------
-
     function calcularVelocidad(pos, lat, lon) {
         const nowMs = Date.now();
-        let speedMps = null;
-        let speedSource = "none";
-        let accelerationMps2 = null;
-
+        let speedMps = null, speedSource = "none", accMps2 = null;
         if (pos.coords.speed !== null && Number.isFinite(pos.coords.speed)) {
-            speedMps    = pos.coords.speed;
-            speedSource = "gps_sensor";
+            speedMps = pos.coords.speed; speedSource = "gps_sensor";
         } else if (ultimoPunto) {
-            const distancia = distanciaHaversineMetros(ultimoPunto.lat, ultimoPunto.lon, lat, lon);
+            const dist = distanciaHaversineMetros(ultimoPunto.lat, ultimoPunto.lon, lat, lon);
             const dt = (nowMs - ultimoPunto.timestamp_ms) / 1000;
-            if (dt > 0) {
-                speedMps    = distancia / dt;
-                speedSource = "calculated_gps_distance_time";
-            }
+            if (dt > 0) { speedMps = dist / dt; speedSource = "calculated_gps_distance_time"; }
         }
-
         if (Number.isFinite(speedMps)) {
-            const previousSamplesNeeded = ACCELERATION_SAMPLE_WINDOW - 1;
-            if (historialVelocidad.length >= previousSamplesNeeded) {
-                const reference = historialVelocidad[0];
-                const dt = (nowMs - reference.timestamp_ms) / 1000;
-                if (dt > 0 && Number.isFinite(reference.speed_mps)) {
-                    accelerationMps2 = (speedMps - reference.speed_mps) / dt;
-                }
+            if (historialVelocidad.length >= ACCELERATION_SAMPLE_WINDOW - 1) {
+                const ref = historialVelocidad[0];
+                const dt = (nowMs - ref.timestamp_ms) / 1000;
+                if (dt > 0 && Number.isFinite(ref.speed_mps)) accMps2 = (speedMps - ref.speed_mps) / dt;
             }
-
             historialVelocidad.push({ speed_mps: speedMps, timestamp_ms: nowMs });
-            while (historialVelocidad.length > previousSamplesNeeded) {
-                historialVelocidad.shift();
-            }
+            while (historialVelocidad.length > ACCELERATION_SAMPLE_WINDOW - 1) historialVelocidad.shift();
         }
-
         ultimoPunto = { lat, lon, timestamp_ms: nowMs, speed_mps: speedMps };
-
-        return {
-            speed_mps:    speedMps,
-            speed_kmh:    Number.isFinite(speedMps) ? speedMps * 3.6 : null,
-            speed_source: speedSource,
-            acceleration_mps2: accelerationMps2
-        };
+        return { speed_mps: speedMps, speed_kmh: Number.isFinite(speedMps) ? speedMps * 3.6 : null, speed_source: speedSource, acceleration_mps2: accMps2 };
     }
 
     // -------------------------------------------------------------------------
-    // Identidad del dispositivo
+    // Identidad
     // -------------------------------------------------------------------------
-
     function getDeviceId() {
-        let deviceId = localStorage.getItem(DEVICE_ID_KEY);
-        if (!deviceId) {
-            deviceId = (window.crypto && crypto.randomUUID)
-                ? crypto.randomUUID()
-                : "dev-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
-            localStorage.setItem(DEVICE_ID_KEY, deviceId);
-        }
-        return deviceId;
+        let id = localStorage.getItem(DEVICE_ID_KEY);
+        if (!id) { id = "dev-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2,10); localStorage.setItem(DEVICE_ID_KEY, id); }
+        return id;
     }
-
-    function getDeviceLabel(deviceId) {
-        const platform = navigator.userAgentData?.platform || navigator.platform || "Dispositivo";
-        return `${platform}-${deviceId.slice(0, 8)}`;
+    function getDeviceLabel(id) {
+        return `${navigator.userAgentData?.platform || navigator.platform || "Dispositivo"}-${id.slice(0,8)}`;
     }
-
     async function registrarParticipante() {
-        const deviceId = getDeviceId();
+        const id = getDeviceId();
         const resp = await fetch("/registrar", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ device_id: deviceId, device_label: getDeviceLabel(deviceId) })
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ device_id: id, device_label: getDeviceLabel(id) })
         });
         const data = await resp.json();
-
-        if (!resp.ok || data.status !== "ok") {
-            throw new Error(data.msg || "No se pudo registrar el dispositivo.");
-        }
-
+        if (!resp.ok || data.status !== "ok") throw new Error(data.msg || "Registration failed.");
         participante = data.participante;
-        log(`${participante} asignado.\nActiva el acelerómetro y luego inicia captura.`, "ok");
+        log(`${participante} ready.`, "ok");
     }
 
     function log(msg, tipo) {
         const el = document.getElementById("estado");
-        el.textContent = msg;
-        el.className = tipo || "";
+        el.textContent = msg; el.className = tipo || "";
     }
 
     // -------------------------------------------------------------------------
-    // Control principal
+    // Cámara y Escaneo
     // -------------------------------------------------------------------------
-
-    async function iniciar() {
-        if (!navigator.geolocation) {
-            log("Geolocalización no soportada en este navegador.", "error");
-            return;
-        }
-
-        if (!participante) {
-            log("Registrando participante, intenta de nuevo en un momento.", "error");
-            registrarParticipante().catch(e => log(e.message, "error"));
-            return;
-        }
-
-        if (activo) {
-            detenerCaptura();
-            log("Captura detenida.");
-            return;
-        }
-
-        // Intentar activar el acelerómetro dentro del gesto del usuario (necesario en iOS)
-        if (accelData.permission_state !== "granted") {
-            await activarSensores();
-        }
-
-        // Hack de audio en segundo plano
-        try {
-            await silentAudio.play();
-        } catch (e) {
-            console.warn("Audio silencioso bloqueado:", e);
-        }
-
-        await requestWakeLock();
-
-        activo      = true;
-        ultimoPunto = null;
-        ultimaPosicionGps = null;
-        historialVelocidad = [];
-        document.getElementById("btn").textContent = "Detener captura";
-        log("Obteniendo ubicación y acelerómetro...");
+    async function toggleCamara() {
+        const btn = document.getElementById("camaraBtn");
+        const container = document.getElementById("cameraContainer");
+        const controls = document.getElementById("scannerControls");
         
-        watchId = navigator.geolocation.watchPosition(
-            onPositionSuccess,
-            onPositionError,
-            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-        );
-
-        gpsPollTimer = setInterval(() => {
-            if (!activo || envioGpsEnCurso) return;
-            if (ultimaPosicionGps) {
-                onPositionSuccess(ultimaPosicionGps);
-                return;
+        if (camaraActiva) {
+            if (streamCamara) {
+                streamCamara.getTracks().forEach(t => t.stop());
+                streamCamara = null;
             }
-
-            navigator.geolocation.getCurrentPosition(
-                onPositionSuccess,
-                onPositionError,
-                { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
-            );
-        }, GPS_SEND_INTERVAL_MS);
+            camaraActiva = false;
+            container.style.display = "none";
+            controls.style.display = "none";
+            btn.textContent = "Turn on camera";
+            log("Camera off.", "neutral");
+            document.getElementById("dashedCircle").classList.remove("spin-anim");
+        } else {
+            try {
+                streamCamara = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+                const video = document.getElementById("videoFeed");
+                video.srcObject = streamCamara;
+                // Ajustar canvas una vez que haya datos de video
+                video.addEventListener('loadedmetadata', ajustarCanvas);
+                
+                camaraActiva = true;
+                container.style.display = "block";
+                controls.style.display = "block";
+                btn.textContent = "Turn off camera";
+                log("Camera on.", "ok");
+            } catch (err) {
+                log("Error accessing camera: " + err.message, "error");
+            }
+        }
     }
 
-    function detenerCaptura() {
-        if (watchId !== null) {
-            navigator.geolocation.clearWatch(watchId);
-            watchId = null;
+    function ajustarCanvas() {
+        const video = document.getElementById("videoFeed");
+        const canvas = document.getElementById("overlayCanvas");
+        if(video.clientWidth > 0 && video.clientHeight > 0) {
+            canvas.width = video.clientWidth;
+            canvas.height = video.clientHeight;
         }
-        if (gpsPollTimer !== null) {
-            clearInterval(gpsPollTimer);
-            gpsPollTimer = null;
+    }
+
+    window.addEventListener('resize', () => { if (camaraActiva) ajustarCanvas(); });
+
+    function renderizarLimitesYUI() {
+        // Enforce limits globally
+        if (maxCounts.Negro > 2) maxCounts.Negro = 2;
+        if (maxCounts.Blanco > 3) maxCounts.Blanco = 3;
+        if (maxCounts.Rojo > 10) maxCounts.Rojo = 10;
+
+        totalPoints = (maxCounts.Rojo * 1) + (maxCounts.Blanco * 3) + (maxCounts.Negro * 5);
+        
+        document.getElementById("cntRojo").textContent = maxCounts.Rojo;
+        document.getElementById("cntBlanco").textContent = maxCounts.Blanco;
+        document.getElementById("cntNegro").textContent = maxCounts.Negro;
+        document.getElementById("puntosTotal").textContent = `${totalPoints} pts`;
+
+        let colorText = [];
+        for (let i = 0; i < maxCounts.Rojo; i++) colorText.push("Rojo");
+        for (let i = 0; i < maxCounts.Blanco; i++) colorText.push("Blanco");
+        for (let i = 0; i < maxCounts.Negro; i++) colorText.push("Negro");
+        document.getElementById("coloresList").textContent = "Color: " + (colorText.length ? colorText.join(", ") : "");
+
+        const btnScan = document.getElementById("btnScan");
+        if (totalPoints >= 10) {
+            btnScan.textContent = "Limit Reached";
+            btnScan.disabled = true;
+            btnScan.className = "disabled-gray";
+        } else {
+            btnScan.textContent = "Scan";
+            btnScan.disabled = false;
+            btnScan.className = "primary";
         }
-        silentAudio.pause();
-        releaseWakeLock();
-        activo = false;
-        ultimaPosicionGps = null;
-        document.getElementById("btn").textContent = "Iniciar captura";
+    }
+
+    async function escanearUnaVez() {
+        if (escaneoBusy || totalPoints >= 10 || !camaraActiva) return;
+        escaneoBusy = true;
+        document.getElementById("dashedCircle").classList.add("spin-anim");
+        document.getElementById("btnScan").textContent = "Processing...";
+        
+        const video = document.getElementById("videoFeed");
+        const canvas = document.createElement("canvas");
+        // Capture at lower resolution for speed (similar to Expo quality: 0.2)
+        canvas.width = video.videoWidth * 0.5;
+        canvas.height = video.videoHeight * 0.5;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        // Remove data URL prefix
+        const base64Data = canvas.toDataURL("image/jpeg", 0.35).split(",")[1];
+        
+        try {
+            const resp = await fetch("/vision", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    device_id: getDeviceId(),
+                    participante: participante || "Desconocido",
+                    image: base64Data,
+                    mobile: true
+                })
+            });
+            const data = await resp.json();
+            if (data.status === "ok") {
+                if (data.counts) {
+                    for (const color of ["Rojo", "Blanco", "Negro"]) {
+                        maxCounts[color] = Math.max(maxCounts[color], data.counts[color] || 0);
+                    }
+                    renderizarLimitesYUI();
+                    log(`Scan ready: ${totalPoints} points.`, totalPoints >= 10 ? "success" : "ok");
+                }
+                if (data.balls && data.balls.length > 0) {
+                    dibujarPelotas(data.balls);
+                }
+            } else {
+                log("Vision error: " + data.msg, "error");
+            }
+        } catch (e) {
+            log("Error connecting to /vision", "error");
+        }
+        
+        escaneoBusy = false;
+        document.getElementById("dashedCircle").classList.remove("spin-anim");
+        if (totalPoints < 10) document.getElementById("btnScan").textContent = "Scan";
+    }
+
+    function dibujarPelotas(balls) {
+        const canvas = document.getElementById("overlayCanvas");
+        const ctx = canvas.getContext("2d");
+        ajustarCanvas();
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        const colorMap = { 'Rojo': '#ef4444', 'Blanco': '#ffffff', 'Negro': '#111111' };
+        
+        // Count locally for labels
+        let countMap = { Rojo: 0, Blanco: 0, Negro: 0 };
+
+        balls.forEach(b => {
+            countMap[b.color] = (countMap[b.color] || 0) + 1;
+            const currentCount = countMap[b.color];
+            
+            const cx = b.x_norm * canvas.width;
+            const cy = b.y_norm * canvas.height;
+            const r = b.r_norm * canvas.width;
+
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = colorMap[b.color] || '#00ff00';
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(cx, cy, 4, 0, 2 * Math.PI);
+            ctx.fillStyle = colorMap[b.color] || '#00ff00';
+            ctx.fill();
+
+            // Draw label with outline
+            ctx.font = "900 16px sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = b.color === 'Negro' ? 'white' : 'black';
+            ctx.strokeText(currentCount, cx, Math.max(18, cy - r - 25));
+            ctx.fillStyle = b.color === 'Blanco' ? 'white' : (b.color === 'Negro' ? 'black' : 'red');
+            ctx.fillText(currentCount, cx, Math.max(18, cy - r - 25));
+        });
+
+        // Clear drawings after 3 seconds
+        if (renderTimerId) clearTimeout(renderTimerId);
+        renderTimerId = setTimeout(() => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }, 3000);
+    }
+
+    function reiniciarEscaneo() {
+        maxCounts = { Rojo: 0, Blanco: 0, Negro: 0 };
+        renderizarLimitesYUI();
+        log("Scan reset.", "neutral");
+        const canvas = document.getElementById("overlayCanvas");
+        if(canvas) {
+            const ctx = canvas.getContext("2d");
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Tracker Principal
+    // -------------------------------------------------------------------------
+    function iniciarOdetener() {
+        if (activo) {
+            if (watchId) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+            if (gpsPollTimer) { clearInterval(gpsPollTimer); gpsPollTimer = null; }
+            silentAudio.pause(); releaseWakeLock();
+            activo = false; ultimaPosicionGps = null;
+            document.getElementById("btnCaptura").textContent = "Start capture";
+            log("Capture stopped.");
+        } else {
+            if (!navigator.geolocation) { log("Geolocation not supported.", "error"); return; }
+            if (!participante) { log("Waiting for registration...", "error"); registrarParticipante(); return; }
+            if (accelData.permission_state !== "granted") activarSensores();
+            
+            silentAudio.play().catch(e => {});
+            requestWakeLock();
+            
+            activo = true; ultimoPunto = null; ultimaPosicionGps = null; historialVelocidad = [];
+            document.getElementById("btnCaptura").textContent = "Stop capture";
+            log("Getting location and accelerometer...");
+            
+            watchId = navigator.geolocation.watchPosition(
+                onPositionSuccess, onPositionError, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+            );
+            gpsPollTimer = setInterval(() => {
+                if (!activo || envioGpsEnCurso) return;
+                if (ultimaPosicionGps) onPositionSuccess(ultimaPosicionGps);
+                else navigator.geolocation.getCurrentPosition(onPositionSuccess, onPositionError, { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 });
+            }, GPS_SEND_INTERVAL_MS);
+        }
     }
 
     async function onPositionSuccess(pos) {
         ultimaPosicionGps = pos;
-
         const ahoraMs = Date.now();
-        if (envioGpsEnCurso || ahoraMs - ultimoEnvioGpsMs < GPS_SEND_INTERVAL_MS) {
-            return;
-        }
-
-        envioGpsEnCurso = true;
-        ultimoEnvioGpsMs = ahoraMs;
-
-        const lat             = pos.coords.latitude;
-        const lon             = pos.coords.longitude;
-        const acc             = pos.coords.accuracy;
-        const altitude        = pos.coords.altitude;
-        const altitudeAccuracy = pos.coords.altitudeAccuracy;
-        const heading         = pos.coords.heading;
-
-        const speed = calcularVelocidad(pos, lat, lon);
+        if (envioGpsEnCurso || ahoraMs - ultimoEnvioGpsMs < GPS_SEND_INTERVAL_MS) return;
+        envioGpsEnCurso = true; ultimoEnvioGpsMs = ahoraMs;
+        
+        const speed = calcularVelocidad(pos, pos.coords.latitude, pos.coords.longitude);
         accelData.acceleration_mps2 = speed.acceleration_mps2;
 
-        // Actualizar paneles visuales
-        document.getElementById("velocidad").textContent      = `${fmt(speed.speed_kmh, 2)} km/h`;
+        document.getElementById("velocidad").textContent = `${fmt(speed.speed_kmh, 2)} km/h`;
         document.getElementById("velocidadFuente").textContent = `Fuente: ${speed.speed_source}`;
-        document.getElementById("precision").textContent       = `±${fmt(acc, 0)} m`;
-        document.getElementById("hora").textContent            = `Hora: ${new Date().toLocaleTimeString()}`;
-
+        document.getElementById("precision").textContent = `±${fmt(pos.coords.accuracy, 0)} m`;
+        document.getElementById("hora").textContent = `Hora: ${new Date().toLocaleTimeString()}`;
         actualizarPanelAcelerometro();
 
-        log(
-            `Ubicación obtenida\n` +
-            `Participante: ${participante}\n` +
-            `Lat: ${lat.toFixed(6)}\nLon: ${lon.toFixed(6)}\n` +
-            `Velocidad: ${fmt(speed.speed_kmh, 2)} km/h (${fmt(speed.speed_mps, 2)} m/s)\n` +
-            `AceleraciÃ³n: ${fmt(speed.acceleration_mps2, 3)} m/sÂ²\n` +
-            `Acelerómetro: ${accelData.permission_state}\n` +
-            `Precisión: ±${fmt(acc, 0)} m\n` +
-            `Hora: ${new Date().toLocaleTimeString()}`,
-            "ok"
-        );
-
         try {
-            const deviceId = getDeviceId();
+            // Include max counts and total points in GPS send
+            let colorArray = [];
+            for(let i=0; i<maxCounts.Rojo; i++) colorArray.push("Rojo");
+            for(let i=0; i<maxCounts.Blanco; i++) colorArray.push("Blanco");
+            for(let i=0; i<maxCounts.Negro; i++) colorArray.push("Negro");
+
             const resp = await fetch("/gps", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
+                method: "POST", headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    latitude:  lat,
-                    longitude: lon,
-                    accuracy:  acc,
-                    altitude:  altitude,
-                    heading:   heading,
-
-                    speed_mps:    speed.speed_mps,
-                    speed_kmh:    speed.speed_kmh,
-                    speed_source: speed.speed_source,
-
-                    accel_gx:          accelData.gx,
-                    accel_gy:          accelData.gy,
-                    accel_gz:          accelData.gz,
-                    accel_g_magnitude: accelData.g_magnitude,
-                    acceleration_mps2: accelData.acceleration_mps2,
-
-                    sensor_timestamp_ms:     accelData.sensor_timestamp_ms,
-                    client_timestamp_ms:     ahoraMs,
-
-                    device_id:    deviceId,
-                    device_label: getDeviceLabel(deviceId),
-                    carga_kg: pesoKgDetectado,
-                    peso_kg: pesoKgDetectado,
-                    conteo_colores: conteoColoresDetectados,
-                    color_detectado: coloresDetectados
+                    latitude: pos.coords.latitude, longitude: pos.coords.longitude,
+                    accuracy: pos.coords.accuracy, altitude: pos.coords.altitude, heading: pos.coords.heading,
+                    speed_mps: speed.speed_mps, speed_kmh: speed.speed_kmh, speed_source: speed.speed_source,
+                    accel_gx: accelData.gx, accel_gy: accelData.gy, accel_gz: accelData.gz, accel_g_magnitude: accelData.g_magnitude,
+                    acceleration_mps2: accelData.acceleration_mps2, sensor_timestamp_ms: accelData.sensor_timestamp_ms,
+                    client_timestamp_ms: ahoraMs, device_id: getDeviceId(), device_label: getDeviceLabel(getDeviceId()),
+                    carga_kg: totalPoints, peso_kg: totalPoints, // Puntos se mapean a peso
+                    conteo_colores: maxCounts, color_detectado: colorArray
                 })
             });
             const data = await resp.json();
-
-            if (!resp.ok && data.status !== "limite_participantes") {
-                throw new Error(data.msg || `Error del servidor: ${resp.status}`);
-            }
-
+            if (!resp.ok && data.status !== "limite_participantes") throw new Error(data.msg || "Error");
             if (data.status === "cerrado") {
-                detenerCaptura();
-                log("Sesión terminada por el servidor (límite de tiempo alcanzado).", "error");
+                iniciarOdetener(); log("Session ended.", "error");
             } else if (data.status === "limite_participantes") {
-                detenerCaptura();
-                log(data.msg, "error");
+                iniciarOdetener(); log(data.msg, "error");
             } else if (data.participante) {
-                participante = data.participante;
-                actualizarCheckpointCercano(data);
+                participante = data.participante; actualizarCheckpointCercano(data);
             }
-        } catch(e) {
-            log("Datos obtenidos pero error al enviar al servidor:\n" + e.message, "error");
-        } finally {
-            envioGpsEnCurso = false;
+        } catch(e) {} finally { envioGpsEnCurso = false; }
+    }
+
+    function onPositionError(err) {
+        log(`GPS Error (${err.code}): ${err.message}`, "error");
+    }
+
+    registrarParticipante().catch(e => log(e.message, "error"));
+    actualizarPanelAcelerometro();
+    renderizarLimitesYUI();
+
+    async function abrirGaleria() {
+        const modal = document.getElementById("galleryModal");
+        const content = document.getElementById("galleryContent");
+        modal.style.display = "block";
+        content.innerHTML = "Loading...";
+
+        try {
+            const resp = await fetch("/galeria");
+            if (resp.ok) {
+                const data = await resp.json();
+                if (data.length === 0) {
+                    content.innerHTML = "<p>No photos in the gallery.</p>";
+                    return;
+                }
+                
+                content.innerHTML = data.reverse().map(item => {
+                    let detHtml = "";
+                    if (item.detections) {
+                        detHtml = Object.entries(item.detections)
+                            .filter(([c, v]) => v > 0)
+                            .map(([c, v]) => `<strong>${c}:</strong> ${v}`)
+                            .join(" | ");
+                    }
+                    const participantStr = item.participante || item.device_id;
+                    const nameDisplay = String(participantStr).replace(/participante[_ ]?/i, 'Participant ');
+
+                    return `
+                    <div class="gallery-item">
+                        <img src="/capturas/${item.filename}" alt="Capture" onclick="abrirVisor('${item.filename}')" style="cursor: pointer;">
+                        <div class="gallery-info">
+                            <strong>${nameDisplay}</strong><br>
+                            <span style="color: gray; font-size: 12px;">${new Date(item.timestamp * 1000).toLocaleString()}</span>
+                            ${detHtml ? `<div style="margin-top: 5px; padding-top: 5px; border-top: 1px solid #e2e8f0;">${detHtml}</div>` : ""}
+                        </div>
+                    </div>`;
+                }).join("");
+            } else {
+                content.innerHTML = "<p style='color:red;'>Error loading gallery.</p>";
+            }
+        } catch (e) {
+            content.innerHTML = "<p style='color:red;'>Connection error.</p>";
         }
     }
 
-    function onPositionError(error) {
-        const mensajes = {
-            1: "Permiso denegado por el usuario.",
-            2: "Posición no disponible (GPS apagado o sin señal).",
-            3: "Tiempo de espera agotado."
-        };
-        log(`Error GPS (código ${error.code}):\n` + (mensajes[error.code] || error.message), "error");
+    function cerrarGaleria() {
+        document.getElementById("galleryModal").style.display = "none";
     }
 
-    // Iniciar al cargar la página
-    registrarParticipante().catch(e => log(e.message, "error"));
-    actualizarPanelAcelerometro();
+    async function limpiarGaleria() {
+        if (!confirm("Are you sure you want to empty the gallery?")) return;
+        try {
+            const resp = await fetch("/limpiar_galeria", { method: 'POST' });
+            if (resp.ok) {
+                abrirGaleria();
+            } else {
+                alert("Could not clear the gallery");
+            }
+        } catch (e) {
+            alert("Connection error");
+        }
+    }
+
+    // Funciones del Visor de Imágenes
+    let currentImageVisor = "";
+    let showContourVisor = true;
+    let currentScaleVisor = 1;
+
+    function abrirVisor(filename) {
+        currentImageVisor = filename;
+        showContourVisor = true;
+        zoomVisorReset();
+        actualizarVisor();
+        document.getElementById("imageViewer").style.display = "flex";
+    }
+
+    function cerrarVisor() {
+        document.getElementById("imageViewer").style.display = "none";
+    }
+
+    function toggleContorno() {
+        showContourVisor = !showContourVisor;
+        actualizarVisor();
+    }
+
+    function actualizarVisor() {
+        const img = document.getElementById("visorImg");
+        if (showContourVisor) {
+            img.src = "/capturas/" + currentImageVisor;
+        } else {
+            img.src = "/capturas/" + currentImageVisor.replace('.jpg', '_clean.jpg');
+        }
+    }
+
+    function zoomVisor(delta) {
+        currentScaleVisor += delta;
+        if (currentScaleVisor < 1) currentScaleVisor = 1;
+        if (currentScaleVisor > 5) currentScaleVisor = 5;
+        document.getElementById("visorImg").style.transform = `scale(${currentScaleVisor})`;
+        
+        // Si hay zoom, permitimos el scroll en el contenedor
+        const content = document.getElementById("imageViewerContent");
+        if (currentScaleVisor > 1) {
+            content.style.overflow = "auto";
+        } else {
+            content.style.overflow = "hidden";
+        }
+    }
+
+    function zoomVisorReset() {
+        currentScaleVisor = 1;
+        document.getElementById("visorImg").style.transform = `scale(1)`;
+        document.getElementById("imageViewerContent").style.overflow = "hidden";
+    }
 </script>
 </body>
 </html>

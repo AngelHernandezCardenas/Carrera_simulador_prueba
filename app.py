@@ -30,6 +30,7 @@ else:
     print(f"ERROR: No se encontrÃ³ YOLO en {ruta_modelo}")
 
 app = Flask(__name__)
+app.config['TEMPLATES_AUTO_RELOAD'] = True
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 reset_participants()
@@ -524,7 +525,21 @@ def registrar():
     device_id, device_ip, user_agent = get_device_info(data)
 
     with participants_lock:
-        participante = get_or_create_participant(device_id)
+        if "custom_name" in data:
+            custom = data["custom_name"]
+            if device_id not in participants_cache:
+                if len(participants_cache) < MAX_PARTICIPANTES:
+                    participants_cache[device_id] = {"nombre": custom}
+                    save_participants(participants_cache)
+                    participante = custom
+                else:
+                    participante = None
+            else:
+                participants_cache[device_id]["nombre"] = custom
+                save_participants(participants_cache)
+                participante = custom
+        else:
+            participante = get_or_create_participant(device_id)
 
     if not participante:
         return jsonify({

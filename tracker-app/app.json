@@ -38,8 +38,7 @@
         {
           "locationAlwaysAndWhenInUsePermission": "Permite rastrear tu ubicación en segundo plano."
         }
-      ],
-      "expo-status-bar"
+      ]
     ],
     "web": {
       "favicon": "./assets/favicon.png"

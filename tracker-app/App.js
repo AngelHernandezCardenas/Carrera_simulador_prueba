@@ -857,7 +857,7 @@ export default function App() {
 
           {/* Escaner de carga visual */}
           <View style={{ backgroundColor: 'white', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0' }}>
-            <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 4 }}>Escaner de carga visual</Text>
+            <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 4 }}>Visual load scanner</Text>
             <Text style={{ fontSize: 20, fontWeight: '800', color: '#0f172a' }}>
               {(maxCounts.Rojo * 1) + (maxCounts.Blanco * 3) + (maxCounts.Negro * 5)} pts
             </Text>
@@ -866,7 +866,7 @@ export default function App() {
       )}
 
       <View style={styles.connectionPanel}>
-        <Text style={styles.label}>URL del servidor</Text>
+        <Text style={styles.label}>Server URL</Text>
         <TextInput
           style={styles.input}
           value={serverUrl}
@@ -881,7 +881,7 @@ export default function App() {
           onPress={registerParticipant}
           disabled={!canRegister || activo}
         >
-          <Text style={styles.buttonText}>Conectar y registrar</Text>
+          <Text style={styles.buttonText}>Connect and register</Text>
         </TouchableOpacity>
       </View>
 
@@ -891,7 +891,7 @@ export default function App() {
         disabled={accelData.permission_state === 'granted'}
       >
         <Text style={styles.buttonText}>
-          {accelData.permission_state === 'granted' ? 'Acelerometro activo' : 'Activar acelerometro manual'}
+          {accelData.permission_state === 'granted' ? 'Accelerometer active' : 'Activate manual accelerometer'}
         </Text>
       </TouchableOpacity>
 
@@ -899,38 +899,38 @@ export default function App() {
         style={[styles.button, activo && styles.dangerButton]}
         onPress={activo ? stopFromButton : startCapture}
       >
-        <Text style={styles.buttonText}>{activo ? 'Detener captura' : 'Iniciar captura'}</Text>
+        <Text style={styles.buttonText}>{activo ? 'Stop capture' : 'Start capture'}</Text>
       </TouchableOpacity>
 
       <View style={styles.grid}>
         <MetricCard
-          label="Velocidad"
+          label="Speed"
           value={`${fmt(speedInfo.speed_kmh, 2)} km/h`}
-          detail={`Fuente: ${speedInfo.speed_source || 'esperando GPS'}`}
+          detail={`Source: ${speedInfo.speed_source || 'waiting for GPS'}`}
         />
         <MetricCard
-          label="Precision GPS"
+          label="GPS Accuracy"
           value={location ? `+/-${fmt(location.coords.accuracy, 0)} m` : '-- m'}
-          detail={`Hora: ${location ? new Date(location.timestamp || Date.now()).toLocaleTimeString() : '--'}`}
+          detail={`Time: ${location ? new Date(location.timestamp || Date.now()).toLocaleTimeString() : '--'}`}
         />
         <MetricCard
           full
-          label="Checkpoint ponderado mas cercano"
+          label="Nearest weighted checkpoint"
           value={checkpointInfo.label}
-          detail={`Distancia: ${fmt(checkpointInfo.distance, 2)} m`}
+          detail={`Distance: ${fmt(checkpointInfo.distance, 2)} m`}
         />
         <View style={styles.cardFull}>
-          <Text style={styles.label}>Acelerometro con gravedad</Text>
+          <Text style={styles.label}>Accelerometer with gravity</Text>
           <Text style={styles.small}>X: {fmt(accelData.gx, 3)} m/s2</Text>
           <Text style={styles.small}>Y: {fmt(accelData.gy, 3)} m/s2</Text>
           <Text style={styles.small}>Z: {fmt(accelData.gz, 3)} m/s2</Text>
-          <Text style={styles.small}>Magnitud: {fmt(accelData.g_magnitude, 3)} m/s2</Text>
+          <Text style={styles.small}>Magnitude: {fmt(accelData.g_magnitude, 3)} m/s2</Text>
         </View>
         <MetricCard
           full
-          label="Aceleracion"
+          label="Acceleration"
           value={`${fmt(speedInfo.acceleration_mps2, 3)} m/s2`}
-          detail="Velocidad / tiempo, 3 muestras"
+          detail="Speed / time, 3 samples"
         />
       </View>
 

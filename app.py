@@ -482,6 +482,11 @@ def mapa():
     )
 
 
+@app.route("/jurados")
+def jurados():
+    return render_template("jurados.html")
+
+
 @app.route("/fotos_checkpoints")
 def fotos_checkpoints():
     return render_template(

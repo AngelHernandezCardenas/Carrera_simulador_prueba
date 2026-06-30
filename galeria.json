@@ -1,10 +1,10 @@
 [
     {
-        "filename": "captura_Desconocido_manual_1782766113.jpg",
-        "timestamp": 1782766113,
-        "device_id": "dev-mqzkar84-emm912q9",
-        "participante": "Desconocido",
-        "fecha_hora": "2026-06-29 14:48:33",
+        "filename": "captura_Participant_4_manual_1782801932.jpg",
+        "timestamp": 1782801932,
+        "device_id": "app-mqs6kjls-4krg6vqo",
+        "participante": "Participant 4",
+        "fecha_hora": "2026-06-30 00:45:32",
         "detections": {
             "Rojo": 1,
             "Blanco": 1,
@@ -16,11 +16,11 @@
         "distancia_checkpoint_m": 0.0
     },
     {
-        "filename": "captura_Desconocido_manual_1782766114.jpg",
-        "timestamp": 1782766114,
-        "device_id": "dev-mqzkar84-emm912q9",
-        "participante": "Desconocido",
-        "fecha_hora": "2026-06-29 14:48:34",
+        "filename": "captura_Participant_4_manual_1782801936.jpg",
+        "timestamp": 1782801936,
+        "device_id": "app-mqs6kjls-4krg6vqo",
+        "participante": "Participant 4",
+        "fecha_hora": "2026-06-30 00:45:36",
         "detections": {
             "Rojo": 1,
             "Blanco": 1,
@@ -32,187 +32,11 @@
         "distancia_checkpoint_m": 0.0
     },
     {
-        "filename": "captura_Desconocido_manual_1782766115.jpg",
-        "timestamp": 1782766115,
-        "device_id": "dev-mqzkar84-emm912q9",
-        "participante": "Desconocido",
-        "fecha_hora": "2026-06-29 14:48:35",
-        "detections": {
-            "Rojo": 1,
-            "Blanco": 1,
-            "Negro": 0
-        },
-        "checkpoint_id": 0,
-        "checkpoint_nombre": "Manual / Sin GPS",
-        "checkpoint_slug": "manual",
-        "distancia_checkpoint_m": 0.0
-    },
-    {
-        "filename": "captura_Desconocido_manual_1782766116.jpg",
-        "timestamp": 1782766116,
-        "device_id": "dev-mqzkar84-emm912q9",
-        "participante": "Desconocido",
-        "fecha_hora": "2026-06-29 14:48:36",
-        "detections": {
-            "Rojo": 1,
-            "Blanco": 1,
-            "Negro": 1
-        },
-        "checkpoint_id": 0,
-        "checkpoint_nombre": "Manual / Sin GPS",
-        "checkpoint_slug": "manual",
-        "distancia_checkpoint_m": 0.0
-    },
-    {
-        "filename": "captura_Desconocido_manual_1782766127.jpg",
-        "timestamp": 1782766127,
-        "device_id": "dev-mqzkar84-emm912q9",
-        "participante": "Desconocido",
-        "fecha_hora": "2026-06-29 14:48:47",
-        "detections": {
-            "Rojo": 1,
-            "Blanco": 1,
-            "Negro": 1
-        },
-        "checkpoint_id": 0,
-        "checkpoint_nombre": "Manual / Sin GPS",
-        "checkpoint_slug": "manual",
-        "distancia_checkpoint_m": 0.0
-    },
-    {
-        "filename": "captura_Desconocido_manual_1782766264.jpg",
-        "timestamp": 1782766264,
-        "device_id": "dev-mqzkar84-emm912q9",
-        "participante": "Desconocido",
-        "fecha_hora": "2026-06-29 14:51:04",
-        "detections": {
-            "Rojo": 1,
-            "Blanco": 1,
-            "Negro": 1
-        },
-        "checkpoint_id": 0,
-        "checkpoint_nombre": "Manual / Sin GPS",
-        "checkpoint_slug": "manual",
-        "distancia_checkpoint_m": 0.0
-    },
-    {
-        "filename": "captura_Desconocido_manual_1782766568.jpg",
-        "timestamp": 1782766568,
-        "device_id": "dev-mqzkar84-emm912q9",
-        "participante": "Desconocido",
-        "fecha_hora": "2026-06-29 14:56:08",
-        "detections": {
-            "Rojo": 1,
-            "Blanco": 1,
-            "Negro": 0
-        },
-        "checkpoint_id": 0,
-        "checkpoint_nombre": "Manual / Sin GPS",
-        "checkpoint_slug": "manual",
-        "distancia_checkpoint_m": 0.0
-    },
-    {
-        "filename": "captura_Desconocido_manual_1782766570.jpg",
-        "timestamp": 1782766570,
-        "device_id": "dev-mqzkar84-emm912q9",
-        "participante": "Desconocido",
-        "fecha_hora": "2026-06-29 14:56:10",
-        "detections": {
-            "Rojo": 1,
-            "Blanco": 1,
-            "Negro": 0
-        },
-        "checkpoint_id": 0,
-        "checkpoint_nombre": "Manual / Sin GPS",
-        "checkpoint_slug": "manual",
-        "distancia_checkpoint_m": 0.0
-    },
-    {
-        "filename": "captura_Desconocido_manual_1782766571.jpg",
-        "timestamp": 1782766571,
-        "device_id": "dev-mqzkar84-emm912q9",
-        "participante": "Desconocido",
-        "fecha_hora": "2026-06-29 14:56:11",
-        "detections": {
-            "Rojo": 1,
-            "Blanco": 1,
-            "Negro": 0
-        },
-        "checkpoint_id": 0,
-        "checkpoint_nombre": "Manual / Sin GPS",
-        "checkpoint_slug": "manual",
-        "distancia_checkpoint_m": 0.0
-    },
-    {
-        "filename": "captura_Desconocido_manual_1782766573.jpg",
-        "timestamp": 1782766573,
-        "device_id": "dev-mqzkar84-emm912q9",
-        "participante": "Desconocido",
-        "fecha_hora": "2026-06-29 14:56:13",
-        "detections": {
-            "Rojo": 1,
-            "Blanco": 1,
-            "Negro": 1
-        },
-        "checkpoint_id": 0,
-        "checkpoint_nombre": "Manual / Sin GPS",
-        "checkpoint_slug": "manual",
-        "distancia_checkpoint_m": 0.0
-    },
-    {
-        "filename": "captura_Desconocido_manual_1782766574.jpg",
-        "timestamp": 1782766574,
-        "device_id": "dev-mqzkar84-emm912q9",
-        "participante": "Desconocido",
-        "fecha_hora": "2026-06-29 14:56:14",
-        "detections": {
-            "Rojo": 1,
-            "Blanco": 1,
-            "Negro": 0
-        },
-        "checkpoint_id": 0,
-        "checkpoint_nombre": "Manual / Sin GPS",
-        "checkpoint_slug": "manual",
-        "distancia_checkpoint_m": 0.0
-    },
-    {
-        "filename": "captura_Desconocido_manual_1782766575.jpg",
-        "timestamp": 1782766575,
-        "device_id": "dev-mqzkar84-emm912q9",
-        "participante": "Desconocido",
-        "fecha_hora": "2026-06-29 14:56:15",
-        "detections": {
-            "Rojo": 1,
-            "Blanco": 1,
-            "Negro": 0
-        },
-        "checkpoint_id": 0,
-        "checkpoint_nombre": "Manual / Sin GPS",
-        "checkpoint_slug": "manual",
-        "distancia_checkpoint_m": 0.0
-    },
-    {
-        "filename": "captura_Desconocido_manual_1782766591.jpg",
-        "timestamp": 1782766591,
-        "device_id": "dev-mqzkar84-emm912q9",
-        "participante": "Desconocido",
-        "fecha_hora": "2026-06-29 14:56:31",
-        "detections": {
-            "Rojo": 1,
-            "Blanco": 1,
-            "Negro": 1
-        },
-        "checkpoint_id": 0,
-        "checkpoint_nombre": "Manual / Sin GPS",
-        "checkpoint_slug": "manual",
-        "distancia_checkpoint_m": 0.0
-    },
-    {
-        "filename": "captura_Desconocido_manual_1782766593.jpg",
-        "timestamp": 1782766593,
-        "device_id": "dev-mqzkar84-emm912q9",
-        "participante": "Desconocido",
-        "fecha_hora": "2026-06-29 14:56:33",
+        "filename": "captura_Participant_4_manual_1782801941.jpg",
+        "timestamp": 1782801941,
+        "device_id": "app-mqs6kjls-4krg6vqo",
+        "participante": "Participant 4",
+        "fecha_hora": "2026-06-30 00:45:41",
         "detections": {
             "Rojo": 1,
             "Blanco": 1,

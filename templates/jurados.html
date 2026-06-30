@@ -107,6 +107,10 @@
 
     <button id="cameraButton" class="secondary">Turn on camera</button>
     <section id="camera" hidden>
+        <div style="margin-bottom: 10px;">
+            <div style="font-size: 12px; color: #64748b; margin-bottom: 4px; text-transform: uppercase; font-weight: bold;">Target Participant:</div>
+            <select id="targetParticipantSelect" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 16px; background: white;"></select>
+        </div>
         <div class="camera-container" id="cameraContainer">
             <video id="video" autoplay playsinline muted></video>
             <img id="photo" alt="Analyzed photo" hidden>
@@ -175,6 +179,16 @@ function deviceId() {
         localStorage.setItem(key, value);
     }
     return value;
+}
+
+const participantSelect = document.getElementById("targetParticipantSelect");
+if (participantSelect) {
+    for(let i=1; i<=15; i++) {
+        let opt = document.createElement("option");
+        opt.value = "Participant " + i;
+        opt.textContent = "Participant " + i;
+        participantSelect.appendChild(opt);
+    }
 }
 
 async function registrarJurado() {
@@ -250,10 +264,11 @@ async function toggleScan() {
     const base64Data = hiddenCanvas.toDataURL("image/jpeg", 0.35).split(",")[1];
     
     try {
+        const selectedTarget = document.getElementById("targetParticipantSelect").value;
         const customName = document.getElementById("judgeInfo").textContent.replace("Current Checkpoint: ", "") || "Judge";
         const resp = await fetch("/vision", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ device_id: deviceId(), participante: customName, image: base64Data, mobile: true })
+            body: JSON.stringify({ device_id: deviceId(), participante: customName, target_participante: selectedTarget, image: base64Data, mobile: true })
         });
         const data = await resp.json();
         if (data.status === "ok") {

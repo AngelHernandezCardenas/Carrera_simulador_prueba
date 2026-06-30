@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 
 <head>
@@ -179,6 +179,7 @@
         }
 
         @media (max-width: 720px) {
+
             .topbar,
             .controls {
                 align-items: stretch;
@@ -265,14 +266,15 @@
                     .filter((photo) => getPhotoCheckpointId(photo) === checkpointId)
                     .sort((a, b) => Number(b.timestamp || 0) - Number(a.timestamp || 0));
                 const latest = photos[0];
+                const links = photos.map((p, idx) => `<a class="photo-link" href="/capturas/${p.filename}" target="_blank">Foto ${idx + 1}</a>`).join(' | ');
 
                 return `
                     <tr>
                         <td>${checkpoint.nombre}</td>
                         <td>${participante}</td>
-                        <td>${latest
-                            ? `<span class="status-yes">Si</span> <a class="photo-link" href="/capturas/${latest.filename}" target="_blank">Ver foto</a>`
-                            : '<span class="status-no">No</span>'}
+                        <td>${photos.length > 0
+                        ? `<span class="status-yes">Si</span> ${links}`
+                        : '<span class="status-no">No</span>'}
                         </td>
                     </tr>
                 `;

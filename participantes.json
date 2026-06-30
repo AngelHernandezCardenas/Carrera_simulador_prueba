@@ -138,5 +138,11 @@
   },
   "fa7dfd0a-3888-4656-abdb-85a7f519b773": {
     "nombre": "participante_20"
+  },
+  "dummy_Participant_1": {
+    "nombre": "Participant 1"
+  },
+  "dummy_Participant_4": {
+    "nombre": "Participant 4"
   }
 }

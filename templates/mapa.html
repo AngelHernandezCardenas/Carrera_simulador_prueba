@@ -585,15 +585,35 @@
         }
 
         .photo-row {
-            display: grid;
-            grid-template-columns: 1fr 96px;
+            display: flex;
+            flex-direction: column;
             gap: 12px;
-            align-items: center;
             min-height: 80px;
-            padding: 10px;
+            padding: 12px;
             border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 8px;
             background: rgba(255, 255, 255, 0.04);
+        }
+
+        .photo-row-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .photo-row-gallery {
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            padding-bottom: 6px;
+        }
+
+        .photo-row-gallery::-webkit-scrollbar {
+            height: 6px;
+        }
+        .photo-row-gallery::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
         }
 
         .photo-row-title {
@@ -632,13 +652,35 @@
         }
 
         .photo-thumb {
-            width: 96px;
-            height: 72px;
-            object-fit: cover;
+            height: 140px;
+            width: auto;
+            max-width: 200px;
+            object-fit: contain;
             border-radius: 8px;
             border: 1px solid rgba(255, 255, 255, 0.12);
             background: rgba(0, 0, 0, 0.28);
             cursor: pointer;
+            transition: transform 0.2s ease, border-color 0.2s ease;
+            display: block;
+        }
+
+        .photo-thumb:hover {
+            transform: scale(1.02);
+            border-color: var(--accent);
+        }
+
+        .photo-thumb-container {
+            position: relative;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .photo-thumb-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-align: center;
         }
 
         .photo-empty {
@@ -646,6 +688,136 @@
             padding: 20px 10px;
             text-align: center;
             font-size: 13px;
+        }
+
+        .btn-ver-fotos {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 10px;
+            background: rgba(59, 130, 246, 0.18);
+            border: 1px solid rgba(59, 130, 246, 0.45);
+            color: #93c5fd;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s ease, border-color 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .btn-ver-fotos:hover {
+            background: rgba(59, 130, 246, 0.35);
+            border-color: var(--accent);
+            color: #fff;
+        }
+
+        /* Lightbox modal */
+        #lightbox-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: rgba(0, 0, 0, 0.92);
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        #lightbox-modal.open {
+            display: flex;
+        }
+
+        #lightbox-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: min(860px, 96vw);
+            gap: 12px;
+        }
+
+        #lightbox-title {
+            font-size: 15px;
+            font-weight: 800;
+            color: #fff;
+        }
+
+        #lightbox-counter {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        #lightbox-img-wrap {
+            position: relative;
+            width: min(860px, 96vw);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #lightbox-img {
+            max-width: 100%;
+            max-height: 70vh;
+            object-fit: contain;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.15);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+        }
+
+        .lightbox-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255,255,255,0.12);
+            border: 1px solid rgba(255,255,255,0.22);
+            color: white;
+            border-radius: 50%;
+            width: 42px;
+            height: 42px;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+            user-select: none;
+        }
+
+        .lightbox-nav:hover { background: rgba(255,255,255,0.25); }
+        #lightbox-prev { left: -52px; }
+        #lightbox-next { right: -52px; }
+
+        #lightbox-caption {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        #lightbox-thumbnails {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            max-width: min(860px, 96vw);
+            padding: 4px 0;
+        }
+
+        .lightbox-strip-thumb {
+            width: 60px;
+            height: 46px;
+            object-fit: cover;
+            border-radius: 5px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            flex-shrink: 0;
+            opacity: 0.65;
+            transition: opacity 0.2s, border-color 0.2s;
+        }
+
+        .lightbox-strip-thumb.active,
+        .lightbox-strip-thumb:hover {
+            opacity: 1;
+            border-color: var(--accent);
         }
 
         @keyframes slide-in-toast {
@@ -720,11 +892,90 @@
         <div class="photo-list" id="photo-list"></div>
     </aside>
 
+    <!-- Lightbox modal para ver fotos en pantalla completa -->
+    <div id="lightbox-modal" role="dialog" aria-modal="true" aria-label="Galería de fotos">
+        <div id="lightbox-header">
+            <span id="lightbox-title">Fotos</span>
+            <div style="display:flex; align-items:center; gap:12px;">
+                <span id="lightbox-counter"></span>
+                <button class="btn-3d" onclick="closeLightbox()">✕ Cerrar</button>
+            </div>
+        </div>
+        <div id="lightbox-img-wrap">
+            <button class="lightbox-nav" id="lightbox-prev" onclick="lightboxNav(-1)">&#8249;</button>
+            <img id="lightbox-img" src="" alt="Foto">
+            <button class="lightbox-nav" id="lightbox-next" onclick="lightboxNav(1)">&#8250;</button>
+        </div>
+        <div id="lightbox-caption"></div>
+        <div id="lightbox-thumbnails"></div>
+    </div>
+
     <script>
         const CHECKPOINTS = {{ checkpoints | tojson }};
         const NON_SCORING_CHECKPOINT_IDS = new Set({{ non_scoring_checkpoint_ids | tojson }});
         let participantList = {{ participantes | tojson }};
         let photoGallery = {{ galeria | tojson }};
+
+        // ---- Lightbox ----
+        let _lbPhotos = [];
+        let _lbIdx = 0;
+
+        function openLightbox(photos, startIdx, participantName) {
+            _lbPhotos = photos;
+            _lbIdx = startIdx;
+            document.getElementById('lightbox-title').textContent = '📷 ' + participantName;
+            document.getElementById('lightbox-modal').classList.add('open');
+            _renderLightbox();
+            document.addEventListener('keydown', _lightboxKeyHandler);
+        }
+
+        function closeLightbox() {
+            document.getElementById('lightbox-modal').classList.remove('open');
+            document.removeEventListener('keydown', _lightboxKeyHandler);
+        }
+
+        function lightboxNav(dir) {
+            _lbIdx = (_lbIdx + dir + _lbPhotos.length) % _lbPhotos.length;
+            _renderLightbox();
+        }
+
+        function _lightboxKeyHandler(e) {
+            if (e.key === 'ArrowLeft') lightboxNav(-1);
+            else if (e.key === 'ArrowRight') lightboxNav(1);
+            else if (e.key === 'Escape') closeLightbox();
+        }
+
+        function _renderLightbox() {
+            const photo = _lbPhotos[_lbIdx];
+            if (!photo) return;
+            const img = document.getElementById('lightbox-img');
+            img.src = '/capturas/' + photo.filename;
+            img.alt = 'Foto ' + (_lbIdx + 1);
+            document.getElementById('lightbox-counter').textContent = (_lbIdx + 1) + ' / ' + _lbPhotos.length;
+
+            const cpName = photo.checkpoint_nombre || 'Sin checkpoint';
+            const fecha = photo.fecha_hora || (photo.timestamp ? new Date(Number(photo.timestamp) * 1000).toLocaleString() : '');
+            document.getElementById('lightbox-caption').textContent = cpName + (fecha ? '  ·  ' + fecha : '');
+
+            // Strip de miniaturas
+            const strip = document.getElementById('lightbox-thumbnails');
+            strip.innerHTML = _lbPhotos.map((p, i) => `
+                <img class="lightbox-strip-thumb ${i === _lbIdx ? 'active' : ''}"
+                     src="/capturas/${p.filename}" alt="Foto ${i+1}"
+                     onclick="javascript:_lbIdx=${i};_renderLightbox();">
+            `).join('');
+
+            // Botones prev/next visibilidad
+            document.getElementById('lightbox-prev').style.display = _lbPhotos.length > 1 ? '' : 'none';
+            document.getElementById('lightbox-next').style.display = _lbPhotos.length > 1 ? '' : 'none';
+        }
+
+        // Cerrar lightbox al hacer click en el fondo oscuro
+        document.getElementById('lightbox-modal').addEventListener('click', function(e) {
+            if (e.target === this) closeLightbox();
+        });
+
+
 
         function getPhotoCheckpointId(photo) {
             const rawId = photo.checkpoint_id || photo.checkpoint_mas_cercano_id || (photo.checkpoint && photo.checkpoint.id);
@@ -794,25 +1045,46 @@
                 if (!latest) {
                     return `
                         <div class="photo-row">
-                            <div>
-                                <div class="photo-row-title">${displayName}</div>
-                                <div class="photo-row-meta">${checkpointFilter === 'all' ? 'Sin foto registrada' : 'Sin foto en este checkpoint'}</div>
+                            <div class="photo-row-header">
+                                <div>
+                                    <div class="photo-row-title">${displayName}</div>
+                                    <div class="photo-row-meta">${checkpointFilter === 'all' ? 'Sin foto registrada' : 'Sin foto en este checkpoint'}</div>
+                                </div>
                                 <span class="photo-status no">No</span>
                             </div>
-                            <div></div>
                         </div>
                     `;
                 }
 
+                // Encode photos list for the button onclick
+                const photosJson = JSON.stringify(photos).replace(/"/g, '&quot;');
+
+                const thumbnailsHtml = photos.map((photo, idx) => {
+                    const cpName = getPhotoCheckpointName(photo);
+                    return `
+                        <div class="photo-thumb-container">
+                            <img class="photo-thumb" src="/capturas/${photo.filename}" alt="Foto ${idx+1} de ${displayName}" onclick="openLightbox(${JSON.stringify(photos).replace(/"/g, '&quot;')}, ${idx}, '${displayName.replace(/'/g, '\\&apos;')}')"
+                                title="Click para ver en pantalla completa">
+                            <div class="photo-thumb-label">${cpName} &mdash; ${new Date(Number(photo.timestamp||0)*1000).toLocaleTimeString()}</div>
+                        </div>
+                    `;
+                }).join('');
+
                 return `
                     <div class="photo-row">
-                        <div>
-                            <div class="photo-row-title">${displayName}</div>
-                            <div class="photo-row-meta">${getPhotoCheckpointName(latest)}</div>
-                            <div class="photo-row-meta">${formatPhotoDate(latest)} - ${photos.length} foto${photos.length === 1 ? '' : 's'}</div>
-                            <span class="photo-status yes">Si</span>
+                        <div class="photo-row-header">
+                            <div style="flex:1; min-width:0;">
+                                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                                    <div class="photo-row-title">${displayName}</div>
+                                    <button class="btn-ver-fotos" onclick="openLightbox(${photosJson}, 0, '${displayName.replace(/'/g, '\\&apos;')}')">📷 Ver ${photos.length} foto${photos.length===1?'':'s'}</button>
+                                </div>
+                                <div class="photo-row-meta">${formatPhotoDate(latest)}</div>
+                            </div>
+                            <span class="photo-status yes" style="margin-left:8px;">Si</span>
                         </div>
-                        <img class="photo-thumb" src="/capturas/${latest.filename}" alt="Foto de ${displayName}" onclick="window.open('/capturas/${latest.filename}', '_blank')">
+                        <div class="photo-row-gallery">
+                            ${thumbnailsHtml}
+                        </div>
                     </div>
                 `;
             }).join('');

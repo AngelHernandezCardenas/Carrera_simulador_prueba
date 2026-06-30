@@ -5,7 +5,7 @@ import urllib.parse
 import urllib.request
 import urllib.error
 
-from config import (
+from .config import (
     ARCGIS_FEATURE_LAYER_URL,
     ARCGIS_TOKEN,
     ARCGIS_CLIENT_ID,

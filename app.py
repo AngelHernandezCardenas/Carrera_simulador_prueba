@@ -897,7 +897,24 @@ def vision():
 
         # Agregar marca de agua
         from datetime import datetime
-        participante_nombre = get_participant_name_for_device(device_id)
+        
+        target_participante = data.get("target_participante")
+        if target_participante:
+            participante_nombre = target_participante
+            
+            # Asegurar que el participante objetivo esté registrado en la caché
+            from participants import participants_cache, save_participants, participants_lock
+            with participants_lock:
+                exists = any(
+                    (entry.get("nombre") if isinstance(entry, dict) else str(entry)) == target_participante 
+                    for entry in participants_cache.values()
+                )
+                if not exists:
+                    dummy_id = f"dummy_{target_participante.replace(' ', '_')}"
+                    participants_cache[dummy_id] = {"nombre": target_participante}
+                    save_participants(participants_cache)
+        else:
+            participante_nombre = get_participant_name_for_device(device_id)
 
         dt_now = datetime.now()
         fecha_hora = dt_now.strftime("%Y-%m-%d %H:%M:%S")
@@ -955,6 +972,43 @@ def vision():
 
             with open(registro_galeria, "w", encoding="utf-8") as f:
                 json.dump(galeria_data, f, indent=4)
+            
+            # --- Integración con Mapa (GeoJSON y ArcGIS) ---
+            if target_participante and detectado.get("carga_kg", 0) > 0:
+                from geojson_store import load_geojson, append_feature
+                from colores.arcgis import should_send_to_arcgis, send_feature_to_arcgis
+                from participants import participants_cache, save_participants
+
+                geojson_data = load_geojson()
+                last_coords = None
+                # Buscar la ultima ubicacion conocida del participante
+                for feat in reversed(geojson_data.get("features", [])):
+                    if feat.get("properties", {}).get("participante") == target_participante:
+                        last_coords = feat.get("geometry", {}).get("coordinates")
+                        break
+                
+                if last_coords:
+                    map_feature = {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Point",
+                            "coordinates": last_coords,
+                        },
+                        "properties": {
+                            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+                            "participante": target_participante,
+                            "device_label": "Jurado Scan",
+                            "Carga_kg": detectado.get("carga_kg"),
+                            "Color_Detectado": json.dumps(detectado.get("counts", {})),
+                            "photo_filename": filename
+                        }
+                    }
+                    append_feature(map_feature)
+                    if should_send_to_arcgis(target_participante):
+                        try:
+                            send_feature_to_arcgis(map_feature, target_participante, participants_cache, save_participants)
+                        except Exception as e:
+                            print(f"[ArcGIS Vision Error]: {e}")
             # ------------------------------------------------
 
             return jsonify({

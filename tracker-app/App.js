@@ -247,6 +247,9 @@ export default function App() {
   const [contandoActivo, setContandoActivo] = useState(false);
   const [maxCounts, setMaxCounts] = useState({ Rojo: 0, Blanco: 0, Negro: 0 });
   const [annotatedImage, setAnnotatedImage] = useState(null);
+  const [targetParticipant, setTargetParticipant] = useState('Participant 1');
+  const [isPickerVisible, setIsPickerVisible] = useState(false);
+  const participantsList = Array.from({length: 15}, (_, i) => `Participant ${i + 1}`);
   const cameraRef = useRef(null);
   const scanningRef = useRef(false);
   const bucleEscaneoRef = useRef(false);
@@ -305,7 +308,6 @@ export default function App() {
   // --- CAMERA SCANNING FUNCTIONS ---
   const escanearUnaVez = async () => {
     if (scanningRef.current || !cameraRef.current) return;
-    if (!isCameraReady) return;
 
     // Si ya hay 10 puntos, no escanear más (limite)
     const ptsActuales = (countsRef.current.Rojo * 1) + (countsRef.current.Blanco * 3) + (countsRef.current.Negro * 5);
@@ -313,7 +315,7 @@ export default function App() {
 
     scanningRef.current = true;
     setContandoActivo(true);
-    setLog('Procesando imagen (Rápido 150%)...', 'info');
+    setLog('Detectando pelotas...', 'info');
 
     try {
       // quality baja para acelerar un 150% la transferencia por red
@@ -329,6 +331,7 @@ export default function App() {
         body: JSON.stringify({
           device_id: globalDeviceId || 'unknown',
           participante: globalParticipante || 'Desconocido',
+          target_participante: targetParticipant,
           image: photo.base64,
           mobile: true
         })
@@ -379,6 +382,8 @@ export default function App() {
             }
           }, 3000);
         }
+      } else {
+        setLog(data.msg || 'Error en el escaneo', 'error');
       }
     } catch (e) {
       console.log('Error escaneando:', e);
@@ -443,8 +448,6 @@ export default function App() {
     }
 
     let savedUrl = await AsyncStorage.getItem(SERVER_URL_KEY);
-    // FORCE NEW TUNNEL URL
-    savedUrl = 'https://address-reference-reports-beautiful.trycloudflare.com';
     
     const savedParticipant = await AsyncStorage.getItem(PARTICIPANTE_KEY);
 
@@ -721,6 +724,16 @@ export default function App() {
         <View style={styles.connectionPanel}>
           <Text style={styles.label}>Cámara y Escáner YOLO</Text>
 
+          <View style={{ marginBottom: 10, zIndex: 10 }}>
+            <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 4, textTransform: 'uppercase', fontWeight: 'bold' }}>Target Participant:</Text>
+            <TouchableOpacity 
+              style={{ padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', backgroundColor: 'white' }}
+              onPress={() => setIsPickerVisible(true)}
+            >
+              <Text style={{ fontSize: 16 }}>{targetParticipant}</Text>
+            </TouchableOpacity>
+          </View>
+
           <View
             style={{ width: '100%', height: 300, backgroundColor: 'black', borderRadius: 8, overflow: 'hidden', marginBottom: 10 }}
             onLayout={(e) => {
@@ -732,7 +745,6 @@ export default function App() {
               style={{ flex: 1 }}
               facing="back"
               ref={cameraRef}
-              onCameraReady={() => setIsCameraReady(true)}
             />
 
             {/* Contorno del límite de detección (círculo central) */}
@@ -1032,6 +1044,32 @@ export default function App() {
         )}
       </Modal>
 
+      {/* MODAL PICKER PARA TARGET PARTICIPANT */}
+      <Modal visible={isPickerVisible} transparent animationType="fade">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 }}>
+          <View style={{ backgroundColor: 'white', borderRadius: 12, maxHeight: '80%' }}>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', padding: 15, borderBottomWidth: 1, borderColor: '#e2e8f0' }}>Select Target Participant</Text>
+            <FlatList
+              data={participantsList}
+              keyExtractor={item => item}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={{ padding: 15, borderBottomWidth: 1, borderColor: '#f1f5f9' }}
+                  onPress={() => {
+                    setTargetParticipant(item);
+                    setIsPickerVisible(false);
+                  }}
+                >
+                  <Text style={{ fontSize: 16, color: item === targetParticipant ? '#2563eb' : 'black', fontWeight: item === targetParticipant ? 'bold' : 'normal' }}>{item}</Text>
+                </TouchableOpacity>
+              )}
+            />
+            <TouchableOpacity style={{ padding: 15, alignItems: 'center', backgroundColor: '#f8fafc', borderBottomLeftRadius: 12, borderBottomRightRadius: 12 }} onPress={() => setIsPickerVisible(false)}>
+              <Text style={{ color: '#ef4444', fontWeight: 'bold', fontSize: 16 }}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }

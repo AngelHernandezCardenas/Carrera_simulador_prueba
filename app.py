@@ -26,6 +26,12 @@ ruta_modelo = os.path.join(os.path.dirname(__file__), "colores", "detección", "
 if os.path.exists(ruta_modelo):
     print(f"Cargando YOLO desde {ruta_modelo}")
     modelo_yolo_global = YOLO(ruta_modelo)
+    
+    # Pre-calentar y fusionar modelo en el hilo principal para evitar race conditions
+    print("Pre-calentando modelo YOLO...")
+    dummy_frame = np.zeros((480, 640, 3), dtype=np.uint8)
+    modelo_yolo_global.predict(dummy_frame, imgsz=480, verbose=False)
+    print("Modelo YOLO pre-calentado correctamente.")
 else:
     print(f"ERROR: No se encontrÃ³ YOLO en {ruta_modelo}")
 
@@ -54,9 +60,10 @@ PESO_RESET_DISTANCE_METERS = 4.0
 COLOR_WEIGHTS_KG = {"Rojo": 1.0, "Blanco": 3.0, "Negro": 5.0}
 PESO_ALERTA_KG = 10.0
 BASE_DIR = Path(__file__).resolve().parent
+
 VISION_CONFIG = {
-    "limits": {"Rojo": 10, "Negro": 2, "Blanco": 3},
-    "max_balls_total": 10,
+    "limits": {"Rojo": 20, "Negro": 20, "Blanco": 20},
+    "max_balls_total": 20,
     "mesh_fraction": 0.38,
     "camera": {
         "width": 1280,
@@ -891,6 +898,8 @@ def vision():
 
         mobile_mode = data.get("mobile", False)
         calibrate_mode = data.get("calibrate", False)
+        # save_photo=False en pasadas 2 y 3 del multi-escaneo: no guardar fotos duplicadas
+        save_photo = data.get("save_photo", True)
         
         t_start = time.time()
         detectado, frame_annotated = procesar_frame_yolo_api(frame, estado, modelo_yolo_global, mobile_mode=mobile_mode, calibrate_mode=calibrate_mode)
@@ -925,7 +934,7 @@ def vision():
         _, buffer = cv2.imencode(".jpg", frame_annotated, encode_params)
         annotated_b64 = base64.b64encode(buffer).decode("utf-8")
 
-        if detectado and "color" in detectado:
+        if save_photo and detectado and "color" in detectado:
             checkpoint_context = get_gallery_checkpoint_context(device_id)
             if not checkpoint_context:
                 # Si no está en un checkpoint, asignar uno manual para que siempre se guarde la foto
@@ -1055,20 +1064,47 @@ def limpiar_galeria():
     registro_galeria = BASE_DIR / "galeria.json"
     capturas_dir = BASE_DIR / "capturas"
     
-    # Limpiar el JSON
-    if registro_galeria.exists():
+    target_participant = None
+    if request.is_json:
+        target_participant = request.json.get("participante")
+        
+    if target_participant:
+        # Eliminar solo de este participante
+        items = load_gallery_items()
+        items_to_keep = [item for item in items if item.get("participante") != target_participant]
+        items_to_delete = [item for item in items if item.get("participante") == target_participant]
+        
+        # Guardar galería filtrada
         with open(registro_galeria, "w", encoding="utf-8") as f:
-            json.dump([], f)
+            json.dump(items_to_keep, f, indent=4)
             
-    # Eliminar las imágenes
-    if capturas_dir.exists():
-        for archivo in capturas_dir.glob("*.jpg"):
-            try:
-                archivo.unlink()
-            except Exception as e:
-                print(f"No se pudo eliminar {archivo}: {e}")
+        # Borrar archivos físicos
+        for item in items_to_delete:
+            filename = item.get("filename")
+            if filename:
+                for suffix in [filename, filename.replace(".jpg", "_clean.jpg")]:
+                    path = capturas_dir / suffix
+                    if path.exists():
+                        try: path.unlink()
+                        except: pass
+                        
+        return jsonify({"status": "ok", "msg": f"Galería limpiada para {target_participant}"})
+    
+    else:
+        # Limpiar el JSON de todo
+        if registro_galeria.exists():
+            with open(registro_galeria, "w", encoding="utf-8") as f:
+                json.dump([], f)
                 
-    return jsonify({"status": "ok", "msg": "Galería limpiada"})
+        # Eliminar las imágenes de todo
+        if capturas_dir.exists():
+            for archivo in capturas_dir.glob("*.jpg"):
+                try:
+                    archivo.unlink()
+                except Exception as e:
+                    print(f"No se pudo eliminar {archivo}: {e}")
+                    
+        return jsonify({"status": "ok", "msg": "Galería limpiada"})
 
 from flask import send_from_directory
 @app.route("/capturas/<filename>", methods=["GET"])
@@ -1105,7 +1141,7 @@ def vision_fast():
             scale = gp_max_w / w_orig
             frame = cv2.resize(frame, (gp_max_w, int(h_orig * scale)), interpolation=cv2.INTER_AREA)
 
-        detectado, frame_annotated = procesar_frame_yolo_api(frame, estado, modelo_yolo_global)
+        detectado, frame_annotated = procesar_frame_yolo_api(frame, estado, modelo_yolo_global, mobile_mode=True)
 
         jpeg_q = 65  # Mejor calidad visual
         encode_params = [cv2.IMWRITE_JPEG_QUALITY, jpeg_q]

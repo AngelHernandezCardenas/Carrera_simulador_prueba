@@ -248,6 +248,7 @@ export default function App() {
   const [maxCounts, setMaxCounts] = useState({ Rojo: 0, Blanco: 0, Negro: 0 });
   const [annotatedImage, setAnnotatedImage] = useState(null);
   const [targetParticipant, setTargetParticipant] = useState('Participant 1');
+  const [targetCheckpoint, setTargetCheckpoint] = useState('Checkpoint 1');
   const [isPickerVisible, setIsPickerVisible] = useState(false);
   const participantsList = Array.from({length: 15}, (_, i) => `Participant ${i + 1}`);
   const cameraRef = useRef(null);
@@ -306,95 +307,155 @@ export default function App() {
   });
 
   // --- CAMERA SCANNING FUNCTIONS ---
+
+  // Helper: envía la foto al servidor, retorna data o null
+  // save_photo: solo el primer análisis guarda la foto en galería
+  const takeSingleScan = async (photo, save_photo = true) => {
+    const resp = await fetch(`${globalServerUrl}/vision`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        device_id: globalDeviceId || 'unknown',
+        participante: globalParticipante || 'Desconocido',
+        target_participante: targetParticipant,
+        image: photo.base64,
+        mobile: true,
+        save_photo: save_photo   // Solo guardar foto en la primera pasada
+      })
+    });
+    const respText = await resp.text();
+    return JSON.parse(respText);
+  };
+
+  // Verifica si una pelota ya está en la lista aceptada (mismo color y posición cercana)
+  // threshold: distancia máxima en coordenadas normalizadas para considerar "misma pelota"
+  const isDuplicate = (ball, accepted, threshold = 0.08) => {
+    return accepted.some(a =>
+      a.color === ball.color &&
+      Math.hypot(a.x_norm - ball.x_norm, a.y_norm - ball.y_norm) < threshold
+    );
+  };
+
   const escanearUnaVez = async () => {
     if (scanningRef.current || !cameraRef.current) return;
 
-    // Si ya hay 10 puntos, no escanear más (limite)
+    // Si ya hay 10+ puntos, no escanear más (limite)
     const ptsActuales = (countsRef.current.Rojo * 1) + (countsRef.current.Blanco * 3) + (countsRef.current.Negro * 5);
-    if (ptsActuales >= 10) return;
+    if (ptsActuales > 10) return;
 
     scanningRef.current = true;
     setContandoActivo(true);
-    setLog('Detectando pelotas...', 'info');
+    setLog('Capturando imagen...', 'info');
 
     try {
-      // quality baja para acelerar un 150% la transferencia por red
+      // === FASE 1: Tomar UNA SOLA foto de alta calidad ===
       const photo = await cameraRef.current.takePictureAsync({
         base64: true,
-        quality: 0.2,
+        quality: 0.92,   // Alta resolución para mejor detección
         shutterSound: false
       });
 
-      const resp = await fetch(`${globalServerUrl}/vision`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          device_id: globalDeviceId || 'unknown',
-          participante: globalParticipante || 'Desconocido',
-          target_participante: targetParticipant,
-          image: photo.base64,
-          mobile: true
-        })
-      });
+      if (!scanningRef.current) return;
 
-      const respText = await resp.text();
-      let data;
-      try {
-        data = JSON.parse(respText);
-      } catch (e) {
-        throw new Error(`Invalid server response (${resp.status}): ${respText.substring(0, 100)}`);
+      // === FASE 2: Enviar la MISMA foto al servidor 3 veces en paralelo ===
+      // Cada análisis puede detectar pelotas distintas. Al fusionar los 3 resultados
+      // obtenemos cobertura del 100% de las pelotas.
+      // NOTA: solo la pasada 0 guarda la foto en galería (save_photo=true)
+      setLog('Analizando imagen (3 pasadas)...', 'info');
+      const NUM_PASSES = 3;
+      const results = await Promise.all(
+        Array.from({ length: NUM_PASSES }, (_, i) => takeSingleScan(photo, i === 0).catch(() => null))
+      );
+
+      if (!scanningRef.current) return;
+
+      // === FASE 3: Fusionar resultados con deduplicación por distancia ===
+      // Prioridad de colores: Negro > Blanco > Rojo
+      const COLOR_ORDER = ['Negro', 'Blanco', 'Rojo'];
+      const accepted = []; // lista final de pelotas únicas
+
+      for (const data of results) {
+        if (!data || data.status !== 'ok' || !data.balls) continue;
+        for (const ball of data.balls) {
+          // Solo agregar si no hay otra pelota del mismo color en un radio de 0.08
+          if (!isDuplicate(ball, accepted, 0.08)) {
+            accepted.push(ball);
+          }
+        }
       }
 
-      if (data.status === 'ok') {
-        if (data.balls) {
-          setDetectedBalls(data.balls);
-        } else {
-          setDetectedBalls([]);
+      const allBalls = accepted;
+
+      if (allBalls.length === 0) {
+        setDetectedBalls([]);
+        scanningRef.current = false;
+        setContandoActivo(false);
+        setLog('No se detectaron pelotas en ningún escaneo', 'info');
+        return;
+      }
+
+      // === FASE 4: Ordenar por prioridad de color (Negro>Blanco>Rojo) y luego por Y ===
+      const sortedBalls = allBalls.sort((a, b) => {
+        const colorPriority = (c) => COLOR_ORDER.indexOf(c);
+        if (colorPriority(a.color) !== colorPriority(b.color)) {
+          return colorPriority(a.color) - colorPriority(b.color);
         }
+        return a.y_norm - b.y_norm;
+      });
 
-        if (data.counts) {
+      const totalBalls = sortedBalls.length;
+      let currentIdx = 0;
+      let currentScanCounts = { Rojo: 0, Blanco: 0, Negro: 0 };
+      const previousCounts = { ...countsRef.current };
+
+      setDetectedBalls([]);
+
+      // === FASE 5: Animación de detección una por una ===
+      const animateNextBall = () => {
+        if (!scanningRef.current || !mountedRef.current) return;
+
+        if (currentIdx < totalBalls) {
+          const ball = sortedBalls[currentIdx];
+          currentScanCounts[ball.color] = (currentScanCounts[ball.color] || 0) + 1;
+
+          setDetectedBalls(prev => [...prev, ball]);
+
           for (const color of ['Rojo', 'Blanco', 'Negro']) {
-            let val = data.counts[color] || 0;
-            
-            // The user wants to keep only the maximum number of balls seen across scans
-            // instead of accumulating them every time.
-            countsRef.current[color] = Math.max(countsRef.current[color], val);
-
-            // Límites GLOBALES (El rojo máximo 10, Negro 2, Blanco 3)
-            if (color === 'Negro' && countsRef.current[color] > 2) countsRef.current[color] = 2;
-            if (color === 'Blanco' && countsRef.current[color] > 3) countsRef.current[color] = 3;
-            if (color === 'Rojo' && countsRef.current[color] > 10) countsRef.current[color] = 10;
+            countsRef.current[color] = Math.max(previousCounts[color], currentScanCounts[color] || 0);
           }
-
           setMaxCounts({ ...countsRef.current });
 
+          currentIdx++;
+          setTimeout(animateNextBall, 130); // 130ms por pelota
+        } else {
           const pts = (countsRef.current.Rojo * 1) + (countsRef.current.Blanco * 3) + (countsRef.current.Negro * 5);
-          if (pts >= 10) {
-            setLog('Límite de 10 puntos alcanzado.', 'success');
-          } else {
-            setLog(`Escaneo listo: ${pts} puntos.`, 'success');
-          }
+          const totalUnicas = totalBalls;
+          setLog(`✓ Multi-escaneo completo: ${totalUnicas} pelotas → ${pts} pts`, 'success');
 
-          // Desaparecer los contornos después de 3 segundos
+          scanningRef.current = false;
+          setContandoActivo(false);
+
           setTimeout(() => {
             if (mountedRef.current) {
               setDetectedBalls([]);
             }
-          }, 3000);
+          }, 4000);
         }
-      } else {
-        setLog(data.msg || 'Error en el escaneo', 'error');
-      }
-    } catch (e) {
-      console.log('Error escaneando:', e);
-      setLog('Error al conectar con servidor', 'error');
-    }
+      };
 
-    scanningRef.current = false;
-    setContandoActivo(false);
+      animateNextBall();
+
+    } catch (e) {
+      console.log('Error en multi-escaneo:', e);
+      setLog('Error al conectar con servidor', 'error');
+      scanningRef.current = false;
+      setContandoActivo(false);
+    }
   };
 
   const reiniciarEscaneo = () => {
+    scanningRef.current = false;
+    setContandoActivo(false);
     countsRef.current = { Rojo: 0, Blanco: 0, Negro: 0 };
     setMaxCounts({ Rojo: 0, Blanco: 0, Negro: 0 });
     setDetectedBalls([]);
@@ -406,7 +467,9 @@ export default function App() {
       const resp = await fetch(`${serverUrl}/galeria`);
       if (resp.ok) {
         const data = await resp.json();
-        setGaleriaImagenes(data);
+        // Filtrar las imágenes para mostrar solo las del participante seleccionado
+        const fotosFiltradas = data.filter(img => img.participante === targetParticipant);
+        setGaleriaImagenes(fotosFiltradas);
         setGaleriaVisible(true);
       } else {
         setLog('No se pudo cargar la galería', 'error');
@@ -418,7 +481,11 @@ export default function App() {
 
   const limpiarGaleria = async () => {
     try {
-      const resp = await fetch(`${globalServerUrl}/limpiar_galeria`, { method: 'POST' });
+      const resp = await fetch(`${globalServerUrl}/limpiar_galeria`, { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ participante: targetParticipant })
+      });
       const respText = await resp.text();
       let data;
       try {
@@ -707,14 +774,13 @@ export default function App() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <StatusBar style="dark" />
       <Text style={styles.title}>Tracker y Escáner</Text>
-      <Text style={styles.subtitle}>Captura ubicación y escanea pelotas con YOLO.</Text>
+
 
       {/* CAMARA Y ESCANEO YOLO */}
       {!permission ? (
         <View style={styles.connectionPanel}><Text>Cargando permisos de cámara...</Text></View>
       ) : !permission.granted ? (
         <View style={styles.connectionPanel}>
-          <Text style={styles.label}>Cámara y Escáner YOLO</Text>
           <Text style={{ marginBottom: 10 }}>Necesitamos permiso para usar la cámara</Text>
           <TouchableOpacity style={[styles.button, styles.secondaryButton]} onPress={requestPermission}>
             <Text style={styles.buttonText}>Otorgar Permiso</Text>
@@ -722,7 +788,6 @@ export default function App() {
         </View>
       ) : (
         <View style={styles.connectionPanel}>
-          <Text style={styles.label}>Cámara y Escáner YOLO</Text>
 
           <View style={{ marginBottom: 10, zIndex: 10 }}>
             <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 4, textTransform: 'uppercase', fontWeight: 'bold' }}>Target Participant:</Text>
@@ -731,6 +796,16 @@ export default function App() {
               onPress={() => setIsPickerVisible(true)}
             >
               <Text style={{ fontSize: 16 }}>{targetParticipant}</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ marginBottom: 10, zIndex: 9 }}>
+            <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 4, textTransform: 'uppercase', fontWeight: 'bold' }}>Checkpoint (Deshabilitado por pruebas):</Text>
+            <TouchableOpacity 
+              style={{ padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', backgroundColor: '#f1f5f9' }}
+              disabled={true}
+            >
+              <Text style={{ fontSize: 16, color: '#94a3b8' }}>{targetCheckpoint}</Text>
             </TouchableOpacity>
           </View>
 
@@ -745,6 +820,7 @@ export default function App() {
               style={{ flex: 1 }}
               facing="back"
               ref={cameraRef}
+              pictureSize="1920x1080"
             />
 
             {/* Contorno del límite de detección (círculo central) */}
@@ -834,15 +910,21 @@ export default function App() {
           {/* Botones */}
           <View style={{ marginBottom: 20 }}>
             <View style={{ flexDirection: 'row', marginBottom: 10 }}>
-              <TouchableOpacity
-                style={[styles.button, styles.secondaryButton, { flex: 1, backgroundColor: contandoActivo ? '#7f8c8d' : '#2563eb' }]}
-                onPress={escanearUnaVez}
-                disabled={contandoActivo || ((countsRef.current.Rojo * 1) + (countsRef.current.Blanco * 3) + (countsRef.current.Negro * 5) >= 10)}
-              >
-                <Text style={styles.buttonText}>
-                  {((countsRef.current.Rojo * 1) + (countsRef.current.Blanco * 3) + (countsRef.current.Negro * 5) >= 10) ? 'Limit Reached' : (contandoActivo ? 'Processing...' : 'Scan Balls')}
-                </Text>
-              </TouchableOpacity>
+              {(() => {
+                const totalPts = (maxCounts.Rojo * 1) + (maxCounts.Blanco * 3) + (maxCounts.Negro * 5);
+                const limiteAlcanzado = totalPts > 10;
+                return (
+                  <TouchableOpacity
+                    style={[styles.button, styles.secondaryButton, { flex: 1, backgroundColor: (contandoActivo || limiteAlcanzado) ? '#7f8c8d' : '#2563eb' }]}
+                    onPress={escanearUnaVez}
+                    disabled={contandoActivo || limiteAlcanzado}
+                  >
+                    <Text style={styles.buttonText}>
+                      {contandoActivo ? 'Processing...' : (limiteAlcanzado ? 'Límite alcanzado' : 'Scan Balls')}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })()}
             </View>
             <View style={{ flexDirection: 'row', marginBottom: 10 }}>
               <TouchableOpacity style={[styles.button, styles.dangerButton, { flex: 1, marginRight: 5 }]} onPress={reiniciarEscaneo}>
@@ -965,8 +1047,8 @@ export default function App() {
             </View>
           </View>
           <FlatList
-            data={galeriaImagenes}
-            keyExtractor={(item) => item.filename}
+            data={[...new Map(galeriaImagenes.map(img => [img.filename, img])).values()]}
+            keyExtractor={(item, index) => `${item.filename}_${index}`}
             renderItem={({ item }) => {
               const formatParticipantName = (name) => {
                 if (!name || String(name).toLowerCase() === 'desconocido') return 'Unknown Participant';
@@ -974,8 +1056,13 @@ export default function App() {
               };
               return (
               <View style={{ marginBottom: 20, padding: 10, backgroundColor: 'white', marginHorizontal: 10, borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
-                  <Text style={{ fontWeight: 'bold', marginRight: 10 }}>{formatParticipantName(item.participante || item.device_id)} Detections:</Text>
+                {/* Participant name — primera línea */}
+                <Text style={{ fontWeight: 'bold', fontSize: 15, marginBottom: 4 }}>
+                  {formatParticipantName(item.participante || item.device_id)}
+                </Text>
+                {/* Detections — segunda línea */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', marginBottom: 5 }}>
+                  <Text style={{ fontWeight: '600', fontSize: 13, marginRight: 6, color: '#374151' }}>Detections:</Text>
                   {item.detections && Object.entries(item.detections).map(([color, count]) => {
                     if (count === 0) return null;
                     const colorStr = String(color).toLowerCase();
@@ -983,26 +1070,21 @@ export default function App() {
                     const isRed = colorStr.includes('rojo') || colorStr.includes('red');
                     const isBlack = colorStr.includes('negro') || colorStr.includes('black');
 
-                    let textColor = '#000000';
-                    let strokeColor = '#d1d5db'; // Gris claro para el negro
-                    if (isWhite) { textColor = '#ffffff'; strokeColor = '#000000'; }
-                    if (isRed) { textColor = '#ef4444'; strokeColor = '#000000'; }
-                    
+                    let bgColor = '#1f2937';       // fondo negro para negro
+                    let textColor = '#ffffff';
+                    if (isWhite) { bgColor = '#e5e7eb'; textColor = '#111827'; }
+                    if (isRed)   { bgColor = '#ef4444'; textColor = '#ffffff'; }
+
                     return (
-                      <View key={color} style={{ marginRight: 15, alignItems: 'center', justifyContent: 'center' }}>
-                        <View>
-                          {/* Hack de contorno (stroke) para React Native */}
-                          <Text style={{ position: 'absolute', left: -1, top: -1, fontSize: 12, fontFamily: 'serif', fontWeight: '900', color: strokeColor }}>{`${color}: ${count}`}</Text>
-                          <Text style={{ position: 'absolute', left: 1, top: -1, fontSize: 12, fontFamily: 'serif', fontWeight: '900', color: strokeColor }}>{`${color}: ${count}`}</Text>
-                          <Text style={{ position: 'absolute', left: -1, top: 1, fontSize: 12, fontFamily: 'serif', fontWeight: '900', color: strokeColor }}>{`${color}: ${count}`}</Text>
-                          <Text style={{ position: 'absolute', left: 1, top: 1, fontSize: 12, fontFamily: 'serif', fontWeight: '900', color: strokeColor }}>{`${color}: ${count}`}</Text>
-                          <Text style={{ fontSize: 12, fontFamily: 'serif', fontWeight: '900', color: textColor }}>{`${color}: ${count}`}</Text>
-                        </View>
+                      <View key={color} style={{ backgroundColor: bgColor, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2, marginRight: 6, marginBottom: 2 }}>
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: textColor }}>{`${color}: ${count}`}</Text>
                       </View>
                     );
                   })}
                 </View>
-                <Text style={{ fontSize: 12, color: 'gray', marginBottom: 10 }}>{new Date(item.timestamp * 1000).toLocaleString()} - {formatParticipantName(item.participante || item.device_id)}</Text>
+                <Text style={{ fontSize: 11, color: '#6b7280', marginBottom: 8 }}>
+                  ID: {item.timestamp} | {new Date(item.timestamp * 1000).toLocaleString()}
+                </Text>
                 <TouchableOpacity onPress={() => { setImagenExpandida(item); setMostrarContorno(true); }}>
                   <Image
                     source={{ uri: `${serverUrl}/capturas/${item.filename}` }}

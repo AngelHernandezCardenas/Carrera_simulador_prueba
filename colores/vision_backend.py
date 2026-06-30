@@ -6,7 +6,7 @@ import math
 # ==============================================================================
 # CONFIGURACION LIGERA
 # ==============================================================================
-LIMITES_PELOTAS = {'Rojo': 20, 'Negro': 2, 'Blanco': 3}
+LIMITES_PELOTAS = {'Rojo': 20, 'Negro': 20, 'Blanco': 20}
 MESH_FRACTION = 0.38
 
 HSV_RANGOS = {
@@ -15,16 +15,19 @@ HSV_RANGOS = {
         (np.array([160, 50, 40]),  np.array([180, 255, 255])),
     ],
     'Blanco': [
-        (np.array([0,   0,  180]), np.array([180, 55, 255])),
+        (np.array([0,   0,  160]), np.array([180, 60, 255])),
     ],
     'Negro': [
-        (np.array([0,  0,   0]),   np.array([180, 255,  120])),
+        # Rango principal: negro puro, oscuro y semi-oscuro
+        (np.array([0,  0,   0]),   np.array([180, 255, 110])),
+        # Rango secundario: negro brillante con reflejo de luz fuerte
+        (np.array([0,  0,  86]),   np.array([180, 90,  170])),
     ],
 }
 UMBRAL_VALIDACION_COLOR = {
     'Rojo':   0.12,
-    'Blanco': 0.20,   # Las pelotas grises-blancas tienen menos píxeles "blancos puros"
-    'Negro':  0.12,
+    'Blanco': 0.18,   # Pelotas grises-blancas tienen menos píxeles "blancos puros"
+    'Negro':  0.18,   # Umbral más bajo para no descartar pelotas negras con reflejo
 }
 
 def get_color_bgr(nombre):
@@ -48,12 +51,18 @@ def get_zona_deteccion(frame_shape):
     fh, fw = frame_shape[:2]
     return fw // 2, fh // 2, int(min(fw, fh) * MESH_FRACTION)
 
-def dentro_del_circulo(px, py, cx, cy, radio):
-    return math.hypot(px - cx, py - cy) <= radio
+def dentro_del_circulo(px, py, cx, cy, radio, r_obj=0):
+    return math.hypot(px - cx, py - cy) <= radio + (r_obj * 0.8)
 
-def es_forma_pelota(x1, y1, x2, y2, frame_shape, max_aspect=1.6, min_frac=0.0003, max_frac=0.20):
+def es_forma_pelota(x1, y1, x2, y2, frame_shape, nombre=None, max_aspect=1.6, min_frac=0.0003, max_frac=0.20):
     w, h = x2 - x1, y2 - y1
     if w <= 0 or h <= 0: return False
+    
+    # Para pelotas negras, ser permisivos con el aspect ratio 
+    # por si YOLO agrupa dos pelotas que se tocan en un solo bounding box
+    if nombre == 'Negro':
+        max_aspect = 3.0
+        
     if max(w, h) / (min(w, h) + 1e-9) > max_aspect: return False
     # Filtro de circularidad: el área del bounding box debe ser similar al área de un círculo
     # Para una pelota real, el círculo inscrito ocupa ~78% del cuadrado
@@ -197,8 +206,8 @@ def es_falso_positivo_ligero(frame, x1, y1, x2, y2, nombre):
     s_mean = np.mean(hsv[:,:,1])
     
     if nombre == 'Blanco':
-        # Las sombras o fondos grises suelen ser muy oscuros o tener algo de color amarillento del ambiente
-        if v_mean < 80: return True  # Es una sombra oscura
+        # Las sombras o pelotas negras tienen v_mean bajo. Una pelota blanca real es muy brillante.
+        if v_mean < 120: return True  # Filtra pelotas negras (aún con reflejos) o sombras
         if s_mean > 120: return True # Tiene demasiado color para ser blanco puro
         
     elif nombre == 'Rojo':
@@ -285,7 +294,8 @@ def procesar_frame_yolo_api(frame, estado, modelo_yolo, mobile_mode=False, calib
             
             for i in range(len(cajas)):
                 cls_id = int(cajas.cls[i].item())
-                nombre = {0: 'Rojo', 1: 'Blanco', 2: 'Negro'}.get(cls_id)
+                # Nuevo modelo (entrenamiento_seg): 0=Pelota blanca, 1=Pelota negra, 2=Pelota roja
+                nombre = {0: 'Blanco', 1: 'Negro', 2: 'Rojo'}.get(cls_id)
                 if not nombre: continue
                 
                 # Pasada exclusiva negro: ignorar Rojo y Blanco
@@ -295,14 +305,40 @@ def procesar_frame_yolo_api(frame, estado, modelo_yolo, mobile_mode=False, calib
                 
                 x1, y1, x2, y2 = cajas.xyxy[i].tolist()
                 cx, cy = int((x1+x2)/2), int((y1+y2)/2)
+                r_box = int((x2-x1 + y2-y1)/4)
                 
-                if not dentro_del_circulo(cx, cy, cx_scr, cy_scr, radio_zona): continue
-                if not es_forma_pelota(x1, y1, x2, y2, frame.shape): continue
+                # Permitimos que la pelota esté parcialmente fuera del círculo si su centro está cerca del borde
+                if not dentro_del_circulo(cx, cy, cx_scr, cy_scr, radio_zona, r_box): continue
+                if not es_forma_pelota(x1, y1, x2, y2, frame.shape, nombre): continue
                 if es_falso_positivo_ligero(frame, x1, y1, x2, y2, nombre): continue
                 
-                r = int((x2-x1 + y2-y1)/4)
+                r = r_box
                 z_estimado = estimar_z_fast(r, frame.shape)
-                if z_estimado > 10.0: continue
+                # Para pelotas negras no aplicar el filtro de distancia: son difíciles de detectar
+                # y el modelo ya es suficientemente selectivo con conf=0.30
+                if nombre != 'Negro' and z_estimado > 10.0: continue
+                
+                # --- Separación nativa para pelotas negras agrupadas ---
+                w, h = x2 - x1, y2 - y1
+                aspect = max(w, h) / (min(w, h) + 1e-9)
+                
+                # Si YOLO fusionó dos pelotas negras, el aspect ratio será > 1.5
+                if nombre == 'Negro' and aspect > 1.5:
+                    if w > h:
+                        # Horizontal split
+                        cx1, cy1 = int(x1 + w/4), cy
+                        cx2, cy2 = int(x2 - w/4), cy
+                        r_split = int(h/2)
+                    else:
+                        # Vertical split
+                        cx1, cy1 = cx, int(y1 + h/4)
+                        cx2, cy2 = cx, int(y2 - h/4)
+                        r_split = int(w/2)
+                        
+                    detecciones_brutas[nombre].append((cx1, cy1, r_split))
+                    detecciones_brutas[nombre].append((cx2, cy2, r_split))
+                    continue
+                # ---------------------------------------------------------
                 
                 contour = None
                 if masks is not None and masks.xy is not None and len(masks.xy) > i:
@@ -310,7 +346,7 @@ def procesar_frame_yolo_api(frame, estado, modelo_yolo, mobile_mode=False, calib
                     if len(seg) > 0:
                         contour = np.array(seg, dtype=np.int32).reshape((-1, 1, 2))
                         (fx, fy), fr = cv2.minEnclosingCircle(contour)
-                        r_max = int((x2-x1 + y2-y1)/4)
+                        r_max = r_box
                         cx, cy, r = int(fx), int(fy), min(int(fr), r_max)
                 
                 if contour is not None:
@@ -318,19 +354,20 @@ def procesar_frame_yolo_api(frame, estado, modelo_yolo, mobile_mode=False, calib
                 else:
                     detecciones_brutas[nombre].append((cx, cy, r))
 
-        # --- Pasada 1: Rojo + Blanco con conf=0.80 (sin tocar) ---
-        res1 = modelo_yolo.predict(frame, conf=0.80, imgsz=480, verbose=False)
+        # --- Pasada 1: Rojo + Blanco con conf=0.75, iou=0.30 para mejor separación ---
+        res1 = modelo_yolo.predict(frame, conf=0.75, iou=0.30, imgsz=640, verbose=False)
         if len(res1) > 0 and res1[0].boxes is not None:
             _procesar_cajas(res1[0].boxes, res1[0].masks if hasattr(res1[0], 'masks') else None, solo_negro=False)
 
-        # --- Pasada 2: Solo Negro con conf=0.45 para máxima sensibilidad ---
-        res2 = modelo_yolo.predict(frame, conf=0.45, imgsz=480, verbose=False)
+        # --- Pasada 2: Solo Negro con conf=0.15, iou=0.30 para máxima sensibilidad y separación ---
+        # Aumentamos imgsz a 640 para no perder resolución en pelotas pequeñas/oscuras
+        res2 = modelo_yolo.predict(frame, conf=0.15, iou=0.30, imgsz=640, verbose=False)
         if len(res2) > 0 and res2[0].boxes is not None:
             _procesar_cajas(res2[0].boxes, res2[0].masks if hasattr(res2[0], 'masks') else None, solo_negro=True)
 
         # NMS Global para no marcar el mismo objeto 2 veces con colores distintos o cajas repetidas
-        # factor_radio 0.75 para que si dos detecciones se solapan >75% del radio se cuenten como 1
-        detecciones_brutas = nms_global(detecciones_brutas, factor_radio=0.75)
+        # factor_radio 0.45: dos pelotas que se toquen lateralmente NO se fusionan
+        detecciones_brutas = nms_global(detecciones_brutas, factor_radio=0.45)
 
     detectado_result = None
     COOLDOWN = 1.5
@@ -369,9 +406,10 @@ def procesar_frame_yolo_api(frame, estado, modelo_yolo, mobile_mode=False, calib
                 mapa_cargas = {"Rojo": 1.0, "Blanco": 3.0, "Negro": 5.0}
                 
                 if not detectado_result:
+                    total_carga = sum([counts.get(k, 0) * mapa_cargas.get(k, 0.0) for k in mapa_cargas])
                     detectado_result = {
-                        "color": nombre,
-                        "carga_kg": mapa_cargas.get(nombre, 0.0),
+                        "color": "Mixto" if sum(counts.values()) > 1 else nombre,
+                        "carga_kg": total_carga,
                         "orientacion": "No calculado (Optimizado)",
                         "x_norm": round(cx / fw * 2 - 1, 2),
                         "y_norm": round(1 - cy / fh * 2, 2),
@@ -416,10 +454,11 @@ def procesar_frame_yolo_api(frame, estado, modelo_yolo, mobile_mode=False, calib
             # Registrar Detección y Puntos
             if (t_act - ultimo_intento.get(nombre, 0.0)) >= COOLDOWN and not detectado_result:
                 ultimo_intento[nombre] = t_act
-                mapa_cargas = {"Rojo": 15.0, "Blanco": 25.0, "Negro": 40.0}
+                mapa_cargas = {"Rojo": 1.0, "Blanco": 3.0, "Negro": 5.0}
+                total_carga = sum([counts.get(k, 0) * mapa_cargas.get(k, 0.0) for k in mapa_cargas])
                 detectado_result = {
-                    "color": nombre,
-                    "carga_kg": mapa_cargas.get(nombre, 0.0),
+                    "color": "Mixto" if sum(counts.values()) > 1 else nombre,
+                    "carga_kg": total_carga,
                     "orientacion": "EMA_Tracked",
                     "x_norm": x_norm,
                     "y_norm": y_norm,

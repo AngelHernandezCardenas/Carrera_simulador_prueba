@@ -137,3 +137,13 @@ temp/
 
 # Archivos de estado dinámico de la app
 participantes.json
+
+# Modelos y resultados del entrenamiento YOLO
+ROBOFLOW/Pelotas-*/
+ROBOFLOW/dataset_mejorado/
+ROBOFLOW/entrenamiento_*/
+ROBOFLOW/runs/
+ROBOFLOW/*.pt
+
+# Capturas tomadas por el celular
+capturas/*.jpg

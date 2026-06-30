@@ -580,7 +580,8 @@
         .photo-list {
             overflow-y: auto;
             padding: 12px;
-            display: grid;
+            display: flex;
+            flex-direction: column;
             gap: 10px;
         }
 
@@ -923,7 +924,7 @@
         function openLightbox(photos, startIdx, participantName) {
             _lbPhotos = photos;
             _lbIdx = startIdx;
-            document.getElementById('lightbox-title').textContent = '📷 ' + participantName;
+            document.getElementById('lightbox-title').textContent = participantName;
             document.getElementById('lightbox-modal').classList.add('open');
             _renderLightbox();
             document.addEventListener('keydown', _lightboxKeyHandler);
@@ -1076,7 +1077,7 @@
                             <div style="flex:1; min-width:0;">
                                 <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                                     <div class="photo-row-title">${displayName}</div>
-                                    <button class="btn-ver-fotos" onclick="openLightbox(${photosJson}, 0, '${displayName.replace(/'/g, '\\&apos;')}')">📷 Ver ${photos.length} foto${photos.length===1?'':'s'}</button>
+                                    <button class="btn-ver-fotos" onclick="openLightbox(${photosJson}, 0, '${displayName.replace(/'/g, '\\&apos;')}')">Ver ${photos.length} foto${photos.length===1?'':'s'}</button>
                                 </div>
                                 <div class="photo-row-meta">${formatPhotoDate(latest)}</div>
                             </div>

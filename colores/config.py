@@ -10,7 +10,7 @@ PARTICIPANTS_FILE = "participantes.json"
 MAX_PARTICIPANTES = 20
 
 # --- Duración de la sesión ---
-DURACION = 6 * 60 * 60  # 4 horas en segundos
+DURACION = 6 * 60 * 60  # 6 horas en segundos
 
 # --- Variables de entorno para ArcGIS / OAuth 2.0 ---
 ARCGIS_FEATURE_LAYER_URL = (os.getenv("ARCGIS_FEATURE_LAYER_URL") or "").strip()

@@ -294,8 +294,8 @@ def procesar_frame_yolo_api(frame, estado, modelo_yolo, mobile_mode=False, calib
             
             for i in range(len(cajas)):
                 cls_id = int(cajas.cls[i].item())
-                # Nuevo modelo (entrenamiento_seg): 0=Pelota blanca, 1=Pelota negra, 2=Pelota roja
-                nombre = {0: 'Blanco', 1: 'Negro', 2: 'Rojo'}.get(cls_id)
+                # El modelo original tiene la asignación: 0='Rojo', 1='Blanco', 2='Negro'
+                nombre = {0: 'Rojo', 1: 'Blanco', 2: 'Negro'}.get(cls_id)
                 if not nombre: continue
                 
                 # Pasada exclusiva negro: ignorar Rojo y Blanco

@@ -357,34 +357,13 @@ export default function App() {
 
       if (!scanningRef.current) return;
 
-      // === FASE 2: Enviar la MISMA foto al servidor 3 veces en paralelo ===
-      // Cada análisis puede detectar pelotas distintas. Al fusionar los 3 resultados
-      // obtenemos cobertura del 100% de las pelotas.
-      // NOTA: solo la pasada 0 guarda la foto en galería (save_photo=true)
-      setLog('Analizando imagen (3 pasadas)...', 'info');
-      const NUM_PASSES = 3;
-      const results = await Promise.all(
-        Array.from({ length: NUM_PASSES }, (_, i) => takeSingleScan(photo, i === 0).catch(() => null))
-      );
+      // === FASE 2: Enviar la foto al servidor una sola vez ===
+      setLog('Analizando imagen...', 'info');
+      const result = await takeSingleScan(photo, true);
 
       if (!scanningRef.current) return;
 
-      // === FASE 3: Fusionar resultados con deduplicación por distancia ===
-      // Prioridad de colores: Negro > Blanco > Rojo
-      const COLOR_ORDER = ['Negro', 'Blanco', 'Rojo'];
-      const accepted = []; // lista final de pelotas únicas
-
-      for (const data of results) {
-        if (!data || data.status !== 'ok' || !data.balls) continue;
-        for (const ball of data.balls) {
-          // Solo agregar si no hay otra pelota del mismo color en un radio de 0.08
-          if (!isDuplicate(ball, accepted, 0.08)) {
-            accepted.push(ball);
-          }
-        }
-      }
-
-      const allBalls = accepted;
+      const allBalls = (result && result.status === 'ok' && result.balls) ? result.balls : [];
 
       if (allBalls.length === 0) {
         setDetectedBalls([]);
@@ -395,6 +374,7 @@ export default function App() {
       }
 
       // === FASE 4: Ordenar por prioridad de color (Negro>Blanco>Rojo) y luego por Y ===
+      const COLOR_ORDER = ['Negro', 'Blanco', 'Rojo'];
       const sortedBalls = allBalls.sort((a, b) => {
         const colorPriority = (c) => COLOR_ORDER.indexOf(c);
         if (colorPriority(a.color) !== colorPriority(b.color)) {

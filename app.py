@@ -153,6 +153,14 @@ def get_checkpoint_rank_value(runner: dict) -> tuple:
     )
 
 
+def competition_rank(ranked_items, target_item, get_value_func) -> int:
+    target_val = get_value_func(target_item)
+    rank = 1
+    for item in ranked_items:
+        if get_value_func(item) < target_val:
+            rank += 1
+    return rank
+
 def get_checkpoint_rank_from_snapshot(device_id: str, runners_snapshot: dict) -> int | None:
     ranked_runners = clasificar_corredores(runners_snapshot)
     target_runner = next(

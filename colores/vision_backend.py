@@ -52,7 +52,8 @@ def get_zona_deteccion(frame_shape):
     return fw // 2, fh // 2, int(min(fw, fh) * MESH_FRACTION)
 
 def dentro_del_circulo(px, py, cx, cy, radio, r_obj=0):
-    return math.hypot(px - cx, py - cy) <= radio + (r_obj * 0.8)
+    # Rango estricto: el centro de la pelota debe estar dentro del cuadrado/círculo visual
+    return abs(px - cx) <= radio and abs(py - cy) <= radio
 
 def es_forma_pelota(x1, y1, x2, y2, frame_shape, nombre=None, max_aspect=1.6, min_frac=0.0003, max_frac=0.20):
     w, h = x2 - x1, y2 - y1

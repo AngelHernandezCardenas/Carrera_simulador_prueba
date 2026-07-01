@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -18,8 +19,17 @@
             background: #f8fafc;
             color: #0f172a;
         }
-        h2 { margin-bottom: 8px; }
-        .sub { color: #475569; font-size: 14px; margin-bottom: 18px; }
+
+        h2 {
+            margin-bottom: 8px;
+        }
+
+        .sub {
+            color: #475569;
+            font-size: 14px;
+            margin-bottom: 18px;
+        }
+
         button {
             padding: 14px 28px;
             font-size: 16px;
@@ -32,10 +42,25 @@
             margin-bottom: 10px;
             font-weight: 700;
         }
-        button.secondary { background: #0f766e; }
-        button.danger { background: #dc2626; }
-        button:disabled { background: #93c5fd !important; cursor: not-allowed; }
-        button.disabled-gray { background: #7f8c8d !important; cursor: not-allowed; }
+
+        button.secondary {
+            background: #0f766e;
+        }
+
+        button.danger {
+            background: #dc2626;
+        }
+
+        button:disabled {
+            background: #93c5fd !important;
+            cursor: not-allowed;
+        }
+
+        button.disabled-gray {
+            background: #7f8c8d !important;
+            cursor: not-allowed;
+        }
+
         #estado {
             margin-top: 14px;
             padding: 14px;
@@ -45,14 +70,26 @@
             white-space: pre-line;
             border: 1px solid #e2e8f0;
         }
-        .ok    { background: #dcfce7 !important; color: #166534; border-color: #86efac !important; }
-        .error { background: #fee2e2 !important; color: #991b1b; border-color: #fecaca !important; }
+
+        .ok {
+            background: #dcfce7 !important;
+            color: #166534;
+            border-color: #86efac !important;
+        }
+
+        .error {
+            background: #fee2e2 !important;
+            color: #991b1b;
+            border-color: #fecaca !important;
+        }
+
         .grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 10px;
             margin-top: 14px;
         }
+
         .card {
             background: white;
             border: 1px solid #e2e8f0;
@@ -61,11 +98,32 @@
             box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
             margin-bottom: 10px;
         }
-        .card.full { grid-column: 1 / -1; }
-        .label { font-size: 12px; color: #64748b; margin-bottom: 4px; text-transform: uppercase; font-weight: bold; }
-        .value { font-size: 20px; font-weight: 900; color: #0f172a; }
-        .small { font-size: 13px; color: #475569; white-space: pre-line; line-height: 1.4; }
-        
+
+        .card.full {
+            grid-column: 1 / -1;
+        }
+
+        .label {
+            font-size: 12px;
+            color: #64748b;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+
+        .value {
+            font-size: 20px;
+            font-weight: 900;
+            color: #0f172a;
+        }
+
+        .small {
+            font-size: 13px;
+            color: #475569;
+            white-space: pre-line;
+            line-height: 1.4;
+        }
+
         .camera-container {
             display: none;
             position: relative;
@@ -75,12 +133,14 @@
             margin-bottom: 10px;
             background: black;
         }
+
         #videoFeed {
             width: 100%;
             height: 300px;
             object-fit: cover;
             display: block;
         }
+
         #overlayCanvas {
             position: absolute;
             top: 0;
@@ -89,6 +149,7 @@
             height: 100%;
             pointer-events: none;
         }
+
         .dashed-circle {
             position: absolute;
             top: 50%;
@@ -97,14 +158,21 @@
             width: 76%;
             padding-bottom: 76%;
             border-radius: 50%;
-            border: 2px dashed rgba(255,255,255,0.6);
+            border: 2px dashed rgba(255, 255, 255, 0.6);
             pointer-events: none;
         }
-        
+
         /* Animation for the dashed circle */
-        @keyframes spin { 100% { transform: translate(-50%, -50%) rotate(360deg); } }
-        .spin-anim { animation: spin 2s linear infinite; }
-        
+        @keyframes spin {
+            100% {
+                transform: translate(-50%, -50%) rotate(360deg);
+            }
+        }
+
+        .spin-anim {
+            animation: spin 2s linear infinite;
+        }
+
         .score-panel {
             display: flex;
             justify-content: space-around;
@@ -115,6 +183,7 @@
             border: 1px solid #e2e8f0;
             margin-bottom: 10px;
         }
+
         .circle-score {
             width: 50px;
             height: 50px;
@@ -125,48 +194,119 @@
             font-weight: bold;
             font-size: 20px;
         }
-        .circle-red { background: red; color: white; }
-        .circle-white { background: white; color: black; border: 1px solid #ccc; }
-        .circle-black { background: black; color: white; }
-        
+
+        .circle-red {
+            background: red;
+            color: white;
+        }
+
+        .circle-white {
+            background: white;
+            color: black;
+            border: 1px solid #ccc;
+        }
+
+        .circle-black {
+            background: black;
+            color: white;
+        }
+
         /* Modal Gallery */
         .modal-overlay {
-            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.8); z-index: 1000; padding: 20px; overflow-y: auto;
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            padding: 20px;
+            overflow-y: auto;
         }
+
         .modal-content {
-            background: white; border-radius: 12px; padding: 20px;
-            max-width: 440px; margin: 20px auto;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            max-width: 440px;
+            margin: 20px auto;
         }
+
         .modal-header {
-            display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
         }
+
         .gallery-item {
-            margin-bottom: 20px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
-        .gallery-item img { width: 100%; display: block; max-height: 300px; object-fit: contain; background: black; }
-        .gallery-info { padding: 10px; font-size: 14px; background: #f8fafc; }
-        
+
+        .gallery-item img {
+            width: 100%;
+            display: block;
+            max-height: 300px;
+            object-fit: contain;
+            background: black;
+        }
+
+        .gallery-info {
+            padding: 10px;
+            font-size: 14px;
+            background: #f8fafc;
+        }
+
         /* Image Viewer Modal */
         .image-viewer-overlay {
-            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background: #000; z-index: 2000; flex-direction: column;
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #000;
+            z-index: 2000;
+            flex-direction: column;
         }
+
         .image-viewer-header {
-            display: flex; justify-content: space-between; padding: 15px;
-            background: rgba(0,0,0,0.5); position: absolute; top: 0; left: 0; right: 0; z-index: 2010;
+            display: flex;
+            justify-content: space-between;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.5);
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 2010;
         }
+
         .image-viewer-content {
-            flex: 1; display: flex; align-items: center; justify-content: center;
-            overflow: auto; width: 100%; height: 100%;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: auto;
+            width: 100%;
+            height: 100%;
         }
+
         .image-viewer-content img {
-            max-width: 100%; max-height: 100%; object-fit: contain;
-            transition: transform 0.2s; transform-origin: center center;
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            transition: transform 0.2s;
+            transform-origin: center center;
         }
     </style>
 </head>
+
 <body>
     <h2>GPS Tracker</h2>
     <div class="sub">Captures phone location, speed and accelerometer.</div>
@@ -183,9 +323,12 @@
 
     <div id="scannerControls" style="display:none;">
         <div class="grid" style="grid-template-columns: 1fr 1fr 1fr; gap: 5px; margin-top: 0;">
-            <button id="btnScan" class="primary" onclick="escanearUnaVez()" style="margin-bottom: 0; padding: 14px 10px;">Scan</button>
-            <button id="btnReset" class="danger" onclick="reiniciarEscaneo()" style="margin-bottom: 0; padding: 14px 10px;">Reset</button>
-            <button id="btnGaleria" style="background: #8e44ad; color: white; margin-bottom: 0; padding: 14px 10px;" onclick="abrirGaleria()">Gallery</button>
+            <button id="btnScan" class="primary" onclick="escanearUnaVez()"
+                style="margin-bottom: 0; padding: 14px 10px;">Scan</button>
+            <button id="btnReset" class="danger" onclick="reiniciarEscaneo()"
+                style="margin-bottom: 0; padding: 14px 10px;">Reset</button>
+            <button id="btnGaleria" style="background: #8e44ad; color: white; margin-bottom: 0; padding: 14px 10px;"
+                onclick="abrirGaleria()">Gallery</button>
         </div>
 
         <div class="score-panel" style="margin-top: 10px;">
@@ -223,9 +366,9 @@
         <div class="card full">
             <div class="label">Accelerometer with gravity</div>
             <div class="small" id="acelG">X: --
-Y: --
-Z: --
-Magnitude: --</div>
+                Y: --
+                Z: --
+                Magnitude: --</div>
         </div>
 
         <div class="card full">
@@ -243,8 +386,11 @@ Magnitude: --</div>
             <div class="modal-header">
                 <h3 style="margin: 0;">Capture Gallery</h3>
                 <div style="display: flex;">
-                    <button class="danger" style="padding: 6px 12px; width: auto; font-size: 12px; margin-bottom: 0; margin-right: 5px;" onclick="limpiarGaleria()">Clear</button>
-                    <button class="secondary" style="padding: 6px 12px; width: auto; font-size: 12px; margin-bottom: 0;" onclick="cerrarGaleria()">Close</button>
+                    <button class="danger"
+                        style="padding: 6px 12px; width: auto; font-size: 12px; margin-bottom: 0; margin-right: 5px;"
+                        onclick="limpiarGaleria()">Clear</button>
+                    <button class="secondary" style="padding: 6px 12px; width: auto; font-size: 12px; margin-bottom: 0;"
+                        onclick="cerrarGaleria()">Close</button>
                 </div>
             </div>
             <div id="galleryContent">Loading...</div>
@@ -255,503 +401,509 @@ Magnitude: --</div>
     <div class="image-viewer-overlay" id="imageViewer">
         <div class="image-viewer-header">
             <div style="display: flex; gap: 10px;">
-                <button class="secondary" style="width: auto; padding: 6px 12px; margin: 0; font-size: 18px; line-height: 1;" onclick="zoomVisor(0.5)">+</button>
-                <button class="secondary" style="width: auto; padding: 6px 12px; margin: 0; font-size: 18px; line-height: 1;" onclick="zoomVisor(-0.5)">-</button>
-                <button class="primary" style="width: auto; padding: 6px 12px; margin: 0;" id="btnToggleContour" onclick="toggleContorno()">Toggle Contour</button>
+                <button class="secondary"
+                    style="width: auto; padding: 6px 12px; margin: 0; font-size: 18px; line-height: 1;"
+                    onclick="zoomVisor(0.5)">+</button>
+                <button class="secondary"
+                    style="width: auto; padding: 6px 12px; margin: 0; font-size: 18px; line-height: 1;"
+                    onclick="zoomVisor(-0.5)">-</button>
+                <button class="primary" style="width: auto; padding: 6px 12px; margin: 0;" id="btnToggleContour"
+                    onclick="toggleContorno()">Toggle Contour</button>
             </div>
-            <button class="danger" style="width: auto; padding: 6px 12px; margin: 0;" onclick="cerrarVisor()">Close</button>
+            <button class="danger" style="width: auto; padding: 6px 12px; margin: 0;"
+                onclick="cerrarVisor()">Close</button>
         </div>
         <div class="image-viewer-content" id="imageViewerContent">
             <img id="visorImg" src="" alt="Zoomable Image" ondblclick="zoomVisorReset()">
         </div>
     </div>
 
-<script>
-    // Service Worker Registration (PWA)
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW error', err));
-        });
-    }
-
-    // Wake Lock API
-    let wakeLock = null;
-    async function requestWakeLock() {
-        try {
-            if ('wakeLock' in navigator) {
-                wakeLock = await navigator.wakeLock.request('screen');
-            }
-        } catch (err) {}
-    }
-    function releaseWakeLock() {
-        if (wakeLock !== null) {
-            wakeLock.release().then(() => { wakeLock = null; });
+    <script>
+        // Service Worker Registration (PWA)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW error', err));
+            });
         }
-    }
 
-    let watchId = null;
-    const silentAudio = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=");
-    silentAudio.loop = true;
-    let activo = false;
-    let participante = null;
-    let ultimoPunto = null;
-    let historialVelocidad = [];
-    let envioGpsEnCurso = false;
-    let ultimoEnvioGpsMs = 0;
-    let gpsPollTimer = null;
-    let ultimaPosicionGps = null;
-    
-    // Scanner state
-    let streamCamara = null;
-    let camaraActiva = false;
-    let escaneoBusy = false;
-    let maxCounts = { Rojo: 0, Blanco: 0, Negro: 0 };
-    let totalPoints = 0;
-    let renderTimerId = null;
-
-    const DEVICE_ID_KEY = "gps_tracker_device_id";
-    const ACCELERATION_SAMPLE_WINDOW = 3;
-    const GPS_SEND_INTERVAL_MS = 2000;
-
-    let accelData = {
-        gx: null, gy: null, gz: null, g_magnitude: null,
-        acceleration_mps2: null,
-        interval_ms: null,
-        sensor_timestamp_ms: null,
-        supported: false,
-        permission_state: "not_requested"
-    };
-
-    // -------------------------------------------------------------------------
-    // Utilidades
-    // -------------------------------------------------------------------------
-    function numOrNull(value) { return Number.isFinite(value) ? value : null; }
-    function fmt(value, dec = 2) { return Number.isFinite(value) ? value.toFixed(dec) : "--"; }
-    function getCheckpointLabel(c) { return c ? (c.nombre || `Checkpoint ${c.id}`) : "--"; }
-
-    function actualizarCheckpointCercano(data) {
-        const c = data.checkpoint_mas_cercano;
-        const dist = Number(data.distancia_checkpoint_mas_cercano_m);
-        document.getElementById("checkpointCercano").textContent = getCheckpointLabel(c);
-        document.getElementById("distanciaCheckpointCercano").textContent = `Distancia: ${fmt(dist, 2)} m`;
-    }
-
-    function calcularMagnitud(x, y, z) {
-        if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) return null;
-        return Math.sqrt(x*x + y*y + z*z);
-    }
-    function toRad(deg) { return deg * Math.PI / 180; }
-    function distanciaHaversineMetros(lat1, lon1, lat2, lon2) {
-        const R = 6371000;
-        const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
-        const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)*Math.sin(dLon/2);
-        return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    }
-
-    // -------------------------------------------------------------------------
-    // Acelerómetro
-    // -------------------------------------------------------------------------
-    function actualizarPanelAcelerometro() {
-        document.getElementById("acelG").textContent = 
-            `X: ${fmt(accelData.gx, 3)} m/s²\nY: ${fmt(accelData.gy, 3)} m/s²\nZ: ${fmt(accelData.gz, 3)} m/s²\nMagnitud: ${fmt(accelData.g_magnitude, 3)} m/s²`;
-        document.getElementById("aceleracionReal").textContent = `${fmt(accelData.acceleration_mps2, 3)} m/s²`;
-    }
-
-    function onDeviceMotion(event) {
-        const ag = event.accelerationIncludingGravity || {};
-        accelData.gx = numOrNull(ag.x); accelData.gy = numOrNull(ag.y); accelData.gz = numOrNull(ag.z);
-        accelData.g_magnitude = calcularMagnitud(accelData.gx, accelData.gy, accelData.gz);
-        accelData.interval_ms = numOrNull(event.interval);
-        accelData.sensor_timestamp_ms = Date.now();
-        accelData.supported = true;
-        accelData.permission_state = "granted";
-        actualizarPanelAcelerometro();
-    }
-
-    async function activarSensores() {
-        if (!window.DeviceMotionEvent) {
-            accelData.supported = false; accelData.permission_state = "not_supported";
-            log("Browser does not support DeviceMotionEvent.", "error"); return;
-        }
-        try {
-            if (typeof DeviceMotionEvent.requestPermission === "function") {
-                const p = await DeviceMotionEvent.requestPermission();
-                accelData.permission_state = p;
-                if (p !== "granted") { log("Permission denied.", "error"); return; }
-            } else { accelData.permission_state = "granted"; }
-            window.removeEventListener("devicemotion", onDeviceMotion);
-            window.addEventListener("devicemotion", onDeviceMotion);
-            accelData.supported = true;
-            document.getElementById("sensorBtn").textContent = "Accelerometer active";
-            document.getElementById("sensorBtn").disabled = true;
-            log("Accelerometer activated.", "ok");
-        } catch (e) {
-            accelData.permission_state = "error";
-            log("Error activating accelerometer: " + e.message, "error");
-        }
-    }
-
-    // -------------------------------------------------------------------------
-    // Velocidad
-    // -------------------------------------------------------------------------
-    function calcularVelocidad(pos, lat, lon) {
-        const nowMs = Date.now();
-        let speedMps = null, speedSource = "none", accMps2 = null;
-        if (pos.coords.speed !== null && Number.isFinite(pos.coords.speed)) {
-            speedMps = pos.coords.speed; speedSource = "gps_sensor";
-        } else if (ultimoPunto) {
-            const dist = distanciaHaversineMetros(ultimoPunto.lat, ultimoPunto.lon, lat, lon);
-            const dt = (nowMs - ultimoPunto.timestamp_ms) / 1000;
-            if (dt > 0) { speedMps = dist / dt; speedSource = "calculated_gps_distance_time"; }
-        }
-        if (Number.isFinite(speedMps)) {
-            if (historialVelocidad.length >= ACCELERATION_SAMPLE_WINDOW - 1) {
-                const ref = historialVelocidad[0];
-                const dt = (nowMs - ref.timestamp_ms) / 1000;
-                if (dt > 0 && Number.isFinite(ref.speed_mps)) accMps2 = (speedMps - ref.speed_mps) / dt;
-            }
-            historialVelocidad.push({ speed_mps: speedMps, timestamp_ms: nowMs });
-            while (historialVelocidad.length > ACCELERATION_SAMPLE_WINDOW - 1) historialVelocidad.shift();
-        }
-        ultimoPunto = { lat, lon, timestamp_ms: nowMs, speed_mps: speedMps };
-        return { speed_mps: speedMps, speed_kmh: Number.isFinite(speedMps) ? speedMps * 3.6 : null, speed_source: speedSource, acceleration_mps2: accMps2 };
-    }
-
-    // -------------------------------------------------------------------------
-    // Identidad
-    // -------------------------------------------------------------------------
-    function getDeviceId() {
-        let id = localStorage.getItem(DEVICE_ID_KEY);
-        if (!id) { id = "dev-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2,10); localStorage.setItem(DEVICE_ID_KEY, id); }
-        return id;
-    }
-    function getDeviceLabel(id) {
-        return `${navigator.userAgentData?.platform || navigator.platform || "Dispositivo"}-${id.slice(0,8)}`;
-    }
-    async function registrarParticipante() {
-        const id = getDeviceId();
-        const resp = await fetch("/registrar", {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ device_id: id, device_label: getDeviceLabel(id) })
-        });
-        const data = await resp.json();
-        if (!resp.ok || data.status !== "ok") throw new Error(data.msg || "Registration failed.");
-        participante = data.participante;
-        log(`${participante} ready.`, "ok");
-    }
-
-    function log(msg, tipo) {
-        const el = document.getElementById("estado");
-        el.textContent = msg; el.className = tipo || "";
-    }
-
-    // -------------------------------------------------------------------------
-    // Cámara y Escaneo
-    // -------------------------------------------------------------------------
-    async function toggleCamara() {
-        const btn = document.getElementById("camaraBtn");
-        const container = document.getElementById("cameraContainer");
-        const controls = document.getElementById("scannerControls");
-        
-        if (camaraActiva) {
-            if (streamCamara) {
-                streamCamara.getTracks().forEach(t => t.stop());
-                streamCamara = null;
-            }
-            camaraActiva = false;
-            container.style.display = "none";
-            controls.style.display = "none";
-            btn.textContent = "Turn on camera";
-            log("Camera off.", "neutral");
-            document.getElementById("dashedCircle").classList.remove("spin-anim");
-        } else {
+        // Wake Lock API
+        let wakeLock = null;
+        async function requestWakeLock() {
             try {
-                streamCamara = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
-                const video = document.getElementById("videoFeed");
-                video.srcObject = streamCamara;
-                // Ajustar canvas una vez que haya datos de video
-                video.addEventListener('loadedmetadata', ajustarCanvas);
-                
-                camaraActiva = true;
-                container.style.display = "block";
-                controls.style.display = "block";
-                btn.textContent = "Turn off camera";
-                log("Camera on.", "ok");
-            } catch (err) {
-                log("Error accessing camera: " + err.message, "error");
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                }
+            } catch (err) { }
+        }
+        function releaseWakeLock() {
+            if (wakeLock !== null) {
+                wakeLock.release().then(() => { wakeLock = null; });
             }
         }
-    }
 
-    function ajustarCanvas() {
-        const video = document.getElementById("videoFeed");
-        const canvas = document.getElementById("overlayCanvas");
-        if(video.clientWidth > 0 && video.clientHeight > 0) {
-            canvas.width = video.clientWidth;
-            canvas.height = video.clientHeight;
+        let watchId = null;
+        const silentAudio = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=");
+        silentAudio.loop = true;
+        let activo = false;
+        let participante = null;
+        let ultimoPunto = null;
+        let historialVelocidad = [];
+        let envioGpsEnCurso = false;
+        let ultimoEnvioGpsMs = 0;
+        let gpsPollTimer = null;
+        let ultimaPosicionGps = null;
+
+        // Scanner state
+        let streamCamara = null;
+        let camaraActiva = false;
+        let escaneoBusy = false;
+        let maxCounts = { Rojo: 0, Blanco: 0, Negro: 0 };
+        let totalPoints = 0;
+        let renderTimerId = null;
+
+        const DEVICE_ID_KEY = "gps_tracker_device_id";
+        const ACCELERATION_SAMPLE_WINDOW = 3;
+        const GPS_SEND_INTERVAL_MS = 2000;
+
+        let accelData = {
+            gx: null, gy: null, gz: null, g_magnitude: null,
+            acceleration_mps2: null,
+            interval_ms: null,
+            sensor_timestamp_ms: null,
+            supported: false,
+            permission_state: "not_requested"
+        };
+
+        // -------------------------------------------------------------------------
+        // Utilidades
+        // -------------------------------------------------------------------------
+        function numOrNull(value) { return Number.isFinite(value) ? value : null; }
+        function fmt(value, dec = 2) { return Number.isFinite(value) ? value.toFixed(dec) : "--"; }
+        function getCheckpointLabel(c) { return c ? (c.nombre || `Checkpoint ${c.id}`) : "--"; }
+
+        function actualizarCheckpointCercano(data) {
+            const c = data.checkpoint_mas_cercano;
+            const dist = Number(data.distancia_checkpoint_mas_cercano_m);
+            document.getElementById("checkpointCercano").textContent = getCheckpointLabel(c);
+            document.getElementById("distanciaCheckpointCercano").textContent = `Distancia: ${fmt(dist, 2)} m`;
         }
-    }
 
-    window.addEventListener('resize', () => { if (camaraActiva) ajustarCanvas(); });
-
-    function renderizarLimitesYUI() {
-        // Enforce limits globally
-        if (maxCounts.Negro > 2) maxCounts.Negro = 2;
-        if (maxCounts.Blanco > 3) maxCounts.Blanco = 3;
-        if (maxCounts.Rojo > 10) maxCounts.Rojo = 10;
-
-        totalPoints = (maxCounts.Rojo * 1) + (maxCounts.Blanco * 3) + (maxCounts.Negro * 5);
-        
-        document.getElementById("cntRojo").textContent = maxCounts.Rojo;
-        document.getElementById("cntBlanco").textContent = maxCounts.Blanco;
-        document.getElementById("cntNegro").textContent = maxCounts.Negro;
-        document.getElementById("puntosTotal").textContent = `${totalPoints} pts`;
-
-        let colorText = [];
-        for (let i = 0; i < maxCounts.Rojo; i++) colorText.push("Rojo");
-        for (let i = 0; i < maxCounts.Blanco; i++) colorText.push("Blanco");
-        for (let i = 0; i < maxCounts.Negro; i++) colorText.push("Negro");
-        document.getElementById("coloresList").textContent = "Color: " + (colorText.length ? colorText.join(", ") : "");
-
-        const btnScan = document.getElementById("btnScan");
-        if (totalPoints >= 10) {
-            btnScan.textContent = "Limit Reached";
-            btnScan.disabled = true;
-            btnScan.className = "disabled-gray";
-        } else {
-            btnScan.textContent = "Scan";
-            btnScan.disabled = false;
-            btnScan.className = "primary";
+        function calcularMagnitud(x, y, z) {
+            if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) return null;
+            return Math.sqrt(x * x + y * y + z * z);
         }
-    }
+        function toRad(deg) { return deg * Math.PI / 180; }
+        function distanciaHaversineMetros(lat1, lon1, lat2, lon2) {
+            const R = 6371000;
+            const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
 
-    async function escanearUnaVez() {
-        if (escaneoBusy || totalPoints >= 10 || !camaraActiva) return;
-        escaneoBusy = true;
-        document.getElementById("dashedCircle").classList.add("spin-anim");
-        document.getElementById("btnScan").textContent = "Processing...";
-        
-        const video = document.getElementById("videoFeed");
-        const canvas = document.createElement("canvas");
-        // Capture at lower resolution for speed (similar to Expo quality: 0.2)
-        canvas.width = video.videoWidth * 0.5;
-        canvas.height = video.videoHeight * 0.5;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
-        // Remove data URL prefix
-        const base64Data = canvas.toDataURL("image/jpeg", 0.35).split(",")[1];
-        
-        try {
-            const resp = await fetch("/vision", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    device_id: getDeviceId(),
-                    participante: participante || "Desconocido",
-                    image: base64Data,
-                    mobile: true
-                })
-            });
-            const data = await resp.json();
-            if (data.status === "ok") {
-                if (data.counts) {
-                    for (const color of ["Rojo", "Blanco", "Negro"]) {
-                        maxCounts[color] = Math.max(maxCounts[color], data.counts[color] || 0);
-                    }
-                    renderizarLimitesYUI();
-                    log(`Scan ready: ${totalPoints} points.`, totalPoints >= 10 ? "success" : "ok");
-                }
-                if (data.balls && data.balls.length > 0) {
-                    dibujarPelotas(data.balls);
-                }
-            } else {
-                log("Vision error: " + data.msg, "error");
+        // -------------------------------------------------------------------------
+        // Acelerómetro
+        // -------------------------------------------------------------------------
+        function actualizarPanelAcelerometro() {
+            document.getElementById("acelG").textContent =
+                `X: ${fmt(accelData.gx, 3)} m/s²\nY: ${fmt(accelData.gy, 3)} m/s²\nZ: ${fmt(accelData.gz, 3)} m/s²\nMagnitud: ${fmt(accelData.g_magnitude, 3)} m/s²`;
+            document.getElementById("aceleracionReal").textContent = `${fmt(accelData.acceleration_mps2, 3)} m/s²`;
+        }
+
+        function onDeviceMotion(event) {
+            const ag = event.accelerationIncludingGravity || {};
+            accelData.gx = numOrNull(ag.x); accelData.gy = numOrNull(ag.y); accelData.gz = numOrNull(ag.z);
+            accelData.g_magnitude = calcularMagnitud(accelData.gx, accelData.gy, accelData.gz);
+            accelData.interval_ms = numOrNull(event.interval);
+            accelData.sensor_timestamp_ms = Date.now();
+            accelData.supported = true;
+            accelData.permission_state = "granted";
+            actualizarPanelAcelerometro();
+        }
+
+        async function activarSensores() {
+            if (!window.DeviceMotionEvent) {
+                accelData.supported = false; accelData.permission_state = "not_supported";
+                log("Browser does not support DeviceMotionEvent.", "error"); return;
             }
-        } catch (e) {
-            log("Error connecting to /vision", "error");
+            try {
+                if (typeof DeviceMotionEvent.requestPermission === "function") {
+                    const p = await DeviceMotionEvent.requestPermission();
+                    accelData.permission_state = p;
+                    if (p !== "granted") { log("Permission denied.", "error"); return; }
+                } else { accelData.permission_state = "granted"; }
+                window.removeEventListener("devicemotion", onDeviceMotion);
+                window.addEventListener("devicemotion", onDeviceMotion);
+                accelData.supported = true;
+                document.getElementById("sensorBtn").textContent = "Accelerometer active";
+                document.getElementById("sensorBtn").disabled = true;
+                log("Accelerometer activated.", "ok");
+            } catch (e) {
+                accelData.permission_state = "error";
+                log("Error activating accelerometer: " + e.message, "error");
+            }
         }
-        
-        escaneoBusy = false;
-        document.getElementById("dashedCircle").classList.remove("spin-anim");
-        if (totalPoints < 10) document.getElementById("btnScan").textContent = "Scan";
-    }
 
-    function dibujarPelotas(balls) {
-        const canvas = document.getElementById("overlayCanvas");
-        const ctx = canvas.getContext("2d");
-        ajustarCanvas();
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        const colorMap = { 'Rojo': '#ef4444', 'Blanco': '#ffffff', 'Negro': '#111111' };
-        
-        // Count locally for labels
-        let countMap = { Rojo: 0, Blanco: 0, Negro: 0 };
-
-        balls.forEach(b => {
-            countMap[b.color] = (countMap[b.color] || 0) + 1;
-            const currentCount = countMap[b.color];
-            
-            const cx = b.x_norm * canvas.width;
-            const cy = b.y_norm * canvas.height;
-            const r = b.r_norm * canvas.width;
-
-            ctx.beginPath();
-            ctx.arc(cx, cy, r, 0, 2 * Math.PI);
-            ctx.lineWidth = 3;
-            ctx.strokeStyle = colorMap[b.color] || '#00ff00';
-            ctx.stroke();
-
-            ctx.beginPath();
-            ctx.arc(cx, cy, 4, 0, 2 * Math.PI);
-            ctx.fillStyle = colorMap[b.color] || '#00ff00';
-            ctx.fill();
-
-            // Draw label with outline
-            ctx.font = "900 16px sans-serif";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.lineWidth = 3;
-            ctx.strokeStyle = b.color === 'Negro' ? 'white' : 'black';
-            ctx.strokeText(currentCount, cx, Math.max(18, cy - r - 25));
-            ctx.fillStyle = b.color === 'Blanco' ? 'white' : (b.color === 'Negro' ? 'black' : 'red');
-            ctx.fillText(currentCount, cx, Math.max(18, cy - r - 25));
-        });
-
-        // Clear drawings after 3 seconds
-        if (renderTimerId) clearTimeout(renderTimerId);
-        renderTimerId = setTimeout(() => {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-        }, 3000);
-    }
-
-    function reiniciarEscaneo() {
-        maxCounts = { Rojo: 0, Blanco: 0, Negro: 0 };
-        renderizarLimitesYUI();
-        log("Scan reset.", "neutral");
-        const canvas = document.getElementById("overlayCanvas");
-        if(canvas) {
-            const ctx = canvas.getContext("2d");
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // -------------------------------------------------------------------------
+        // Velocidad
+        // -------------------------------------------------------------------------
+        function calcularVelocidad(pos, lat, lon) {
+            const nowMs = Date.now();
+            let speedMps = null, speedSource = "none", accMps2 = null;
+            if (pos.coords.speed !== null && Number.isFinite(pos.coords.speed)) {
+                speedMps = pos.coords.speed; speedSource = "gps_sensor";
+            } else if (ultimoPunto) {
+                const dist = distanciaHaversineMetros(ultimoPunto.lat, ultimoPunto.lon, lat, lon);
+                const dt = (nowMs - ultimoPunto.timestamp_ms) / 1000;
+                if (dt > 0) { speedMps = dist / dt; speedSource = "calculated_gps_distance_time"; }
+            }
+            if (Number.isFinite(speedMps)) {
+                if (historialVelocidad.length >= ACCELERATION_SAMPLE_WINDOW - 1) {
+                    const ref = historialVelocidad[0];
+                    const dt = (nowMs - ref.timestamp_ms) / 1000;
+                    if (dt > 0 && Number.isFinite(ref.speed_mps)) accMps2 = (speedMps - ref.speed_mps) / dt;
+                }
+                historialVelocidad.push({ speed_mps: speedMps, timestamp_ms: nowMs });
+                while (historialVelocidad.length > ACCELERATION_SAMPLE_WINDOW - 1) historialVelocidad.shift();
+            }
+            ultimoPunto = { lat, lon, timestamp_ms: nowMs, speed_mps: speedMps };
+            return { speed_mps: speedMps, speed_kmh: Number.isFinite(speedMps) ? speedMps * 3.6 : null, speed_source: speedSource, acceleration_mps2: accMps2 };
         }
-    }
 
-    // -------------------------------------------------------------------------
-    // Tracker Principal
-    // -------------------------------------------------------------------------
-    function iniciarOdetener() {
-        if (activo) {
-            if (watchId) { navigator.geolocation.clearWatch(watchId); watchId = null; }
-            if (gpsPollTimer) { clearInterval(gpsPollTimer); gpsPollTimer = null; }
-            silentAudio.pause(); releaseWakeLock();
-            activo = false; ultimaPosicionGps = null;
-            document.getElementById("btnCaptura").textContent = "Start capture";
-            log("Capture stopped.");
-        } else {
-            if (!navigator.geolocation) { log("Geolocation not supported.", "error"); return; }
-            if (!participante) { log("Waiting for registration...", "error"); registrarParticipante(); return; }
-            if (accelData.permission_state !== "granted") activarSensores();
-            
-            silentAudio.play().catch(e => {});
-            requestWakeLock();
-            
-            activo = true; ultimoPunto = null; ultimaPosicionGps = null; historialVelocidad = [];
-            document.getElementById("btnCaptura").textContent = "Stop capture";
-            log("Getting location and accelerometer...");
-            
-            watchId = navigator.geolocation.watchPosition(
-                onPositionSuccess, onPositionError, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-            );
-            gpsPollTimer = setInterval(() => {
-                if (!activo || envioGpsEnCurso) return;
-                if (ultimaPosicionGps) onPositionSuccess(ultimaPosicionGps);
-                else navigator.geolocation.getCurrentPosition(onPositionSuccess, onPositionError, { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 });
-            }, GPS_SEND_INTERVAL_MS);
+        // -------------------------------------------------------------------------
+        // Identidad
+        // -------------------------------------------------------------------------
+        function getDeviceId() {
+            let id = localStorage.getItem(DEVICE_ID_KEY);
+            if (!id) { id = "dev-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10); localStorage.setItem(DEVICE_ID_KEY, id); }
+            return id;
         }
-    }
-
-    async function onPositionSuccess(pos) {
-        ultimaPosicionGps = pos;
-        const ahoraMs = Date.now();
-        if (envioGpsEnCurso || ahoraMs - ultimoEnvioGpsMs < GPS_SEND_INTERVAL_MS) return;
-        envioGpsEnCurso = true; ultimoEnvioGpsMs = ahoraMs;
-        
-        const speed = calcularVelocidad(pos, pos.coords.latitude, pos.coords.longitude);
-        accelData.acceleration_mps2 = speed.acceleration_mps2;
-
-        document.getElementById("velocidad").textContent = `${fmt(speed.speed_kmh, 2)} km/h`;
-        document.getElementById("velocidadFuente").textContent = `Fuente: ${speed.speed_source}`;
-        document.getElementById("precision").textContent = `±${fmt(pos.coords.accuracy, 0)} m`;
-        document.getElementById("hora").textContent = `Hora: ${new Date().toLocaleTimeString()}`;
-        actualizarPanelAcelerometro();
-
-        try {
-            // Include max counts and total points in GPS send
-            let colorArray = [];
-            for(let i=0; i<maxCounts.Rojo; i++) colorArray.push("Rojo");
-            for(let i=0; i<maxCounts.Blanco; i++) colorArray.push("Blanco");
-            for(let i=0; i<maxCounts.Negro; i++) colorArray.push("Negro");
-
-            const resp = await fetch("/gps", {
+        function getDeviceLabel(id) {
+            return `${navigator.userAgentData?.platform || navigator.platform || "Dispositivo"}-${id.slice(0, 8)}`;
+        }
+        async function registrarParticipante() {
+            const id = getDeviceId();
+            const resp = await fetch("/registrar", {
                 method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    latitude: pos.coords.latitude, longitude: pos.coords.longitude,
-                    accuracy: pos.coords.accuracy, altitude: pos.coords.altitude, heading: pos.coords.heading,
-                    speed_mps: speed.speed_mps, speed_kmh: speed.speed_kmh, speed_source: speed.speed_source,
-                    accel_gx: accelData.gx, accel_gy: accelData.gy, accel_gz: accelData.gz, accel_g_magnitude: accelData.g_magnitude,
-                    acceleration_mps2: accelData.acceleration_mps2, sensor_timestamp_ms: accelData.sensor_timestamp_ms,
-                    client_timestamp_ms: ahoraMs, device_id: getDeviceId(), device_label: getDeviceLabel(getDeviceId()),
-                    carga_kg: totalPoints, peso_kg: totalPoints, // Puntos se mapean a peso
-                    conteo_colores: maxCounts, color_detectado: colorArray
-                })
+                body: JSON.stringify({ device_id: id, device_label: getDeviceLabel(id) })
             });
             const data = await resp.json();
-            if (!resp.ok && data.status !== "limite_participantes") throw new Error(data.msg || "Error");
-            if (data.status === "cerrado") {
-                iniciarOdetener(); log("Session ended.", "error");
-            } else if (data.status === "limite_participantes") {
-                iniciarOdetener(); log(data.msg, "error");
-            } else if (data.participante) {
-                participante = data.participante; actualizarCheckpointCercano(data);
-            }
-        } catch(e) {} finally { envioGpsEnCurso = false; }
-    }
+            if (!resp.ok || data.status !== "ok") throw new Error(data.msg || "Registration failed.");
+            participante = data.participante;
+            log(`${participante} ready.`, "ok");
+        }
 
-    function onPositionError(err) {
-        log(`GPS Error (${err.code}): ${err.message}`, "error");
-    }
+        function log(msg, tipo) {
+            const el = document.getElementById("estado");
+            el.textContent = msg; el.className = tipo || "";
+        }
 
-    registrarParticipante().catch(e => log(e.message, "error"));
-    actualizarPanelAcelerometro();
-    renderizarLimitesYUI();
+        // -------------------------------------------------------------------------
+        // Cámara y Escaneo
+        // -------------------------------------------------------------------------
+        async function toggleCamara() {
+            const btn = document.getElementById("camaraBtn");
+            const container = document.getElementById("cameraContainer");
+            const controls = document.getElementById("scannerControls");
 
-    async function abrirGaleria() {
-        const modal = document.getElementById("galleryModal");
-        const content = document.getElementById("galleryContent");
-        modal.style.display = "block";
-        content.innerHTML = "Loading...";
-
-        try {
-            const resp = await fetch("/galeria");
-            if (resp.ok) {
-                const data = await resp.json();
-                if (data.length === 0) {
-                    content.innerHTML = "<p>No photos in the gallery.</p>";
-                    return;
+            if (camaraActiva) {
+                if (streamCamara) {
+                    streamCamara.getTracks().forEach(t => t.stop());
+                    streamCamara = null;
                 }
-                
-                content.innerHTML = data.reverse().map(item => {
-                    let detHtml = "";
-                    if (item.detections) {
-                        detHtml = Object.entries(item.detections)
-                            .filter(([c, v]) => v > 0)
-                            .map(([c, v]) => `<strong>${c}:</strong> ${v}`)
-                            .join(" | ");
-                    }
-                    const participantStr = item.participante || item.device_id;
-                    const nameDisplay = String(participantStr).replace(/participante[_ ]?/i, 'Participant ');
+                camaraActiva = false;
+                container.style.display = "none";
+                controls.style.display = "none";
+                btn.textContent = "Turn on camera";
+                log("Camera off.", "neutral");
+                document.getElementById("dashedCircle").classList.remove("spin-anim");
+            } else {
+                try {
+                    streamCamara = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+                    const video = document.getElementById("videoFeed");
+                    video.srcObject = streamCamara;
+                    // Ajustar canvas una vez que haya datos de video
+                    video.addEventListener('loadedmetadata', ajustarCanvas);
 
-                    return `
+                    camaraActiva = true;
+                    container.style.display = "block";
+                    controls.style.display = "block";
+                    btn.textContent = "Turn off camera";
+                    log("Camera on.", "ok");
+                } catch (err) {
+                    log("Error accessing camera: " + err.message, "error");
+                }
+            }
+        }
+
+        function ajustarCanvas() {
+            const video = document.getElementById("videoFeed");
+            const canvas = document.getElementById("overlayCanvas");
+            if (video.clientWidth > 0 && video.clientHeight > 0) {
+                canvas.width = video.clientWidth;
+                canvas.height = video.clientHeight;
+            }
+        }
+
+        window.addEventListener('resize', () => { if (camaraActiva) ajustarCanvas(); });
+
+        function renderizarLimitesYUI() {
+            // Enforce limits globally
+            if (maxCounts.Negro > 2) maxCounts.Negro = 2;
+            if (maxCounts.Blanco > 3) maxCounts.Blanco = 3;
+            if (maxCounts.Rojo > 10) maxCounts.Rojo = 10;
+
+            totalPoints = (maxCounts.Rojo * 1) + (maxCounts.Blanco * 3) + (maxCounts.Negro * 5);
+
+            document.getElementById("cntRojo").textContent = maxCounts.Rojo;
+            document.getElementById("cntBlanco").textContent = maxCounts.Blanco;
+            document.getElementById("cntNegro").textContent = maxCounts.Negro;
+            document.getElementById("puntosTotal").textContent = `${totalPoints} pts`;
+
+            let colorText = [];
+            for (let i = 0; i < maxCounts.Rojo; i++) colorText.push("Rojo");
+            for (let i = 0; i < maxCounts.Blanco; i++) colorText.push("Blanco");
+            for (let i = 0; i < maxCounts.Negro; i++) colorText.push("Negro");
+            document.getElementById("coloresList").textContent = "Color: " + (colorText.length ? colorText.join(", ") : "");
+
+            const btnScan = document.getElementById("btnScan");
+            if (totalPoints >= 10) {
+                btnScan.textContent = "Limit Reached";
+                btnScan.disabled = true;
+                btnScan.className = "disabled-gray";
+            } else {
+                btnScan.textContent = "Scan";
+                btnScan.disabled = false;
+                btnScan.className = "primary";
+            }
+        }
+
+        async function escanearUnaVez() {
+            if (escaneoBusy || totalPoints >= 10 || !camaraActiva) return;
+            escaneoBusy = true;
+            document.getElementById("dashedCircle").classList.add("spin-anim");
+            document.getElementById("btnScan").textContent = "Processing...";
+
+            const video = document.getElementById("videoFeed");
+            const canvas = document.createElement("canvas");
+            // Capture at lower resolution for speed (similar to Expo quality: 0.2)
+            canvas.width = video.videoWidth * 0.5;
+            canvas.height = video.videoHeight * 0.5;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Remove data URL prefix
+            const base64Data = canvas.toDataURL("image/jpeg", 0.35).split(",")[1];
+
+            try {
+                const resp = await fetch("/vision", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        device_id: getDeviceId(),
+                        participante: participante || "Desconocido",
+                        image: base64Data,
+                        mobile: true
+                    })
+                });
+                const data = await resp.json();
+                if (data.status === "ok") {
+                    if (data.counts) {
+                        for (const color of ["Rojo", "Blanco", "Negro"]) {
+                            maxCounts[color] = Math.max(maxCounts[color], data.counts[color] || 0);
+                        }
+                        renderizarLimitesYUI();
+                        log(`Scan ready: ${totalPoints} points.`, totalPoints >= 10 ? "success" : "ok");
+                    }
+                    if (data.balls && data.balls.length > 0) {
+                        dibujarPelotas(data.balls);
+                    }
+                } else {
+                    log("Vision error: " + data.msg, "error");
+                }
+            } catch (e) {
+                log("Error connecting to /vision", "error");
+            }
+
+            escaneoBusy = false;
+            document.getElementById("dashedCircle").classList.remove("spin-anim");
+            if (totalPoints < 10) document.getElementById("btnScan").textContent = "Scan";
+        }
+
+        function dibujarPelotas(balls) {
+            const canvas = document.getElementById("overlayCanvas");
+            const ctx = canvas.getContext("2d");
+            ajustarCanvas();
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const colorMap = { 'Rojo': '#ef4444', 'Blanco': '#ffffff', 'Negro': '#111111' };
+
+            // Count locally for labels
+            let countMap = { Rojo: 0, Blanco: 0, Negro: 0 };
+
+            balls.forEach(b => {
+                countMap[b.color] = (countMap[b.color] || 0) + 1;
+                const currentCount = countMap[b.color];
+
+                const cx = b.x_norm * canvas.width;
+                const cy = b.y_norm * canvas.height;
+                const r = b.r_norm * canvas.width;
+
+                ctx.beginPath();
+                ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = colorMap[b.color] || '#00ff00';
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.arc(cx, cy, 4, 0, 2 * Math.PI);
+                ctx.fillStyle = colorMap[b.color] || '#00ff00';
+                ctx.fill();
+
+                // Draw label with outline
+                ctx.font = "900 16px sans-serif";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = b.color === 'Negro' ? 'white' : 'black';
+                ctx.strokeText(currentCount, cx, Math.max(18, cy - r - 25));
+                ctx.fillStyle = b.color === 'Blanco' ? 'white' : (b.color === 'Negro' ? 'black' : 'red');
+                ctx.fillText(currentCount, cx, Math.max(18, cy - r - 25));
+            });
+
+            // Clear drawings after 3 seconds
+            if (renderTimerId) clearTimeout(renderTimerId);
+            renderTimerId = setTimeout(() => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }, 3000);
+        }
+
+        function reiniciarEscaneo() {
+            maxCounts = { Rojo: 0, Blanco: 0, Negro: 0 };
+            renderizarLimitesYUI();
+            log("Scan reset.", "neutral");
+            const canvas = document.getElementById("overlayCanvas");
+            if (canvas) {
+                const ctx = canvas.getContext("2d");
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+        }
+
+        // -------------------------------------------------------------------------
+        // Tracker Principal
+        // -------------------------------------------------------------------------
+        function iniciarOdetener() {
+            if (activo) {
+                if (watchId) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+                if (gpsPollTimer) { clearInterval(gpsPollTimer); gpsPollTimer = null; }
+                silentAudio.pause(); releaseWakeLock();
+                activo = false; ultimaPosicionGps = null;
+                document.getElementById("btnCaptura").textContent = "Start capture";
+                log("Capture stopped.");
+            } else {
+                if (!navigator.geolocation) { log("Geolocation not supported.", "error"); return; }
+                if (!participante) { log("Waiting for registration...", "error"); registrarParticipante(); return; }
+                if (accelData.permission_state !== "granted") activarSensores();
+
+                silentAudio.play().catch(e => { });
+                requestWakeLock();
+
+                activo = true; ultimoPunto = null; ultimaPosicionGps = null; historialVelocidad = [];
+                document.getElementById("btnCaptura").textContent = "Stop capture";
+                log("Getting location and accelerometer...");
+
+                watchId = navigator.geolocation.watchPosition(
+                    onPositionSuccess, onPositionError, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+                );
+                gpsPollTimer = setInterval(() => {
+                    if (!activo || envioGpsEnCurso) return;
+                    if (ultimaPosicionGps) onPositionSuccess(ultimaPosicionGps);
+                    else navigator.geolocation.getCurrentPosition(onPositionSuccess, onPositionError, { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 });
+                }, GPS_SEND_INTERVAL_MS);
+            }
+        }
+
+        async function onPositionSuccess(pos) {
+            ultimaPosicionGps = pos;
+            const ahoraMs = Date.now();
+            if (envioGpsEnCurso || ahoraMs - ultimoEnvioGpsMs < GPS_SEND_INTERVAL_MS) return;
+            envioGpsEnCurso = true; ultimoEnvioGpsMs = ahoraMs;
+
+            const speed = calcularVelocidad(pos, pos.coords.latitude, pos.coords.longitude);
+            accelData.acceleration_mps2 = speed.acceleration_mps2;
+
+            document.getElementById("velocidad").textContent = `${fmt(speed.speed_kmh, 2)} km/h`;
+            document.getElementById("velocidadFuente").textContent = `Fuente: ${speed.speed_source}`;
+            document.getElementById("precision").textContent = `±${fmt(pos.coords.accuracy, 0)} m`;
+            document.getElementById("hora").textContent = `Hora: ${new Date().toLocaleTimeString()}`;
+            actualizarPanelAcelerometro();
+
+            try {
+                // Include max counts and total points in GPS send
+                let colorArray = [];
+                for (let i = 0; i < maxCounts.Rojo; i++) colorArray.push("Rojo");
+                for (let i = 0; i < maxCounts.Blanco; i++) colorArray.push("Blanco");
+                for (let i = 0; i < maxCounts.Negro; i++) colorArray.push("Negro");
+
+                const resp = await fetch("/gps", {
+                    method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        latitude: pos.coords.latitude, longitude: pos.coords.longitude,
+                        accuracy: pos.coords.accuracy, altitude: pos.coords.altitude, heading: pos.coords.heading,
+                        speed_mps: speed.speed_mps, speed_kmh: speed.speed_kmh, speed_source: speed.speed_source,
+                        accel_gx: accelData.gx, accel_gy: accelData.gy, accel_gz: accelData.gz, accel_g_magnitude: accelData.g_magnitude,
+                        acceleration_mps2: accelData.acceleration_mps2, sensor_timestamp_ms: accelData.sensor_timestamp_ms,
+                        client_timestamp_ms: ahoraMs, device_id: getDeviceId(), device_label: getDeviceLabel(getDeviceId()),
+                        carga_kg: totalPoints, peso_kg: totalPoints, // Puntos se mapean a peso
+                        conteo_colores: maxCounts, color_detectado: colorArray
+                    })
+                });
+                const data = await resp.json();
+                if (!resp.ok && data.status !== "limite_participantes") throw new Error(data.msg || "Error");
+                if (data.status === "cerrado") {
+                    iniciarOdetener(); log("Session ended.", "error");
+                } else if (data.status === "limite_participantes") {
+                    iniciarOdetener(); log(data.msg, "error");
+                } else if (data.participante) {
+                    participante = data.participante; actualizarCheckpointCercano(data);
+                }
+            } catch (e) { } finally { envioGpsEnCurso = false; }
+        }
+
+        function onPositionError(err) {
+            log(`GPS Error (${err.code}): ${err.message}`, "error");
+        }
+
+        registrarParticipante().catch(e => log(e.message, "error"));
+        actualizarPanelAcelerometro();
+        renderizarLimitesYUI();
+
+        async function abrirGaleria() {
+            const modal = document.getElementById("galleryModal");
+            const content = document.getElementById("galleryContent");
+            modal.style.display = "block";
+            content.innerHTML = "Loading...";
+
+            try {
+                const resp = await fetch("/galeria");
+                if (resp.ok) {
+                    const data = await resp.json();
+                    if (data.length === 0) {
+                        content.innerHTML = "<p>No photos in the gallery.</p>";
+                        return;
+                    }
+
+                    content.innerHTML = data.reverse().map(item => {
+                        let detHtml = "";
+                        if (item.detections) {
+                            detHtml = Object.entries(item.detections)
+                                .filter(([c, v]) => v > 0)
+                                .map(([c, v]) => `<strong>${c}:</strong> ${v}`)
+                                .join(" | ");
+                        }
+                        const participantStr = item.participante || item.device_id;
+                        const nameDisplay = String(participantStr).replace(/participante[_ ]?/i, 'Participant ');
+
+                        return `
                     <div class="gallery-item">
                         <img src="/capturas/${item.filename}" alt="Capture" onclick="abrirVisor('${item.filename}')" style="cursor: pointer;">
                         <div class="gallery-info">
@@ -760,84 +912,85 @@ Magnitude: --</div>
                             ${detHtml ? `<div style="margin-top: 5px; padding-top: 5px; border-top: 1px solid #e2e8f0;">${detHtml}</div>` : ""}
                         </div>
                     </div>`;
-                }).join("");
-            } else {
-                content.innerHTML = "<p style='color:red;'>Error loading gallery.</p>";
+                    }).join("");
+                } else {
+                    content.innerHTML = "<p style='color:red;'>Error loading gallery.</p>";
+                }
+            } catch (e) {
+                content.innerHTML = "<p style='color:red;'>Connection error.</p>";
             }
-        } catch (e) {
-            content.innerHTML = "<p style='color:red;'>Connection error.</p>";
         }
-    }
 
-    function cerrarGaleria() {
-        document.getElementById("galleryModal").style.display = "none";
-    }
+        function cerrarGaleria() {
+            document.getElementById("galleryModal").style.display = "none";
+        }
 
-    async function limpiarGaleria() {
-        if (!confirm("Are you sure you want to empty the gallery?")) return;
-        try {
-            const resp = await fetch("/limpiar_galeria", { method: 'POST' });
-            if (resp.ok) {
-                abrirGaleria();
-            } else {
-                alert("Could not clear the gallery");
+        async function limpiarGaleria() {
+            if (!confirm("Are you sure you want to empty the gallery?")) return;
+            try {
+                const resp = await fetch("/limpiar_galeria", { method: 'POST' });
+                if (resp.ok) {
+                    abrirGaleria();
+                } else {
+                    alert("Could not clear the gallery");
+                }
+            } catch (e) {
+                alert("Connection error");
             }
-        } catch (e) {
-            alert("Connection error");
         }
-    }
 
-    // Funciones del Visor de Imágenes
-    let currentImageVisor = "";
-    let showContourVisor = true;
-    let currentScaleVisor = 1;
+        // Funciones del Visor de Imágenes
+        let currentImageVisor = "";
+        let showContourVisor = true;
+        let currentScaleVisor = 1;
 
-    function abrirVisor(filename) {
-        currentImageVisor = filename;
-        showContourVisor = true;
-        zoomVisorReset();
-        actualizarVisor();
-        document.getElementById("imageViewer").style.display = "flex";
-    }
-
-    function cerrarVisor() {
-        document.getElementById("imageViewer").style.display = "none";
-    }
-
-    function toggleContorno() {
-        showContourVisor = !showContourVisor;
-        actualizarVisor();
-    }
-
-    function actualizarVisor() {
-        const img = document.getElementById("visorImg");
-        if (showContourVisor) {
-            img.src = "/capturas/" + currentImageVisor;
-        } else {
-            img.src = "/capturas/" + currentImageVisor.replace('.jpg', '_clean.jpg');
+        function abrirVisor(filename) {
+            currentImageVisor = filename;
+            showContourVisor = true;
+            zoomVisorReset();
+            actualizarVisor();
+            document.getElementById("imageViewer").style.display = "flex";
         }
-    }
 
-    function zoomVisor(delta) {
-        currentScaleVisor += delta;
-        if (currentScaleVisor < 1) currentScaleVisor = 1;
-        if (currentScaleVisor > 5) currentScaleVisor = 5;
-        document.getElementById("visorImg").style.transform = `scale(${currentScaleVisor})`;
-        
-        // Si hay zoom, permitimos el scroll en el contenedor
-        const content = document.getElementById("imageViewerContent");
-        if (currentScaleVisor > 1) {
-            content.style.overflow = "auto";
-        } else {
-            content.style.overflow = "hidden";
+        function cerrarVisor() {
+            document.getElementById("imageViewer").style.display = "none";
         }
-    }
 
-    function zoomVisorReset() {
-        currentScaleVisor = 1;
-        document.getElementById("visorImg").style.transform = `scale(1)`;
-        document.getElementById("imageViewerContent").style.overflow = "hidden";
-    }
-</script>
+        function toggleContorno() {
+            showContourVisor = !showContourVisor;
+            actualizarVisor();
+        }
+
+        function actualizarVisor() {
+            const img = document.getElementById("visorImg");
+            if (showContourVisor) {
+                img.src = "/capturas/" + currentImageVisor;
+            } else {
+                img.src = "/capturas/" + currentImageVisor.replace('.jpg', '_clean.jpg');
+            }
+        }
+
+        function zoomVisor(delta) {
+            currentScaleVisor += delta;
+            if (currentScaleVisor < 1) currentScaleVisor = 1;
+            if (currentScaleVisor > 5) currentScaleVisor = 5;
+            document.getElementById("visorImg").style.transform = `scale(${currentScaleVisor})`;
+
+            // Si hay zoom, permitimos el scroll en el contenedor
+            const content = document.getElementById("imageViewerContent");
+            if (currentScaleVisor > 1) {
+                content.style.overflow = "auto";
+            } else {
+                content.style.overflow = "hidden";
+            }
+        }
+
+        function zoomVisorReset() {
+            currentScaleVisor = 1;
+            document.getElementById("visorImg").style.transform = `scale(1)`;
+            document.getElementById("imageViewerContent").style.overflow = "hidden";
+        }
+    </script>
 </body>
+
 </html>

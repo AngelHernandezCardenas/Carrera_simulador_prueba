@@ -960,15 +960,15 @@
         "distancia_checkpoint_m": 0.0
     },
     {
-        "filename": "captura_Participant_1_manual_1782862931.jpg",
-        "timestamp": 1782862931,
+        "filename": "captura_Participant_1_manual_1782931848.jpg",
+        "timestamp": 1782931848,
         "device_id": "app-mqs6kjls-4krg6vqo",
         "participante": "Participant 1",
-        "fecha_hora": "2026-06-30 17:42:11",
+        "fecha_hora": "2026-07-01 12:50:48",
         "detections": {
-            "Rojo": 6,
-            "Blanco": 5,
-            "Negro": 6
+            "Rojo": 2,
+            "Blanco": 4,
+            "Negro": 3
         },
         "checkpoint_id": 0,
         "checkpoint_nombre": "Manual / Sin GPS",
@@ -976,15 +976,15 @@
         "distancia_checkpoint_m": 0.0
     },
     {
-        "filename": "captura_Participant_1_manual_1782862963.jpg",
-        "timestamp": 1782862963,
+        "filename": "captura_Participant_1_manual_1782938381.jpg",
+        "timestamp": 1782938381,
         "device_id": "app-mqs6kjls-4krg6vqo",
         "participante": "Participant 1",
-        "fecha_hora": "2026-06-30 17:42:43",
+        "fecha_hora": "2026-07-01 14:39:41",
         "detections": {
-            "Rojo": 6,
-            "Blanco": 5,
-            "Negro": 6
+            "Rojo": 0,
+            "Blanco": 1,
+            "Negro": 1
         },
         "checkpoint_id": 0,
         "checkpoint_nombre": "Manual / Sin GPS",
@@ -992,15 +992,15 @@
         "distancia_checkpoint_m": 0.0
     },
     {
-        "filename": "captura_Participant_1_manual_1782863045.jpg",
-        "timestamp": 1782863045,
+        "filename": "captura_Participant_1_manual_1782938390.jpg",
+        "timestamp": 1782938390,
         "device_id": "app-mqs6kjls-4krg6vqo",
         "participante": "Participant 1",
-        "fecha_hora": "2026-06-30 17:44:05",
+        "fecha_hora": "2026-07-01 14:39:50",
         "detections": {
-            "Rojo": 6,
-            "Blanco": 5,
-            "Negro": 6
+            "Rojo": 0,
+            "Blanco": 1,
+            "Negro": 1
         },
         "checkpoint_id": 0,
         "checkpoint_nombre": "Manual / Sin GPS",
@@ -1008,15 +1008,31 @@
         "distancia_checkpoint_m": 0.0
     },
     {
-        "filename": "captura_Participant_1_manual_1782863336.jpg",
-        "timestamp": 1782863336,
+        "filename": "captura_Participant_1_manual_1782938399.jpg",
+        "timestamp": 1782938399,
         "device_id": "app-mqs6kjls-4krg6vqo",
         "participante": "Participant 1",
-        "fecha_hora": "2026-06-30 17:48:56",
+        "fecha_hora": "2026-07-01 14:39:59",
         "detections": {
-            "Rojo": 6,
-            "Blanco": 5,
-            "Negro": 6
+            "Rojo": 1,
+            "Blanco": 1,
+            "Negro": 1
+        },
+        "checkpoint_id": 0,
+        "checkpoint_nombre": "Manual / Sin GPS",
+        "checkpoint_slug": "manual",
+        "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participant_1_manual_1782938423.jpg",
+        "timestamp": 1782938423,
+        "device_id": "app-mqs6kjls-4krg6vqo",
+        "participante": "Participant 1",
+        "fecha_hora": "2026-07-01 14:40:23",
+        "detections": {
+            "Rojo": 3,
+            "Blanco": 4,
+            "Negro": 3
         },
         "checkpoint_id": 0,
         "checkpoint_nombre": "Manual / Sin GPS",

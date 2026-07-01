@@ -164,7 +164,7 @@ def get_puntaje_retos_detalle(participante: str) -> dict:
     }
 
 
-def sincronizar_puntajes(intervalo_segundos: float = 1.0) -> None:
+def sincronizar_puntajes(intervalo_segundos: float = 15.0) -> None:
     global ultimo_estado
 
     while True:

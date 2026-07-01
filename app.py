@@ -551,7 +551,7 @@ def registrar():
     if not participante:
         return jsonify({
             "status": "limite_participantes",
-            "msg": f"Ya se alcanzÃ³ el lÃ­mite de {MAX_PARTICIPANTES} participantes.",
+            "msg": f"The limit of {MAX_PARTICIPANTES} participants has already been reached.",
         }), 403
 
     return jsonify({
@@ -582,7 +582,7 @@ def gps():
     if not participante:
         return jsonify({
             "status": "limite_participantes",
-            "msg": f"Ya se alcanzó el limite de {MAX_PARTICIPANTES} participantes.",
+            "msg": f"The limit of {MAX_PARTICIPANTES} participants has already been reached.",
         }), 403
 
     if should_skip_gps_save(device_id):

@@ -47,7 +47,6 @@ _battery_lock = threading.Lock()
 _last_gps_saved_by_device: dict[str, float] = {}
 _gps_dedupe_lock = threading.Lock()
 device_trackers: dict[str, dict] = {}
-MAX_BATTERY_SCORE = 30.0
 MIN_GPS_SAVE_INTERVAL_SECONDS = 1.5
 PESO_RESET_CHECKPOINT_ID = 4
 PESO_RESET_DISTANCE_METERS = 4.0
@@ -146,70 +145,10 @@ def get_participant_position(participante: str) -> int | None:
         return None
 
 
-def get_battery_score(nivel_bateria: float) -> float:
-    with _battery_lock:
-        highest_battery = max(_battery_levels_by_device.values(), default=0.0)
-    if highest_battery > 0:
-        return round((nivel_bateria / highest_battery) * MAX_BATTERY_SCORE, 2)
-    return 0.0
-
-
-def competition_rank(sorted_items: list, target_item, rank_value_fn) -> int | None:
-    previous_value = None
-    current_rank = 0
-
-    for index, item in enumerate(sorted_items, start=1):
-        item_value = rank_value_fn(item)
-        if item_value != previous_value:
-            current_rank = index
-            previous_value = item_value
-
-        if item == target_item:
-            return current_rank
-
-    return None
-
-
-def get_battery_rank(device_id: str) -> int | None:
-    with _battery_lock:
-        battery_levels = dict(_battery_levels_by_device)
-
-    highest_battery = max(battery_levels.values(), default=0.0)
-
-    def score_from_snapshot(level: float) -> float:
-        if highest_battery <= 0:
-            return 0.0
-        return clamp((level / highest_battery) * MAX_BATTERY_SCORE, 0.0, MAX_BATTERY_SCORE)
-
-    with participants_lock:
-        participant_names = {
-            participant_device_id: entry.get("nombre") if isinstance(entry, dict) else entry
-            for participant_device_id, entry in participants_cache.items()
-        }
-
-    ranked_devices = sorted(
-        battery_levels,
-        key=lambda participant_device_id: (
-            -score_from_snapshot(battery_levels[participant_device_id]),
-            get_participant_position(participant_names.get(participant_device_id, "")) or 999999,
-            participant_device_id,
-        ),
-    )
-
-    return competition_rank(
-        ranked_devices,
-        device_id,
-        lambda participant_device_id: -round(score_from_snapshot(battery_levels[participant_device_id]), 6),
-    )
-
-
 def get_checkpoint_rank_value(runner: dict) -> tuple:
     return (
         runner.get("estado") != "terminado",
-        -int(runner.get(
-            "cantidad_checkpoints_ponderados_visitados",
-            runner.get("cantidad_checkpoints_visitados", 0),
-        )),
+        -int(runner.get("cantidad_checkpoints_visitados", 0)),
         round(float(runner.get("distancia_checkpoint_pendiente_mas_cercano_m", float("inf"))), 2),
     )
 
@@ -601,7 +540,6 @@ def gps():
         estado_anterior = participant_entry.get("estado", "corriendo")
         actualizar_estado_corredor(participant_entry, latitude, longitude, corredores=participants_cache)
         participant_entry["puntaje_retos"] = puntaje_retos_actual
-        participant_entry["peso"] = participant_entry.get("puntos_totales", 0)
 
         color_counts = normalize_color_counts(data.get("conteo_colores") or data.get("color_counts"))
         detected_colors = expand_detected_colors(color_counts)
@@ -658,7 +596,6 @@ def gps():
         checkpoint_state = {
             "checkpoints_visitados": participant_entry.get("checkpoints_visitados", []),
             "cantidad_checkpoints_visitados": participant_entry.get("cantidad_checkpoints_visitados", 0),
-            "cantidad_checkpoints_ponderados_visitados": participant_entry.get("cantidad_checkpoints_ponderados_visitados", 0),
             "checkpoint_descarga_visitado": participant_entry.get("checkpoint_descarga_visitado", False),
             "checkpoint_pendiente_mas_cercano": participant_entry.get("checkpoint_pendiente_mas_cercano"),
             "checkpoint_pendiente_mas_cercano_id": participant_entry.get("checkpoint_pendiente_mas_cercano_id"),
@@ -666,13 +603,8 @@ def gps():
             "checkpoint_mas_cercano": participant_entry.get("checkpoint_mas_cercano"),
             "checkpoint_mas_cercano_id": participant_entry.get("checkpoint_mas_cercano_id"),
             "distancia_checkpoint_mas_cercano_m": participant_entry.get("distancia_checkpoint_mas_cercano_m"),
-            "puntuacion_checkpoints": participant_entry.get("puntuacion_checkpoints", 0.0),
-            "puntaje_checkpoints": participant_entry.get("puntaje_checkpoints", 0.0),
             "puntaje_retos": participant_entry.get("puntaje_retos", 0.0),
             "estado": estado_actual,
-            "puntos_totales": participant_entry.get("puntos_totales", 0),
-            "puntaje_equipo": participant_entry.get("puntaje_equipo", 0),
-            "peso": participant_entry.get("puntos_totales", 0),
             "peso_kg": participant_entry.get("peso_kg", 0.0),
             "peso_entregado_kg": participant_entry.get("peso_entregado_kg", 0.0),
             "peso_descargado_kg": participant_entry.get("peso_descargado_kg", 0.0),
@@ -689,11 +621,7 @@ def gps():
         }
 
     posicion_checkpoints = get_checkpoint_rank_from_snapshot(device_id, runners_snapshot)
-    puntaje_bateria = get_battery_score(nivel_bateria)
-    posicion_bateria = get_battery_rank(device_id)
-    puntaje_checkpoints = checkpoint_state["puntaje_checkpoints"]
     puntaje_retos = safe_float(checkpoint_state["puntaje_retos"])
-    puntaje = round(puntaje_bateria + puntaje_checkpoints + puntaje_retos, 2)
     posicion = posicion_checkpoints
     runner_stats = update_runner_stats(participante, latitude, longitude, data.get("speed_kmh"))
 
@@ -712,29 +640,20 @@ def gps():
             "nivel_bateria": nivel_bateria,
             "posicion_inicial": posicion_inicial,
             "posicion": posicion,
-            "posicion_bateria": posicion_bateria,
             "posicion_checkpoints": posicion_checkpoints,
-            "puntaje_bateria": puntaje_bateria,
-            "puntaje_checkpoints": puntaje_checkpoints,
             "puntaje_retos": puntaje_retos,
             "puntaje_retos_total": puntaje_retos_detalle["puntaje_retos_total"],
             "puntaje_retos_equipo": puntaje_retos_detalle["puntaje_retos_equipo"],
             "puntaje_retos_origen": puntaje_retos_detalle["puntaje_retos_origen"],
             "puntaje_retos_lectura_ts": puntaje_retos_detalle["puntaje_retos_lectura_ts"],
-            "puntaje": puntaje,
-            "puntos_totales": checkpoint_state["puntos_totales"],
-            "peso": checkpoint_state["peso"],
             "peso_kg": checkpoint_state["peso_kg"],
             "peso_entregado_kg": checkpoint_state["peso_entregado_kg"],
             "peso_descargado_kg": checkpoint_state["peso_descargado_kg"],
-            "puntaje_equipo": checkpoint_state["puntaje_equipo"],
-            "puntuacion_checkpoints": checkpoint_state["puntuacion_checkpoints"],
             "checkpoints_visitados": checkpoint_state["checkpoints_visitados"],
             "checkpoints_visitados_txt": ",".join(
                 str(checkpoint_id) for checkpoint_id in checkpoint_state["checkpoints_visitados"]
             ),
             "cantidad_checkpoints_visitados": checkpoint_state["cantidad_checkpoints_visitados"],
-            "cantidad_checkpoints_ponderados_visitados": checkpoint_state["cantidad_checkpoints_ponderados_visitados"],
             "checkpoint_descarga_visitado": checkpoint_state["checkpoint_descarga_visitado"],
             "checkpoint_pendiente_mas_cercano": checkpoint_state["checkpoint_pendiente_mas_cercano"],
             "checkpoint_pendiente_mas_cercano_id": checkpoint_state["checkpoint_pendiente_mas_cercano_id"],
@@ -784,12 +703,8 @@ def gps():
         f"bateria={nivel_bateria:.2f}% "
         f"estado={checkpoint_state['estado']} "
         f"checkpoints={checkpoint_state['cantidad_checkpoints_visitados']} "
-        f"ponderados={checkpoint_state['cantidad_checkpoints_ponderados_visitados']} "
-        f"puntos={checkpoint_state['puntos_totales']} "
-        f"equipo={checkpoint_state['puntaje_equipo']} "
-        f"peso={float(checkpoint_state['peso']):.2f} "
         f"retos={puntaje_retos:.2f} "
-        f"puntaje={puntaje:.2f}"
+        f"puntaje_retos={puntaje_retos:.2f}"
     )
 
     socketio.emit("nueva_posicion", {
@@ -801,17 +716,12 @@ def gps():
         "max_speed": runner_stats["max_speed"],
         "nivel_bateria": nivel_bateria,
         "posicion": posicion,
-        "puntaje": puntaje,
         "puntaje_retos": puntaje_retos,
         "estado": checkpoint_state["estado"],
-        "puntos_totales": checkpoint_state["puntos_totales"],
-        "peso": checkpoint_state["peso"],
         "peso_kg": checkpoint_state["peso_kg"],
         "peso_entregado_kg": checkpoint_state["peso_entregado_kg"],
         "peso_descargado_kg": checkpoint_state["peso_descargado_kg"],
-        "puntaje_equipo": checkpoint_state["puntaje_equipo"],
         "checkpoints_visitados": checkpoint_state["cantidad_checkpoints_visitados"],
-        "checkpoints_ponderados_visitados": checkpoint_state["cantidad_checkpoints_ponderados_visitados"],
         "checkpoint_descarga_visitado": checkpoint_state["checkpoint_descarga_visitado"],
         "checkpoint_pendiente_mas_cercano": checkpoint_state["checkpoint_pendiente_mas_cercano"],
         "distancia_checkpoint_pendiente_mas_cercano_m": checkpoint_state["distancia_checkpoint_pendiente_mas_cercano_m"],
@@ -831,22 +741,13 @@ def gps():
         "nivel_bateria": nivel_bateria,
         "posicion_inicial": posicion_inicial,
         "posicion": posicion,
-        "posicion_bateria": posicion_bateria,
         "posicion_checkpoints": posicion_checkpoints,
-        "puntaje_bateria": puntaje_bateria,
-        "puntaje_checkpoints": puntaje_checkpoints,
         "puntaje_retos": puntaje_retos,
-        "puntaje": puntaje,
-        "puntos_totales": checkpoint_state["puntos_totales"],
-        "peso": checkpoint_state["peso"],
         "peso_kg": checkpoint_state["peso_kg"],
         "peso_entregado_kg": checkpoint_state["peso_entregado_kg"],
         "peso_descargado_kg": checkpoint_state["peso_descargado_kg"],
-        "puntaje_equipo": checkpoint_state["puntaje_equipo"],
-        "puntuacion_checkpoints": checkpoint_state["puntuacion_checkpoints"],
         "checkpoints_visitados": checkpoint_state["checkpoints_visitados"],
         "cantidad_checkpoints_visitados": checkpoint_state["cantidad_checkpoints_visitados"],
-        "cantidad_checkpoints_ponderados_visitados": checkpoint_state["cantidad_checkpoints_ponderados_visitados"],
         "checkpoint_descarga_visitado": checkpoint_state["checkpoint_descarga_visitado"],
         "checkpoint_pendiente_mas_cercano": checkpoint_state["checkpoint_pendiente_mas_cercano"],
         "distancia_checkpoint_pendiente_mas_cercano_m": checkpoint_state["distancia_checkpoint_pendiente_mas_cercano_m"],

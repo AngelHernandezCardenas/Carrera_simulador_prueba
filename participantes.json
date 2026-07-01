@@ -8,7 +8,6 @@
     ],
     "checkpoints_visitados": [],
     "cantidad_checkpoints_visitados": 0,
-    "cantidad_checkpoints_ponderados_visitados": 0,
     "checkpoint_descarga_visitado": false,
     "checkpoint_pendiente_mas_cercano": {
       "id": 3,
@@ -22,12 +21,6 @@
     },
     "checkpoint_mas_cercano_id": 3,
     "distancia_checkpoint_mas_cercano_m": 12026.85,
-    "puntuacion_checkpoints": -12026.85,
-    "puntaje_checkpoints": 0.0,
-    "checkpoints_puntos_entregados": [],
-    "puntos_totales": 0,
-    "peso": 0,
-    "puntaje_equipo": 0.0,
     "estado": "corriendo",
     "puntaje_retos": 40.0,
     "conteo_colores": {

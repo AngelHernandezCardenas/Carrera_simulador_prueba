@@ -4,6 +4,15 @@ from config import PARTICIPANTS_FILE, MAX_PARTICIPANTES, participants_lock
 
 # Cache en memoria de los participantes
 participants_cache: dict = {}
+OBSOLETE_SCORE_FIELDS = {
+    "cantidad_checkpoints_ponderados_visitados",
+    "puntuacion_checkpoints",
+    "puntaje_checkpoints",
+    "checkpoints_puntos_entregados",
+    "puntos_totales",
+    "peso",
+    "puntaje_equipo",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -40,6 +49,12 @@ def _migrar_participantes_si_necesario() -> None:
         if isinstance(value, str):
             participants_cache[device_id] = {"nombre": value}
             cambiado = True
+            continue
+        if isinstance(value, dict):
+            for field in OBSOLETE_SCORE_FIELDS:
+                if field in value:
+                    del value[field]
+                    cambiado = True
     if cambiado:
         save_participants(participants_cache)
 

@@ -1,12 +1,16 @@
 import threading
 import time
-from io import StringIO
+from io import BytesIO
 from urllib.request import Request, urlopen
 
 import pandas as pd
 
 
-URL_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiFEjEX7cGEjyR857KLj3nli2q6T0S0BeBXFAXIqsOJxfOfonj8-Ue32620vI2_OTwkAda-i7oKONL/pub?gid=0&single=true&output=csv"
+URL_CSV = "https://tecmx-my.sharepoint.com/:x:/g/personal/a00573396_tec_mx/IQCr9sj8DS4NQ6Vd5oTOoCjxAaaXAOP2xLiWAHV8Popp_JM?e=rpwVLK"
+NOMBRE_HOJA = "Stream_Final"
+PRIMERA_FILA_PUNTAJES = 19
+CANTIDAD_PARTICIPANTES = 15
+PUNTAJE_MAXIMO = 100.0
 
 ultimo_estado = None
 puntajes_retos_cache: dict[str, float] = {}
@@ -38,42 +42,22 @@ def normalizar_participante(equipo) -> str | None:
     return f"participante_{numero:02d}"
 
 
-def get_column_name(df: pd.DataFrame, expected_name: str) -> str:
-    normalized_expected = expected_name.strip().lower()
-    for column in df.columns:
-        if str(column).strip().lower() == normalized_expected:
-            return column
-    raise KeyError(f"No existe la columna '{expected_name}' en la hoja")
-
-
 def obtener_puntajes_por_participante(df: pd.DataFrame) -> dict[str, dict[str, float]]:
-    equipo_col = get_column_name(df, "Equipo")
-    puntaje_col = get_column_name(df, "Puntaje")
-    total_col = get_column_name(df, "Total")
-
-    datos = df[[equipo_col, puntaje_col, total_col]].copy()
-    datos = datos.rename(columns={
-        equipo_col: "Equipo",
-        puntaje_col: "Puntaje",
-        total_col: "Total",
-    })
-    datos["participante"] = datos["Equipo"].apply(normalizar_participante)
-    datos["Puntaje"] = pd.to_numeric(datos["Puntaje"], errors="coerce")
-    datos["Total"] = pd.to_numeric(datos["Total"], errors="coerce")
-    datos = datos.dropna(subset=["participante", "Puntaje", "Total"])
-
     return {
-        row["participante"]: {
-            "puntaje": float(row["Puntaje"]),
-            "total": float(row["Total"]),
+        f"participante_{numero:02d}": {
+            "puntaje": float(puntaje),
+            "total": PUNTAJE_MAXIMO,
         }
-        for _, row in datos.iterrows()
+        for numero, puntaje in enumerate(
+            pd.to_numeric(df.iloc[:, 0], errors="coerce"), start=1
+        )
+        if pd.notna(puntaje)
     }
 
 
 def leer_hoja_puntajes() -> pd.DataFrame:
     separador = "&" if "?" in URL_CSV else "?"
-    url_sin_cache = f"{URL_CSV}{separador}_ts={time.time_ns()}"
+    url_sin_cache = f"{URL_CSV}{separador}download=1&_ts={time.time_ns()}"
     request = Request(
         url_sin_cache,
         headers={
@@ -85,9 +69,16 @@ def leer_hoja_puntajes() -> pd.DataFrame:
     )
 
     with urlopen(request, timeout=15) as response:
-        csv_text = response.read().decode("utf-8-sig")
+        excel_bytes = response.read()
 
-    return pd.read_csv(StringIO(csv_text))
+    return pd.read_excel(
+        BytesIO(excel_bytes),
+        sheet_name=NOMBRE_HOJA,
+        usecols="E",
+        skiprows=PRIMERA_FILA_PUNTAJES - 1,
+        nrows=CANTIDAD_PARTICIPANTES,
+        header=None,
+    )
 
 
 def _get_puntajes_retos_detalle_snapshot() -> dict[str, dict[str, float]]:
@@ -107,23 +98,13 @@ def set_puntajes_retos_cache(puntajes_por_participante: dict[str, dict[str, floa
     with puntajes_retos_lock:
         for participante, valores in puntajes_por_participante.items():
             puntaje_nuevo = float(valores["puntaje"])
-            total_nuevo = float(valores["total"])
             puntaje_actual = puntajes_retos_cache.get(participante)
-            total_actual = totales_retos_cache.get(participante)
 
-            if puntaje_actual is None or total_actual is None:
-                puntajes_retos_cache[participante] = puntaje_nuevo
-                totales_retos_cache[participante] = total_nuevo
-                continue
-
-            if total_nuevo < total_actual:
-                continue
-
-            if total_nuevo == total_actual:
+            if puntaje_actual is not None and puntaje_nuevo < puntaje_actual:
                 continue
 
             puntajes_retos_cache[participante] = puntaje_nuevo
-            totales_retos_cache[participante] = total_nuevo
+            totales_retos_cache[participante] = PUNTAJE_MAXIMO
 
         ultima_actualizacion = now
         return _get_puntajes_retos_detalle_snapshot()
@@ -159,7 +140,7 @@ def get_puntaje_retos_detalle(participante: str) -> dict:
         "puntaje_retos": puntaje_retos,
         "puntaje_retos_total": total_retos,
         "puntaje_retos_equipo": equipo,
-        "puntaje_retos_origen": "google_sheet_total_monotonic_v5",
+        "puntaje_retos_origen": "sharepoint_stream_final_base_100_monotonic",
         "puntaje_retos_lectura_ts": lectura_ts,
     }
 

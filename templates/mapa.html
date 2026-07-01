@@ -1162,7 +1162,7 @@
                 <div class="popup-stat">Velocidad: <b id="popup-speed-${id}">${speed.toFixed(1)}</b> km/h</div>
                 <div class="popup-stat">Posición: <b>${data.posicion ?? '--'}</b></div>
                 <div class="popup-stat">Checkpoints visitados: <b>${data.checkpoints_visitados ?? 0}</b></div>
-                <div class="popup-stat">Puntaje: <b style="color: #10b981;">${formatNullable(data.puntaje, 2, '0.00')}</b></div>
+                <div class="popup-stat">Puntaje: <b style="color: #10b981;">${formatNullable(data.puntaje_retos, 2, '0.00')}</b></div>
                 <div class="popup-stat">Peso: <b>${formatPeso(getPesoValue(data))}</b> kg</div>
                 <div class="popup-stat">Checkpoint ponderado mas cercano: <b>${getClosestCheckpointLabel(data)}</b></div>
                 <div class="popup-stat">Dist. al ponderado: <b>${formatNullable(data.distancia_checkpoint_mas_cercano_m, 2)}</b> m</div>
@@ -1220,7 +1220,7 @@
 
                 // Crear card en la lista
                 const card = document.createElement('div');
-                const puntaje = Number(data.puntaje ?? data.puntos_totales ?? 0) || 0;
+                const puntaje = Number(data.puntaje_retos ?? 0) || 0;
                 const peso = getPesoValue(data);
                 card.className = `runner-card ${getPesoClass(peso)}`;
                 card.id = `card-${id}`;
@@ -1287,7 +1287,7 @@
                 const prevVisitedCount = runner.checkpoints_visitados || 0;
                 
                 if (visitedCount > prevVisitedCount) {
-                    showToast(`<b>${id}</b> llegó a un nuevo Checkpoint!<br>Puntaje: <span style="color: #10b981; font-weight: bold;">${formatNullable(data.puntaje, 2, '0.00')}</span>`);
+                    showToast(`<b>${id}</b> llegó a un nuevo Checkpoint!<br>Puntaje: <span style="color: #10b981; font-weight: bold;">${formatNullable(data.puntaje_retos, 2, '0.00')}</span>`);
                     
                     if (data.checkpoint_mas_cercano && data.distancia_checkpoint_mas_cercano_m < 20) {
                         const cpEl = document.getElementById(`cp-marker-${data.checkpoint_mas_cercano.id}`);
@@ -1305,7 +1305,7 @@
                 
                 const dist_km = data.distancia_km || 0;
                 const max_spd = data.max_speed || speed;
-                const pts = Number(data.puntaje ?? data.puntos_totales ?? 0) || 0;
+                const pts = Number(data.puntaje_retos ?? 0) || 0;
                 const peso = getPesoValue(data);
 
                 document.getElementById(`speed-${id}`).textContent = speed.toFixed(1);

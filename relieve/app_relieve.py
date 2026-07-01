@@ -77,11 +77,18 @@ def _reenviar_al_mapa(datos: dict) -> None:
         "latitude":     lat,
         "longitude":    lon,
         "device_id":    datos.get("dispositivo_id", "rasp"),
-        "device_label": BRIDGE_PARTICIPANTE,
+        "device_label": "Bicicleta Relieve",
+        "participante": "bicicleta_relieve",
         "speed_kmh":    None,
         # Campos extra (visibles en el log del servidor principal)
         "voltaje":      datos.get("voltaje"),
         "soc":          datos.get("soc"),
+        "motor_voltaje": datos.get("motor_voltaje"),
+        "motor_corriente": datos.get("motor_corriente"),
+        "motor_potencia": datos.get("motor_potencia"),
+        "motor_rpm": datos.get("motor_rpm"),
+        "motor_temp": datos.get("motor_temp"),
+        "ah_consumidos": datos.get("ah_consumidos")
     }
 
     try:
@@ -556,11 +563,9 @@ def recibir_datos():
             else:
                 last[k] = v
                 
-        # --- GPS FALSO TEMPORAL ---
-        # Si nunca hubo GPS, ponemos una coordenada de prueba para que aparezca en el mapa
-        if data.get("latitud") in [None, ""]:
-            data["latitud"] = 25.6866
-            data["longitud"] = -100.3161
+        # --- GPS FALSO TEMPORAL ELIMINADO ---
+        # Ya no inyectamos una coordenada falsa de Monterrey. Si no hay fix GPS,
+        # simplemente no tendra ubicacion y no se reenviara al mapa principal.
 
         dispositivos[dispositivo_id] = data
         historial.append(data)

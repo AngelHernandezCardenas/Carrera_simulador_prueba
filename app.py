@@ -636,16 +636,21 @@ def gps():
 
         estado_actual = participant_entry.get("estado", "corriendo")
         nivel_bateria_final = participant_entry.get("nivel_bateria_final")
-        if estado_actual == "terminado":
-            if estado_anterior != "terminado" or nivel_bateria_final is None:
-                nivel_bateria = get_next_battery_level(device_id)
-                participant_entry["nivel_bateria_final"] = nivel_bateria
-            else:
-                nivel_bateria = float(nivel_bateria_final)
-                with _battery_lock:
-                    _battery_levels_by_device[device_id] = nivel_bateria
+        if "soc" in data and data["soc"] is not None:
+            nivel_bateria = float(data["soc"])
+            with _battery_lock:
+                _battery_levels_by_device[device_id] = nivel_bateria
         else:
-            nivel_bateria = get_next_battery_level(device_id)
+            if estado_actual == "terminado":
+                if estado_anterior != "terminado" or nivel_bateria_final is None:
+                    nivel_bateria = get_next_battery_level(device_id)
+                    participant_entry["nivel_bateria_final"] = nivel_bateria
+                else:
+                    nivel_bateria = float(nivel_bateria_final)
+                    with _battery_lock:
+                        _battery_levels_by_device[device_id] = nivel_bateria
+            else:
+                nivel_bateria = get_next_battery_level(device_id)
 
         participant_entry["nivel_bateria"] = nivel_bateria
         save_participants(participants_cache)
@@ -760,6 +765,12 @@ def gps():
             "peso_descargado_kg": checkpoint_state["peso_descargado_kg"],
             "conteo_colores": checkpoint_state["conteo_colores"],
             "color_detectado": checkpoint_state["color_detectado"],
+            "motor_voltaje": data.get("motor_voltaje"),
+            "motor_corriente": data.get("motor_corriente"),
+            "motor_potencia": data.get("motor_potencia"),
+            "motor_rpm": data.get("motor_rpm"),
+            "motor_temp": data.get("motor_temp"),
+            "ah_consumidos": data.get("ah_consumidos")
         },
     }
 

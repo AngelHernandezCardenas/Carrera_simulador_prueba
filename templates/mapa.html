@@ -1170,6 +1170,12 @@
                 <div class="popup-stat">Dist. pendiente: <b>${formatNullable(data.distancia_checkpoint_pendiente_mas_cercano_m, 2)}</b> m</div>
                 <div class="popup-stat">Estado: <b>${data.estado || '--'}</b></div>
                 <div class="popup-stat">Nivel bateria: <b>${formatNullable(data.nivel_bateria, 2)}</b>%</div>
+                ${data.motor_voltaje !== undefined && data.motor_voltaje !== null ? `
+                <div class="popup-stat" style="margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1); color: #f59e0b;"><b>Telemetría Hardware</b></div>
+                <div class="popup-stat">Voltaje/Corr: <b>${formatNullable(data.motor_voltaje, 2)}V / ${formatNullable(data.motor_corriente, 2)}A</b></div>
+                <div class="popup-stat">Potencia/Ah: <b>${formatNullable(data.motor_potencia, 1)}W / ${formatNullable(data.ah_consumidos, 2)}Ah</b></div>
+                <div class="popup-stat">RPM/Temp: <b>${data.motor_rpm ?? '--'} / ${data.motor_temp ?? '--'}°C</b></div>
+                ` : ''}
             `;
         }
 

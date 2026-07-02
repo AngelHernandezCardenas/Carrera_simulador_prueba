@@ -76,5 +76,200 @@
   },
   "dev-mr2bychh-g5ndug0v": {
     "nombre": "participante_15"
+  },
+  "test1": {
+    "nombre": "participante_16",
+    "device_id": "test1",
+    "last_coord": [
+      25.65,
+      -100.29
+    ],
+    "checkpoints_visitados": [],
+    "cantidad_checkpoints_visitados": 0,
+    "checkpoint_descarga_visitado": false,
+    "checkpoint_pendiente_mas_cercano": {
+      "id": 2,
+      "nombre": "Checkpoint 2"
+    },
+    "checkpoint_pendiente_mas_cercano_id": 2,
+    "distancia_checkpoint_pendiente_mas_cercano_m": 62.77,
+    "checkpoint_mas_cercano": {
+      "id": 2,
+      "nombre": "Checkpoint 2"
+    },
+    "checkpoint_mas_cercano_id": 2,
+    "distancia_checkpoint_mas_cercano_m": 62.77,
+    "estado": "corriendo",
+    "puntaje_retos": 0.0,
+    "conteo_colores": {
+      "Rojo": 0,
+      "Blanco": 0,
+      "Negro": 0
+    },
+    "color_detectado": [],
+    "peso_kg": 0.0,
+    "peso_entregado_kg": 0.0,
+    "peso_descargado_kg": 0.0,
+    "en_checkpoint_descarga_peso": false,
+    "nivel_bateria": 38.30592168239407
+  },
+  "dev-mr2o3xyw-1h99fexy": {
+    "nombre": "participante_17"
+  },
+  "dev-mr2o3yju-r6dqqyg5": {
+    "nombre": "participante_18"
+  },
+  "dev-mr2o4ete-6wr7t8m2": {
+    "nombre": "participante_19"
+  },
+  "dev-mr2ntedp-5vsnptnt": {
+    "nombre": "participante_20",
+    "device_id": "dev-mr2ntedp-5vsnptnt",
+    "last_coord": [
+      25.651821333333334,
+      -100.29258200000001
+    ],
+    "checkpoints_visitados": [],
+    "cantidad_checkpoints_visitados": 0,
+    "checkpoint_descarga_visitado": false,
+    "checkpoint_pendiente_mas_cercano": {
+      "id": 4,
+      "nombre": "Checkpoint 4"
+    },
+    "checkpoint_pendiente_mas_cercano_id": 4,
+    "distancia_checkpoint_pendiente_mas_cercano_m": 149.03,
+    "checkpoint_mas_cercano": {
+      "id": 4,
+      "nombre": "Checkpoint 4"
+    },
+    "checkpoint_mas_cercano_id": 4,
+    "distancia_checkpoint_mas_cercano_m": 149.03,
+    "estado": "corriendo",
+    "puntaje_retos": 0.0,
+    "conteo_colores": {
+      "Rojo": 0,
+      "Blanco": 0,
+      "Negro": 0
+    },
+    "color_detectado": [],
+    "peso_kg": 0.0,
+    "peso_entregado_kg": 0.0,
+    "peso_descargado_kg": 0.0,
+    "en_checkpoint_descarga_peso": false,
+    "nivel_bateria": 74.9072593887898
+  },
+  "test_dev_1": {
+    "nombre": "participante_21",
+    "device_id": "test_dev_1",
+    "last_coord": [
+      25.651,
+      -100.29
+    ],
+    "checkpoints_visitados": [],
+    "cantidad_checkpoints_visitados": 0,
+    "checkpoint_descarga_visitado": false,
+    "checkpoint_pendiente_mas_cercano": {
+      "id": 3,
+      "nombre": "Checkpoint 3"
+    },
+    "checkpoint_pendiente_mas_cercano_id": 3,
+    "distancia_checkpoint_pendiente_mas_cercano_m": 54.5,
+    "checkpoint_mas_cercano": {
+      "id": 3,
+      "nombre": "Checkpoint 3"
+    },
+    "checkpoint_mas_cercano_id": 3,
+    "distancia_checkpoint_mas_cercano_m": 54.5,
+    "estado": "corriendo",
+    "puntaje_retos": 0.0,
+    "conteo_colores": {
+      "Rojo": 0,
+      "Blanco": 0,
+      "Negro": 0
+    },
+    "color_detectado": [],
+    "peso_kg": 0.0,
+    "peso_entregado_kg": 0.0,
+    "peso_descargado_kg": 0.0,
+    "en_checkpoint_descarga_peso": false,
+    "nivel_bateria": 81.42199614962055
+  },
+  "dev-mr2ol58b-z4da3kzp": {
+    "nombre": "participante_22",
+    "device_id": "dev-mr2ol58b-z4da3kzp",
+    "last_coord": [
+      25.651814209572223,
+      -100.2925880653175
+    ],
+    "checkpoints_visitados": [],
+    "cantidad_checkpoints_visitados": 0,
+    "checkpoint_descarga_visitado": false,
+    "checkpoint_pendiente_mas_cercano": {
+      "id": 4,
+      "nombre": "Checkpoint 4"
+    },
+    "checkpoint_pendiente_mas_cercano_id": 4,
+    "distancia_checkpoint_pendiente_mas_cercano_m": 149.41,
+    "checkpoint_mas_cercano": {
+      "id": 4,
+      "nombre": "Checkpoint 4"
+    },
+    "checkpoint_mas_cercano_id": 4,
+    "distancia_checkpoint_mas_cercano_m": 149.41,
+    "estado": "corriendo",
+    "puntaje_retos": 0.0,
+    "conteo_colores": {
+      "Rojo": 0,
+      "Blanco": 0,
+      "Negro": 0
+    },
+    "color_detectado": [],
+    "peso_kg": 0.0,
+    "peso_entregado_kg": 0.0,
+    "peso_descargado_kg": 0.0,
+    "en_checkpoint_descarga_peso": false,
+    "nivel_bateria": 91.86581432555194
+  },
+  "dev-mr2olrl3-xczz1wpy": {
+    "nombre": "participante_23",
+    "device_id": "dev-mr2olrl3-xczz1wpy",
+    "last_coord": [
+      25.65183019131944,
+      -100.29261278524493
+    ],
+    "checkpoints_visitados": [],
+    "cantidad_checkpoints_visitados": 0,
+    "checkpoint_descarga_visitado": false,
+    "checkpoint_pendiente_mas_cercano": {
+      "id": 4,
+      "nombre": "Checkpoint 4"
+    },
+    "checkpoint_pendiente_mas_cercano_id": 4,
+    "distancia_checkpoint_pendiente_mas_cercano_m": 152.27,
+    "checkpoint_mas_cercano": {
+      "id": 4,
+      "nombre": "Checkpoint 4"
+    },
+    "checkpoint_mas_cercano_id": 4,
+    "distancia_checkpoint_mas_cercano_m": 152.27,
+    "estado": "corriendo",
+    "puntaje_retos": 0.0,
+    "conteo_colores": {
+      "Rojo": 0,
+      "Blanco": 0,
+      "Negro": 0
+    },
+    "color_detectado": [],
+    "peso_kg": 0.0,
+    "peso_entregado_kg": 0.0,
+    "peso_descargado_kg": 0.0,
+    "en_checkpoint_descarga_peso": false,
+    "nivel_bateria": 63.721103063807774
+  },
+  "dev-mr2os2ar-detk8zo1": {
+    "nombre": "participante_24"
+  },
+  "dev-mr2otawm-v9002y9m": {
+    "nombre": "participante_25"
   }
 }

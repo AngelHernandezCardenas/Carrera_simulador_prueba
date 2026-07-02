@@ -430,6 +430,60 @@ def mapa():
     )
 
 
+@app.route("/scoreboard")
+def scoreboard():
+    return render_template(
+        "scoreboard.html",
+        checkpoints=[{**checkpoint, "nombre": get_checkpoint_name(checkpoint)} for checkpoint in CHECKPOINTS],
+        participantes=get_participants_for_view(),
+    )
+
+
+@app.route("/api/score", methods=["POST"])
+def api_score():
+    data = request.json or {}
+    checkpoint_id = data.get("checkpoint_id")
+    equipo = data.get("equipo")
+    puntaje = data.get("puntaje")
+    
+    if not checkpoint_id or not equipo or puntaje is None:
+        return jsonify({"status": "error", "msg": "Faltan datos"}), 400
+        
+    try:
+        puntaje = float(puntaje)
+        checkpoint_id_str = str(checkpoint_id)
+    except ValueError:
+        return jsonify({"status": "error", "msg": "Datos inválidos"}), 400
+
+    target_device = None
+    with participants_lock:
+        for dev_id, entry in participants_cache.items():
+            if isinstance(entry, dict) and entry.get("nombre") == equipo:
+                target_device = dev_id
+                break
+                
+        if target_device:
+            participant_entry = participants_cache[target_device]
+            participant_entry.setdefault("scores", {})[checkpoint_id_str] = puntaje
+            save_participants(participants_cache)
+            
+            puntaje_retos_detalle = get_puntaje_retos_detalle(equipo)
+            puntaje_retos_actual = puntaje_retos_detalle["puntaje_retos"]
+            puntaje_retos_local = sum(participant_entry["scores"].values())
+            total_puntaje = puntaje_retos_actual + puntaje_retos_local
+            
+            participant_entry["puntaje_retos"] = total_puntaje
+            
+            socketio.emit("update_puntaje", {
+                "participante": equipo,
+                "puntaje_retos": total_puntaje,
+                "scores_dict": participant_entry["scores"]
+            })
+            return jsonify({"status": "ok"})
+            
+    return jsonify({"status": "error", "msg": "Equipo no encontrado"}), 404
+
+
 @app.route("/jurados")
 def jurados():
     return render_template("jurados.html")
@@ -547,7 +601,10 @@ def gps():
 
         estado_anterior = participant_entry.get("estado", "corriendo")
         actualizar_estado_corredor(participant_entry, latitude, longitude, corredores=participants_cache)
-        participant_entry["puntaje_retos"] = puntaje_retos_actual
+        
+        participant_entry.setdefault("scores", {})
+        puntaje_retos_local = sum(participant_entry["scores"].values())
+        participant_entry["puntaje_retos"] = puntaje_retos_actual + puntaje_retos_local
 
         color_counts = normalize_color_counts(data.get("conteo_colores") or data.get("color_counts"))
         detected_colors = expand_detected_colors(color_counts)
@@ -618,6 +675,7 @@ def gps():
             "peso_descargado_kg": participant_entry.get("peso_descargado_kg", 0.0),
             "conteo_colores": participant_entry.get("conteo_colores", {color: 0 for color in COLOR_WEIGHTS_KG}),
             "color_detectado": participant_entry.get("color_detectado", []),
+            "scores_dict": participant_entry.get("scores", {}),
         }
         runners_snapshot = {
             runner_device_id: {
@@ -670,6 +728,7 @@ def gps():
             "checkpoint_mas_cercano_id": checkpoint_state["checkpoint_mas_cercano_id"],
             "distancia_checkpoint_mas_cercano_m": checkpoint_state["distancia_checkpoint_mas_cercano_m"],
             "estado": checkpoint_state["estado"],
+            "scores_dict": checkpoint_state["scores_dict"],
             "distancia_km": runner_stats["distancia_km"],
             "max_speed": runner_stats["max_speed"],
             "speed_mps": data.get("speed_mps"),
@@ -741,6 +800,7 @@ def gps():
         "peso_descargado_kg": checkpoint_state["peso_descargado_kg"],
         "conteo_colores": checkpoint_state["conteo_colores"],
         "color_detectado": checkpoint_state["color_detectado"],
+        "scores_dict": checkpoint_state["scores_dict"],
     })
 
     response = {
@@ -770,6 +830,7 @@ def gps():
         "peso_descargado_kg": checkpoint_state["peso_descargado_kg"],
         "conteo_colores": checkpoint_state["conteo_colores"],
         "color_detectado": checkpoint_state["color_detectado"],
+        "scores_dict": checkpoint_state["scores_dict"],
     }
 
     return jsonify(response)

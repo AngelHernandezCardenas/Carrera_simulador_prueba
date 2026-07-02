@@ -1157,6 +1157,16 @@
         }
 
         function buildRunnerPopupHtml(id, color, data, speed) {
+            let cp_status = '--';
+            if (data.checkpoint_mas_cercano && data.distancia_checkpoint_mas_cercano_m <= 5) {
+                const cp_id = String(data.checkpoint_mas_cercano.id);
+                if (data.scores_dict && data.scores_dict[cp_id] !== undefined) {
+                    cp_status = '<span style="color: #10b981;">Completado</span>';
+                } else {
+                    cp_status = '<span style="color: #ef4444;">En evaluación (No available)</span>';
+                }
+            }
+
             return `
                 <div class="popup-title" style="color: ${color};">${id}</div>
                 <div class="popup-stat">Velocidad: <b id="popup-speed-${id}">${speed.toFixed(1)}</b> km/h</div>
@@ -1166,9 +1176,10 @@
                 <div class="popup-stat">Peso: <b>${formatPeso(getPesoValue(data))}</b> kg</div>
                 <div class="popup-stat">Checkpoint ponderado mas cercano: <b>${getClosestCheckpointLabel(data)}</b></div>
                 <div class="popup-stat">Dist. al ponderado: <b>${formatNullable(data.distancia_checkpoint_mas_cercano_m, 2)}</b> m</div>
+                <div class="popup-stat">Estado Checkpoint Actual: <b>${cp_status}</b></div>
                 <div class="popup-stat">Checkpoint pendiente: <b>${getPendingCheckpointLabel(data)}</b></div>
                 <div class="popup-stat">Dist. pendiente: <b>${formatNullable(data.distancia_checkpoint_pendiente_mas_cercano_m, 2)}</b> m</div>
-                <div class="popup-stat">Estado: <b>${data.estado || '--'}</b></div>
+                <div class="popup-stat">Estado general: <b>${data.estado || '--'}</b></div>
                 <div class="popup-stat">Nivel bateria: <b>${formatNullable(data.nivel_bateria, 2)}</b>%</div>
                 ${data.motor_voltaje !== undefined && data.motor_voltaje !== null ? `
                 <div class="popup-stat" style="margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1); color: #f59e0b;"><b>Telemetría Hardware</b></div>
@@ -1178,6 +1189,24 @@
                 ` : ''}
             `;
         }
+
+        socket.on('update_puntaje', function(data) {
+            const id = data.participante;
+            if (state.runners[id]) {
+                const runner = state.runners[id];
+                document.getElementById(`puntos-${id}`).textContent = Number(data.puntaje_retos).toFixed(2);
+                
+                let cards = Array.from(listContainer.children);
+                cards.sort((a, b) => {
+                    let ptsA = parseFloat(a.querySelector('[id^="puntos-"]').textContent) || 0;
+                    let ptsB = parseFloat(b.querySelector('[id^="puntos-"]').textContent) || 0;
+                    return ptsB - ptsA;
+                });
+                cards.forEach(c => listContainer.appendChild(c));
+                
+                showToast(`<b>${id}</b> ha recibido un nuevo puntaje!<br>Total: <span style="color: #10b981; font-weight: bold;">${Number(data.puntaje_retos).toFixed(2)}</span>`);
+            }
+        });
 
         socket.on('nueva_posicion', function (data) {
             const id = data.participante;

@@ -351,7 +351,12 @@ Magnitude: --</div>
     // -------------------------------------------------------------------------
     // Acelerómetro
     // -------------------------------------------------------------------------
+    let ultimoRenderAcel = 0;
     function actualizarPanelAcelerometro() {
+        const ahora = Date.now();
+        if (ahora - ultimoRenderAcel < 200) return; // Límite de 5 cuadros por segundo para evitar que el navegador se trabe
+        ultimoRenderAcel = ahora;
+        
         document.getElementById("acelG").textContent = 
             `X: ${fmt(accelData.gx, 3)} m/s²\nY: ${fmt(accelData.gy, 3)} m/s²\nZ: ${fmt(accelData.gz, 3)} m/s²\nMagnitud: ${fmt(accelData.g_magnitude, 3)} m/s²`;
         document.getElementById("aceleracionReal").textContent = `${fmt(accelData.acceleration_mps2, 3)} m/s²`;

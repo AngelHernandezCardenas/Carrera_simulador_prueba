@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8">
+    <title>Carrera Tracker - Scoreboard Jueces</title>
+
+    <!-- Fuentes modernas -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+    <style>
+        :root {
+            --bg-dark: #0b0f19;
+            --panel-bg: rgba(15, 23, 42, 0.85);
+            --border-color: rgba(255, 255, 255, 0.1);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent: #3b82f6;
+            --success: #10b981;
+            --success: #10b981;
+            --warning: #f59e0b;
+        }
+
+        body.light-theme {
+            --bg-dark: #f1f5f9;
+            --panel-bg: rgba(255, 255, 255, 0.9);
+            --border-color: rgba(0, 0, 0, 0.15);
+            --text-main: #0f172a;
+            --text-muted: #475569;
+        }
+
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-image: radial-gradient(circle at top right, rgba(59, 130, 246, 0.1), transparent 400px),
+                radial-gradient(circle at bottom left, rgba(16, 185, 129, 0.05), transparent 400px);
+        }
+
+        .scoreboard-container {
+            width: 100%;
+            max-width: 450px;
+            background: var(--panel-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            padding: 30px;
+            box-sizing: border-box;
+        }
+
+        .header-title {
+            font-size: 24px;
+            font-weight: 800;
+            margin-bottom: 25px;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: -0.5px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-theme {
+            background: rgba(128, 128, 128, 0.2);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-theme:hover {
+            background: rgba(128, 128, 128, 0.3);
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: var(--warning);
+            box-shadow: 0 0 10px var(--warning);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
+            }
+
+            70% {
+                transform: scale(1);
+                box-shadow: 0 0 0 10px rgba(245, 158, 11, 0);
+            }
+
+            100% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+            }
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        .form-control {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 15px;
+            font-family: inherit;
+            box-sizing: border-box;
+            transition: all 0.3s ease;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        }
+
+        .form-control option {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+        }
+
+        body.light-theme .form-control {
+            background: rgba(255, 255, 255, 0.8);
+        }
+
+        body.light-theme .form-control option {
+            background-color: #ffffff;
+            color: #0f172a;
+        }
+
+        .btn-submit {
+            width: 100%;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 14px;
+            font-size: 16px;
+            font-weight: 800;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+        }
+
+        .btn-submit:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-submit:active {
+            transform: translateY(0);
+        }
+
+        #toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(16, 185, 129, 0.9);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            opacity: 0;
+            transform: translateY(-20px);
+            transition: all 0.3s ease;
+            pointer-events: none;
+        }
+
+        #toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="toast">Puntuación enviada correctamente</div>
+
+    <div class="scoreboard-container">
+        <div class="header-title">
+            <div class="header-left">
+                <div class="status-dot"></div> Scoreboard Jueces
+            </div>
+            <button id="btn-theme" class="btn-theme" onclick="toggleTheme()">Modo Claro</button>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label" for="checkpoint-select">Checkpoint Actual</label>
+            <select id="checkpoint-select" class="form-control">
+                <option value="">Selecciona un checkpoint...</option>
+                {% for checkpoint in checkpoints %}
+                <option value="{{ checkpoint.id }}">{{ checkpoint.nombre }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label" for="equipo-select">Equipo / Participante</label>
+            <select id="equipo-select" class="form-control">
+                <option value="">Selecciona un equipo...</option>
+                {% for i in range(1, 16) %}
+                <option value="participante_{{ '%02d' % i }}">participante_{{ '%02d' % i }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label" for="puntaje-input">Puntuación a Asignar</label>
+            <input type="number" id="puntaje-input" class="form-control" placeholder="Ej. 10" step="any">
+        </div>
+
+        <button class="btn-submit" onclick="enviarPuntaje()">Enviar al Mapa</button>
+    </div>
+
+    <script>
+        let isLightMode = false;
+        function toggleTheme() {
+            isLightMode = !isLightMode;
+            const btn = document.getElementById('btn-theme');
+            if (isLightMode) {
+                document.body.classList.add('light-theme');
+                btn.textContent = 'Modo Oscuro';
+            } else {
+                document.body.classList.remove('light-theme');
+                btn.textContent = 'Modo Claro';
+            }
+        }
+
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.style.background = isError ? 'rgba(239, 68, 68, 0.9)' : 'rgba(16, 185, 129, 0.9)';
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        async function enviarPuntaje() {
+            const checkpointId = document.getElementById('checkpoint-select').value;
+            const equipo = document.getElementById('equipo-select').value;
+            const puntaje = document.getElementById('puntaje-input').value;
+
+            if (!checkpointId || !equipo || puntaje === '') {
+                showToast("Por favor completa todos los campos", true);
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/score', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        checkpoint_id: parseInt(checkpointId),
+                        equipo: equipo,
+                        puntaje: parseFloat(puntaje)
+                    })
+                });
+
+                const data = await response.json();
+                if (data.status === 'ok') {
+                    showToast("¡Puntaje asignado con éxito!");
+                    document.getElementById('puntaje-input').value = '';
+                } else {
+                    showToast("Error: " + data.msg, true);
+                }
+            } catch (error) {
+                console.error("Error enviando puntaje:", error);
+                showToast("Error de conexión", true);
+            }
+        }
+    </script>
+</body>
+
+</html>

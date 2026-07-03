@@ -306,9 +306,9 @@
 </div>
 
 <!-- Visor en Pantalla Completa (720p) -->
-<div id="fullscreenViewer" class="fullscreen-viewer" onclick="closeFullscreen()">
-  <span class="fs-close-btn">&times;</span>
-  <img id="fullscreenImg" src="" />
+<div id="fullscreenViewer" class="fullscreen-viewer" onclick="closeFullscreen(event)">
+  <span class="fs-close-btn" onclick="forceCloseFullscreen()">&times;</span>
+  <img id="fullscreenImg" src="" onclick="toggleFullscreenContour(event)" title="Haz clic en la imagen para mostrar/ocultar contornos" style="cursor: pointer;" />
 </div>
 
 <script>
@@ -472,8 +472,21 @@
     fsViewer.style.display = 'flex';
   }
   
-  function closeFullscreen() {
+  function closeFullscreen(event) {
+    if (event.target.id === 'fullscreenViewer') {
+      document.getElementById('fullscreenViewer').style.display = 'none';
+    }
+  }
+
+  function forceCloseFullscreen() {
     document.getElementById('fullscreenViewer').style.display = 'none';
+  }
+
+  function toggleFullscreenContour(event) {
+    event.stopPropagation();
+    toggleContours(); // Alterna la variable global y el src de singlePhotoImg
+    const singlePhoto = document.getElementById('singlePhotoImg');
+    document.getElementById('fullscreenImg').src = singlePhoto.src;
   }
 
   // Actualizar cada 3 segundos

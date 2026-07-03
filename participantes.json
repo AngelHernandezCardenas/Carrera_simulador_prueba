@@ -18,8 +18,8 @@
     "nombre": "participante_06",
     "device_id": "app-mr4g9rjf-lku8i06v",
     "last_coord": [
-      25.831702157934465,
-      -97.49416725030707
+      25.83170145720009,
+      -97.49417220694536
     ],
     "checkpoints_visitados": [],
     "cantidad_checkpoints_visitados": 0,
@@ -29,13 +29,13 @@
       "nombre": "Checkpoint 1"
     },
     "checkpoint_pendiente_mas_cercano_id": 1,
-    "distancia_checkpoint_pendiente_mas_cercano_m": 280625.81,
+    "distancia_checkpoint_pendiente_mas_cercano_m": 280625.31,
     "checkpoint_mas_cercano": {
       "id": 1,
       "nombre": "Checkpoint 1"
     },
     "checkpoint_mas_cercano_id": 1,
-    "distancia_checkpoint_mas_cercano_m": 280625.81,
+    "distancia_checkpoint_mas_cercano_m": 280625.31,
     "estado": "corriendo",
     "scores": {},
     "puntaje_retos": 33.83,
@@ -49,6 +49,6 @@
     "peso_entregado_kg": 0.0,
     "peso_descargado_kg": 0.0,
     "en_checkpoint_descarga_peso": false,
-    "nivel_bateria": 65.79278990676785
+    "nivel_bateria": 64.39802181169894
   }
 }

@@ -189,7 +189,7 @@
       background-color: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      max-width: 800px;
+      max-width: 90vw;
       position: relative;
     }
     .close-modal {
@@ -215,6 +215,31 @@
       border-radius: 8px;
       cursor: pointer;
       border: 1px solid var(--border);
+    }
+    .fullscreen-viewer {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.95);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+      cursor: zoom-out;
+    }
+    .fullscreen-viewer img {
+      max-width: 95%;
+      max-height: 95%;
+      border-radius: 12px;
+      box-shadow: 0 0 30px rgba(0,0,0,0.8);
+    }
+    .fs-close-btn {
+      position: absolute;
+      top: 20px;
+      right: 30px;
+      color: white;
+      font-size: 40px;
+      font-weight: bold;
+      cursor: pointer;
     }
   </style>
 </head>
@@ -271,10 +296,19 @@
           Hide Contours
         </button>
       </div>
-      <img id="singlePhotoImg" src="" style="max-width: 100%; max-height: 60vh; border-radius: 8px; border: 2px solid var(--border);" />
+      <div style="position: relative; display: inline-block;">
+        <img id="singlePhotoImg" src="" onclick="openFullscreen()" style="max-width: 100%; max-height: 85vh; border-radius: 8px; border: 2px solid var(--border); cursor: zoom-in; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'" title="Click para expandir a pantalla completa" />
+        <div style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.6); color: white; padding: 5px 10px; border-radius: 5px; pointer-events: none; font-size: 20px;">&#x26F6;</div>
+      </div>
     </div>
 
   </div>
+</div>
+
+<!-- Visor en Pantalla Completa (720p) -->
+<div id="fullscreenViewer" class="fullscreen-viewer" onclick="closeFullscreen()">
+  <span class="fs-close-btn">&times;</span>
+  <img id="fullscreenImg" src="" />
 </div>
 
 <script>
@@ -427,6 +461,19 @@
     if (event.target == modal) {
       modal.style.display = 'none';
     }
+  }
+
+  // Funciones de Pantalla Completa
+  function openFullscreen() {
+    const fsViewer = document.getElementById('fullscreenViewer');
+    const fsImg = document.getElementById('fullscreenImg');
+    const singlePhoto = document.getElementById('singlePhotoImg');
+    fsImg.src = singlePhoto.src;
+    fsViewer.style.display = 'flex';
+  }
+  
+  function closeFullscreen() {
+    document.getElementById('fullscreenViewer').style.display = 'none';
   }
 
   // Actualizar cada 3 segundos

@@ -922,7 +922,7 @@ def vision():
 
         estado = device_trackers[device_id]
 
-        gp_max_w = 320
+        gp_max_w = 1280
         h_orig, w_orig = frame.shape[:2]
         if w_orig > gp_max_w:
             scale = gp_max_w / w_orig
@@ -951,7 +951,23 @@ def vision():
         annotated_b64 = base64.b64encode(buffer).decode("utf-8")
 
         if detectado and "color" in detectado:
-            checkpoint_context = get_gallery_checkpoint_context(device_id)
+            checkpoint_id_req = data.get("checkpoint_id", 0)
+            checkpoint_context = None
+
+            if checkpoint_id_req > 0:
+                for checkpoint in CHECKPOINTS:
+                    if int(checkpoint["id"]) == checkpoint_id_req:
+                        checkpoint_context = {
+                            "checkpoint_id": checkpoint_id_req,
+                            "checkpoint_nombre": get_checkpoint_name(checkpoint),
+                            "checkpoint_slug": f"checkpoint_{checkpoint_id_req}",
+                            "distancia_checkpoint_m": 0.0
+                        }
+                        break
+            
+            if not checkpoint_context:
+                checkpoint_context = get_gallery_checkpoint_context(device_id)
+
             if not checkpoint_context:
                 # Si no está en un checkpoint, asignar uno manual para que siempre se guarde la foto
                 checkpoint_context = {
@@ -1087,7 +1103,7 @@ def vision_fast():
 
         estado = device_trackers[device_id]
 
-        gp_max_w = 640  # Aumentado para mejor resolución
+        gp_max_w = 1280  # Aumentado para mejor resolución (720p)
         h_orig, w_orig = frame.shape[:2]
         if w_orig > gp_max_w:
             scale = gp_max_w / w_orig

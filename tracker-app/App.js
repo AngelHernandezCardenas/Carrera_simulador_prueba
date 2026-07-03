@@ -314,7 +314,7 @@ export default function App() {
     setLog('Procesando imagen (Rápido 150%)...', 'info');
 
     try {
-      const photo = await cameraRef.current.takePictureAsync({ base64: true, quality: 0.2, shutterSound: false });
+      const photo = await cameraRef.current.takePictureAsync({ base64: true, quality: 0.8, shutterSound: false });
       const data = await NetworkService.processVision(globalServerUrl, globalDeviceId, globalParticipante, photo.base64, globalCheckpoint);
 
       if (data.status === 'ok') {
@@ -399,6 +399,11 @@ export default function App() {
         />
       )}
 
+      {/* METRICS */}
+      <View style={styles.grid}>
+        <MetricCard full label="Nearest weighted checkpoint" value={checkpointInfo.label} detail={`Distance: ${fmt(checkpointInfo.distance, 2)} m`} />
+      </View>
+
       {/* SERVER AND REGISTRATION */}
       <View style={styles.connectionPanel}>
         <Text style={styles.label}>Server URL</Text>
@@ -478,26 +483,11 @@ export default function App() {
       </View>
 
       <TouchableOpacity
-        style={[styles.button, styles.secondaryButton, accelData.permission_state === 'granted' && styles.disabledButton]}
-        onPress={activateSensors}
-        disabled={accelData.permission_state === 'granted'}
-      >
-        <Text style={styles.buttonText}>
-          {accelData.permission_state === 'granted' ? 'Accelerometer active' : 'Activate manual accelerometer'}
-        </Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
         style={[styles.button, activo && styles.dangerButton]}
         onPress={activo ? stopFromButton : startCapture}
       >
         <Text style={styles.buttonText}>{activo ? 'Stop capture' : 'Start capture'}</Text>
       </TouchableOpacity>
-
-      {/* METRICS */}
-      <View style={styles.grid}>
-        <MetricCard full label="Nearest weighted checkpoint" value={checkpointInfo.label} detail={`Distance: ${fmt(checkpointInfo.distance, 2)} m`} />
-      </View>
 
       {/* STATUS BOX */}
       <View style={[styles.statusBox, styles[`status_${status.tone}`]]}>

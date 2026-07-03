@@ -96,7 +96,7 @@ class LocationService {
     }
 
     try {
-      const currentLoc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const currentLoc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.BestForNavigation });
       this.lastKnownLocation = currentLoc;
       if (onLocationUpdate) onLocationUpdate(currentLoc);
     } catch (e) {

@@ -31,6 +31,14 @@ else:
 
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
+
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Device-Id')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    return response
+
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 reset_participants()
@@ -209,6 +217,48 @@ def get_participants_for_view() -> list[str]:
         (name for name in participant_names if name),
         key=lambda name: (get_participant_position(name) or 999999, name),
     )
+
+def get_scoreboard_data() -> list[dict]:
+    from Puntaje import get_puntaje_retos
+    scoreboard_list = []
+    
+    galeria = load_gallery_items()
+    latest_images = {}
+    todas_fotos_dict = {}
+    for item in galeria:
+        part = item.get("participante")
+        if part:
+            if part not in todas_fotos_dict:
+                todas_fotos_dict[part] = []
+            if item.get("filename"):
+                todas_fotos_dict[part].append(item.get("filename"))
+
+            if part not in latest_images or item.get("timestamp", 0) > latest_images[part].get("timestamp", 0):
+                latest_images[part] = item
+
+    with participants_lock:
+        for entry in participants_cache.values():
+            if isinstance(entry, dict) and entry.get("nombre"):
+                nombre = entry.get("nombre")
+                scores = entry.get("scores", {})
+                
+                total_local = sum(scores.values())
+                puntaje_sheets = get_puntaje_retos(nombre)
+                total_score = total_local + puntaje_sheets
+                
+                ultima_foto = latest_images[nombre].get("filename") if nombre in latest_images else None
+                fotos_lista = todas_fotos_dict.get(nombre, [])
+                
+                scoreboard_list.append({
+                    "nombre": nombre,
+                    "scores": scores,
+                    "total_score": round(total_score, 2),
+                    "puntaje_sheets": round(puntaje_sheets, 2),
+                    "ultima_foto": ultima_foto,
+                    "todas_fotos": fotos_lista
+                })
+                
+    return sorted(scoreboard_list, key=lambda x: x["total_score"], reverse=True)
 
 
 def safe_filename_part(value) -> str:
@@ -412,7 +462,8 @@ def update_runner_stats(participante: str, latitude: float, longitude: float, sp
 
 @app.route("/")
 def index():
-    resp = make_response(render_template("index.html"))
+    dist_dir = os.path.join(os.path.dirname(__file__), "tracker-app", "dist")
+    resp = make_response(send_from_directory(dist_dir, "index.html"))
     resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     resp.headers["Pragma"] = "no-cache"
     resp.headers["Expires"] = "0"
@@ -437,6 +488,10 @@ def scoreboard():
         checkpoints=[{**checkpoint, "nombre": get_checkpoint_name(checkpoint)} for checkpoint in CHECKPOINTS],
         participantes=get_participants_for_view(),
     )
+
+@app.route("/tracker")
+def tracker():
+    return render_template("tracker.html")
 
 
 @app.route("/api/score", methods=["POST"])
@@ -506,6 +561,12 @@ def estado_mapa():
         "non_scoring_checkpoint_ids": [PESO_RESET_CHECKPOINT_ID],
         "participantes": get_participants_for_view(),
         "galeria": load_gallery_items(),
+    })
+
+@app.route("/api/scoreboard", methods=["GET"])
+def api_scoreboard():
+    return jsonify({
+        "participantes": get_scoreboard_data()
     })
 
 
@@ -1065,6 +1126,13 @@ def vision_fast():
         import traceback
         traceback.print_exc()
         return jsonify({"status": "error", "msg": str(e)}), 500
+
+@app.route("/<path:path>")
+def static_proxy(path):
+    dist_dir = os.path.join(os.path.dirname(__file__), "tracker-app", "dist")
+    if os.path.exists(os.path.join(dist_dir, path)):
+        return send_from_directory(dist_dir, path)
+    return "Not Found", 404
 
 # ---------------------------------------------------------------------------
 # Entry point

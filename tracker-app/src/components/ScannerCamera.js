@@ -13,6 +13,18 @@ export default function ScannerCamera({
 }) {
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [cameraLayout, setCameraLayout] = useState(null);
+  const [visibleColors, setVisibleColors] = useState(['Rojo', 'Blanco', 'Negro']);
+
+  useEffect(() => {
+    if (detectedBalls && detectedBalls.length > 0) {
+      setVisibleColors(['Negro']);
+      const t1 = setTimeout(() => setVisibleColors(['Negro', 'Blanco']), 300);
+      const t2 = setTimeout(() => setVisibleColors(['Negro', 'Blanco', 'Rojo']), 600);
+      return () => { clearTimeout(t1); clearTimeout(t2); };
+    } else {
+      setVisibleColors(['Rojo', 'Blanco', 'Negro']);
+    }
+  }, [detectedBalls]);
 
   const spinValue = useRef(new Animated.Value(0)).current;
   const loopRef = useRef(null);
@@ -42,11 +54,10 @@ export default function ScannerCamera({
   });
 
   const totalPts = (maxCounts.Rojo * 1) + (maxCounts.Blanco * 3) + (maxCounts.Negro * 5);
-  const limitReached = totalPts >= 10;
 
   return (
     <View style={styles.connectionPanel}>
-      <Text style={styles.label}>Cámara y Escáner YOLO</Text>
+      <Text style={styles.label}>CAMERA AND YOLO SCANNER</Text>
 
       <View
         style={styles.cameraContainer}
@@ -81,7 +92,7 @@ export default function ScannerCamera({
         {/* Contorno de las pelotas detectadas */}
         {cameraLayout && (() => {
           const colorCounts = { Rojo: 0, Blanco: 0, Negro: 0 };
-          return detectedBalls.map((b, i) => {
+          return detectedBalls.filter(b => visibleColors.includes(b.color)).map((b, i) => {
             const colorMap = { 'Rojo': '#ef4444', 'Blanco': '#ffffff', 'Negro': '#111111' };
             colorCounts[b.color] = (colorCounts[b.color] || 0) + 1;
             const currentCount = colorCounts[b.color];
@@ -144,10 +155,10 @@ export default function ScannerCamera({
           <TouchableOpacity
             style={[styles.button, styles.secondaryButton, { flex: 1, backgroundColor: contandoActivo ? '#7f8c8d' : '#2563eb' }]}
             onPress={onScanOnce}
-            disabled={contandoActivo || limitReached || !isCameraReady}
+            disabled={contandoActivo || !isCameraReady}
           >
             <Text style={styles.buttonText}>
-              {limitReached ? 'Limit Reached' : (contandoActivo ? 'Processing...' : 'Scan Balls')}
+              {contandoActivo ? 'Processing...' : 'Scan Balls'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -189,10 +200,15 @@ const styles = StyleSheet.create({
   connectionPanel: {
     backgroundColor: '#ffffff',
     borderColor: '#e2e8f0',
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
-    marginBottom: 12,
-    padding: 14,
+    marginBottom: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   label: {
     color: '#64748b',

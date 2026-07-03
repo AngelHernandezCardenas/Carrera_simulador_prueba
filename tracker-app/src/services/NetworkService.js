@@ -41,7 +41,7 @@ class NetworkService {
     return data;
   }
 
-  async processVision(serverUrl, deviceId, participante, base64Image) {
+  async processVision(serverUrl, deviceId, participante, base64Image, checkpointId) {
     const resp = await fetch(`${serverUrl}/vision`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -49,7 +49,8 @@ class NetworkService {
         device_id: deviceId || 'unknown',
         participante: participante || 'Desconocido',
         image: base64Image,
-        mobile: true
+        mobile: true,
+        checkpoint_id: checkpointId || 0
       })
     });
 

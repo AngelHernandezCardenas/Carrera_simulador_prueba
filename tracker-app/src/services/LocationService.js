@@ -95,6 +95,14 @@ class LocationService {
       console.log('Background location no disponible:', error.message);
     }
 
+    try {
+      const currentLoc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      this.lastKnownLocation = currentLoc;
+      if (onLocationUpdate) onLocationUpdate(currentLoc);
+    } catch (e) {
+      console.log('No se pudo obtener la ubicacion inicial:', e.message);
+    }
+
     this.locationSubscription = await Location.watchPositionAsync(
       {
         accuracy: Location.Accuracy.BestForNavigation,

@@ -1,319 +1,438 @@
 <!DOCTYPE html>
-<html lang="es">
-
+<html lang="en">
 <head>
-    <meta charset="utf-8">
-    <title>Carrera Tracker - Scoreboard Jueces</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>General Real-Time Scoreboard</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #3b82f6;
+      --border: #334155;
+      --radius: 12px;
+    }
 
-    <!-- Fuentes modernas -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+    }
 
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    .container {
+      max-width: 1000px;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
 
-    <style>
-        :root {
-            --bg-dark: #0b0f19;
-            --panel-bg: rgba(15, 23, 42, 0.85);
-            --border-color: rgba(255, 255, 255, 0.1);
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --accent: #3b82f6;
-            --success: #10b981;
-            --success: #10b981;
-            --warning: #f59e0b;
-        }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+    }
 
-        body.light-theme {
-            --bg-dark: #f1f5f9;
-            --panel-bg: rgba(255, 255, 255, 0.9);
-            --border-color: rgba(0, 0, 0, 0.15);
-            --text-main: #0f172a;
-            --text-muted: #475569;
-        }
+    h1 {
+      margin: 0;
+      font-size: 32px;
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
 
-        body,
-        html {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg-dark);
-            color: var(--text-main);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background-image: radial-gradient(circle at top right, rgba(59, 130, 246, 0.1), transparent 400px),
-                radial-gradient(circle at bottom left, rgba(16, 185, 129, 0.05), transparent 400px);
-        }
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      color: var(--text-muted);
+    }
 
-        .scoreboard-container {
-            width: 100%;
-            max-width: 450px;
-            background: var(--panel-bg);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-            padding: 30px;
-            box-sizing: border-box;
-        }
+    .pulse {
+      width: 10px;
+      height: 10px;
+      background-color: #22c55e;
+      border-radius: 50%;
+      box-shadow: 0 0 10px #22c55e;
+      animation: pulse 1.5s infinite;
+    }
 
-        .header-title {
-            font-size: 24px;
-            font-weight: 800;
-            margin-bottom: 25px;
-            text-align: center;
-            text-transform: uppercase;
-            letter-spacing: -0.5px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
+    @keyframes pulse {
+      0% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.2); }
+      100% { opacity: 1; transform: scale(1); }
+    }
 
-        .header-left {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
 
-        .btn-theme {
-            background: rgba(128, 128, 128, 0.2);
-            color: var(--text-main);
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            padding: 6px 12px;
-            font-size: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
 
-        .btn-theme:hover {
-            background: rgba(128, 128, 128, 0.3);
-        }
+    th, td {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+    }
 
-        .status-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background-color: var(--warning);
-            box-shadow: 0 0 10px var(--warning);
-            animation: pulse 2s infinite;
-        }
+    th {
+      background: rgba(255, 255, 255, 0.02);
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-size: 12px;
+      letter-spacing: 1px;
+    }
 
-        @keyframes pulse {
-            0% {
-                transform: scale(0.95);
-                box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
-            }
+    tr:last-child td {
+      border-bottom: none;
+    }
 
-            70% {
-                transform: scale(1);
-                box-shadow: 0 0 0 10px rgba(245, 158, 11, 0);
-            }
+    tr:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
 
-            100% {
-                transform: scale(0.95);
-                box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
-            }
-        }
+    .rank {
+      font-weight: 900;
+      font-size: 18px;
+      color: var(--text-muted);
+      width: 50px;
+      text-align: center;
+    }
 
-        .form-group {
-            margin-bottom: 20px;
-        }
+    .rank-1 { color: #fbbf24; font-size: 24px; text-shadow: 0 0 10px rgba(251, 191, 36, 0.5); }
+    .rank-2 { color: #94a3b8; font-size: 22px; }
+    .rank-3 { color: #b45309; font-size: 20px; }
 
-        .form-label {
-            display: block;
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--text-muted);
-            margin-bottom: 8px;
-            text-transform: uppercase;
-        }
+    .team-name {
+      font-weight: bold;
+      font-size: 16px;
+    }
 
-        .form-control {
-            width: 100%;
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid var(--border-color);
-            color: var(--text-main);
-            border-radius: 8px;
-            padding: 12px;
-            font-size: 15px;
-            font-family: inherit;
-            box-sizing: border-box;
-            transition: all 0.3s ease;
-        }
+    .score-badge {
+      display: inline-block;
+      background: rgba(59, 130, 246, 0.2);
+      color: #60a5fa;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-weight: bold;
+      font-size: 16px;
+      border: 1px solid rgba(59, 130, 246, 0.3);
+    }
 
-        .form-control:focus {
-            outline: none;
-            border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
-        }
+    .checkpoints-list {
+      font-family: monospace;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
 
-        .form-control option {
-            background-color: var(--bg-dark);
-            color: var(--text-main);
-        }
+    .btn-back {
+      display: inline-block;
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      padding: 8px 16px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
 
-        body.light-theme .form-control {
-            background: rgba(255, 255, 255, 0.8);
-        }
+    .btn-back:hover {
+      background: var(--border);
+      color: white;
+    }
 
-        body.light-theme .form-control option {
-            background-color: #ffffff;
-            color: #0f172a;
-        }
-
-        .btn-submit {
-            width: 100%;
-            background: var(--accent);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            padding: 14px;
-            font-size: 16px;
-            font-weight: 800;
-            cursor: pointer;
-            text-transform: uppercase;
-            transition: all 0.3s ease;
-            margin-top: 10px;
-        }
-
-        .btn-submit:hover {
-            background: #2563eb;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
-        }
-
-        .btn-submit:active {
-            transform: translateY(0);
-        }
-
-        #toast {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: rgba(16, 185, 129, 0.9);
-            color: white;
-            padding: 12px 20px;
-            border-radius: 8px;
-            font-weight: 600;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-            opacity: 0;
-            transform: translateY(-20px);
-            transition: all 0.3s ease;
-            pointer-events: none;
-        }
-
-        #toast.show {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    </style>
+    .hamburger-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      margin-left: 10px;
+      padding: 5px;
+      vertical-align: middle;
+      transition: color 0.2s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .hamburger-btn:hover {
+      color: var(--text);
+    }
+    
+    .gallery-modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(15, 23, 42, 0.9);
+      overflow-y: auto;
+    }
+    .gallery-modal-content {
+      margin: 5% auto;
+      padding: 20px;
+      background-color: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      max-width: 800px;
+      position: relative;
+    }
+    .close-modal {
+      color: var(--text-muted);
+      float: right;
+      font-size: 28px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .close-modal:hover {
+      color: white;
+    }
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .gallery-grid img {
+      width: 100%;
+      height: 150px;
+      object-fit: cover;
+      border-radius: 8px;
+      cursor: pointer;
+      border: 1px solid var(--border);
+    }
+  </style>
 </head>
-
 <body>
-    <div id="toast">Puntuación enviada correctamente</div>
 
-    <div class="scoreboard-container">
-        <div class="header-title">
-            <div class="header-left">
-                <div class="status-dot"></div> Scoreboard Jueces
-            </div>
-            <button id="btn-theme" class="btn-theme" onclick="toggleTheme()">Modo Claro</button>
-        </div>
+<div class="container">
+  <div class="header">
+    <div>
+      <h1>Live Scoreboard</h1>
+      <p style="color: var(--text-muted); margin: 5px 0 0 0;">Official real-time ranking</p>
+    </div>
+    <div style="display: flex; gap: 15px; align-items: center;">
+      <div class="status">
+        <div class="pulse"></div>
+        Live updating...
+      </div>
+    </div>
+  </div>
 
-        <div class="form-group">
-            <label class="form-label" for="checkpoint-select">Checkpoint Actual</label>
-            <select id="checkpoint-select" class="form-control">
-                <option value="">Selecciona un checkpoint...</option>
-                {% for checkpoint in checkpoints %}
-                <option value="{{ checkpoint.id }}">{{ checkpoint.nombre }}</option>
-                {% endfor %}
-            </select>
-        </div>
+  <div class="panel">
+    <table>
+      <thead>
+        <tr>
+          <th style="text-align: center;">Position</th>
+          <th>Competitor</th>
+          <th>Checkpoints Visited</th>
+          <th style="text-align: center;">Photos</th>
+          <th style="text-align: right;">Total Score</th>
+        </tr>
+      </thead>
+      <tbody id="scoreboardBody">
+        <tr><td colspan="5" style="text-align: center; padding: 30px;">Loading data...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
 
-        <div class="form-group">
-            <label class="form-label" for="equipo-select">Equipo / Participante</label>
-            <select id="equipo-select" class="form-control">
-                <option value="">Selecciona un equipo...</option>
-                {% for i in range(1, 16) %}
-                <option value="participante_{{ '%02d' % i }}">participante_{{ '%02d' % i }}</option>
-                {% endfor %}
-            </select>
-        </div>
-
-        <div class="form-group">
-            <label class="form-label" for="puntaje-input">Puntuación a Asignar</label>
-            <input type="number" id="puntaje-input" class="form-control" placeholder="Ej. 10" step="any">
-        </div>
-
-        <button class="btn-submit" onclick="enviarPuntaje()">Enviar al Mapa</button>
+<!-- Modal para Galería de Fotos -->
+<div id="photoModal" class="gallery-modal">
+  <div class="gallery-modal-content">
+    <span class="close-modal" onclick="closeModal()">&times;</span>
+    <h2 id="modalTitle" style="margin-top: 0;">Photos of participant</h2>
+    
+    <!-- Gallery Grid View -->
+    <div id="modalGallery" class="gallery-grid"></div>
+    
+    <!-- Single Photo View -->
+    <div id="singlePhotoView" style="display: none; text-align: center; margin-top: 20px;">
+      <div style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+        <button onclick="backToGallery()" style="padding: 10px 20px; background: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">
+          &larr; Back to Gallery
+        </button>
+        <button id="toggleContoursBtn" onclick="toggleContours()" style="padding: 15px 30px; background: #ef4444; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+          Hide Contours
+        </button>
+      </div>
+      <img id="singlePhotoImg" src="" style="max-width: 100%; max-height: 60vh; border-radius: 8px; border: 2px solid var(--border);" />
     </div>
 
-    <script>
-        let isLightMode = false;
-        function toggleTheme() {
-            isLightMode = !isLightMode;
-            const btn = document.getElementById('btn-theme');
-            if (isLightMode) {
-                document.body.classList.add('light-theme');
-                btn.textContent = 'Modo Oscuro';
-            } else {
-                document.body.classList.remove('light-theme');
-                btn.textContent = 'Modo Claro';
-            }
-        }
+  </div>
+</div>
 
-        function showToast(message, isError = false) {
-            const toast = document.getElementById('toast');
-            toast.textContent = message;
-            toast.style.background = isError ? 'rgba(239, 68, 68, 0.9)' : 'rgba(16, 185, 129, 0.9)';
-            toast.classList.add('show');
-            setTimeout(() => {
-                toast.classList.remove('show');
-            }, 3000);
-        }
+<script>
+  async function fetchScoreboard() {
+    try {
+      const res = await fetch('/api/scoreboard');
+      const data = await res.json();
+      
+      if(data.participantes) {
+        // Ordenar por puntaje mayor a menor
+        let parts = data.participantes;
+        parts.sort((a, b) => (b.total_score || 0) - (a.total_score || 0));
+        
+        const tbody = document.getElementById('scoreboardBody');
+        tbody.innerHTML = '';
+        
+        parts.forEach((p, idx) => {
+          // Filtrar equipos con 0 puntos si quieres, pero mostraremos todos
+          const rank = idx + 1;
+          let rankClass = '';
+          if(rank === 1) rankClass = 'rank-1';
+          else if(rank === 2) rankClass = 'rank-2';
+          else if(rank === 3) rankClass = 'rank-3';
+          
+          const scoresDetails = p.scores || {};
+          let checkpointsText = Object.keys(scoresDetails)
+                                  .map(cp => `CP${cp}: ${scoresDetails[cp]}`)
+                                  .join(', ') || 'None';
+                                  
+          const tr = document.createElement('tr');
+          const encodedFotos = encodeURIComponent(JSON.stringify(p.todas_fotos || []));
+          const btnHtml = (p.todas_fotos && p.todas_fotos.length > 0)
+            ? `<button class="hamburger-btn" onclick="openModal('${p.nombre}', JSON.parse(decodeURIComponent('${encodedFotos}')))" title="View all photos">
+                 <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                   <rect x="2" y="4" width="20" height="3.5" rx="1.75" />
+                   <rect x="2" y="10.25" width="20" height="3.5" rx="1.75" />
+                   <rect x="2" y="16.5" width="20" height="3.5" rx="1.75" />
+                 </svg>
+               </button>`
+            : '';
 
-        async function enviarPuntaje() {
-            const checkpointId = document.getElementById('checkpoint-select').value;
-            const equipo = document.getElementById('equipo-select').value;
-            const puntaje = document.getElementById('puntaje-input').value;
+          const imgHtml = p.ultima_foto 
+            ? `<img src="/capturas/${p.ultima_foto}" alt="Photo" style="max-height: 40px; border-radius: 4px; object-fit: cover; cursor: pointer; vertical-align: middle;" onclick="openModal('${p.nombre}', JSON.parse(decodeURIComponent('${encodedFotos}')), '${p.ultima_foto}')">`
+            : '<span style="color: var(--text-muted); font-size: 12px; vertical-align: middle;">No photo</span>';
+            
+          tr.innerHTML = `
+            <td class="rank ${rankClass}">${rank}</td>
+            <td class="team-name">${p.nombre}</td>
+            <td class="checkpoints-list">${checkpointsText}</td>
+            <td style="text-align: center;">
+              ${imgHtml}
+              ${btnHtml}
+            </td>
+            <td style="text-align: right;">
+              <div class="score-badge">${p.total_score || 0} pts</div>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+    } catch (e) {
+      console.error("Error actualizando scoreboard:", e);
+    }
+  }
 
-            if (!checkpointId || !equipo || puntaje === '') {
-                showToast("Por favor completa todos los campos", true);
-                return;
-            }
+  // Funciones del Modal
+  let currentSingleImage = "";
+  let showingContours = true;
 
-            try {
-                const response = await fetch('/api/score', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        checkpoint_id: parseInt(checkpointId),
-                        equipo: equipo,
-                        puntaje: parseFloat(puntaje)
-                    })
-                });
+  function openModal(nombre, fotos, singlePhoto = null) {
+    const modal = document.getElementById('photoModal');
+    const title = document.getElementById('modalTitle');
+    const gallery = document.getElementById('modalGallery');
+    const singleView = document.getElementById('singlePhotoView');
+    
+    title.textContent = 'All photos of ' + nombre;
+    gallery.innerHTML = '';
+    
+    gallery.style.display = 'grid';
+    singleView.style.display = 'none';
+    
+    if (fotos && fotos.length > 0) {
+      fotos.forEach(foto => {
+        const img = document.createElement('img');
+        img.src = '/capturas/' + foto;
+        img.onclick = () => viewSinglePhoto(foto);
+        gallery.appendChild(img);
+      });
+    } else {
+      gallery.style.display = 'block';
+      gallery.innerHTML = '<p style="color: var(--text-muted);">No photos available.</p>';
+    }
+    
+    modal.style.display = 'block';
+    
+    if (singlePhoto) {
+      viewSinglePhoto(singlePhoto);
+    }
+  }
 
-                const data = await response.json();
-                if (data.status === 'ok') {
-                    showToast("¡Puntaje asignado con éxito!");
-                    document.getElementById('puntaje-input').value = '';
-                } else {
-                    showToast("Error: " + data.msg, true);
-                }
-            } catch (error) {
-                console.error("Error enviando puntaje:", error);
-                showToast("Error de conexión", true);
-            }
-        }
-    </script>
+  function viewSinglePhoto(foto) {
+    currentSingleImage = foto;
+    showingContours = true;
+    
+    document.getElementById('modalGallery').style.display = 'none';
+    document.getElementById('singlePhotoView').style.display = 'block';
+    
+    updateSingleImageSource();
+    const btn = document.getElementById('toggleContoursBtn');
+    btn.textContent = 'Hide Contours';
+    btn.style.background = '#ef4444';
+  }
+  
+  function backToGallery() {
+    document.getElementById('modalGallery').style.display = 'grid';
+    document.getElementById('singlePhotoView').style.display = 'none';
+  }
+  
+  function toggleContours() {
+    showingContours = !showingContours;
+    const btn = document.getElementById('toggleContoursBtn');
+    
+    if (showingContours) {
+      btn.textContent = 'Hide Contours';
+      btn.style.background = '#ef4444';
+    } else {
+      btn.textContent = 'Show Contours';
+      btn.style.background = '#22c55e';
+    }
+    
+    updateSingleImageSource();
+  }
+  
+  function updateSingleImageSource() {
+    const imgElement = document.getElementById('singlePhotoImg');
+    if (showingContours) {
+      imgElement.src = '/capturas/' + currentSingleImage;
+    } else {
+      imgElement.src = '/capturas/' + currentSingleImage.replace('.jpg', '_clean.jpg');
+    }
+  }
+
+  function closeModal() {
+    document.getElementById('photoModal').style.display = 'none';
+  }
+  
+  // Cerrar al hacer clic fuera del contenido del modal
+  window.onclick = function(event) {
+    const modal = document.getElementById('photoModal');
+    if (event.target == modal) {
+      modal.style.display = 'none';
+    }
+  }
+
+  // Actualizar cada 3 segundos
+  setInterval(fetchScoreboard, 3000);
+  fetchScoreboard();
+</script>
+
 </body>
-
 </html>

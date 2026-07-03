@@ -13,15 +13,16 @@ import { fmt, cleanServerUrl, getCheckpointLabel } from './src/utils/FormatUtils
 import MetricCard from './src/components/MetricCard';
 import ScannerCamera from './src/components/ScannerCamera';
 import GalleryModal from './src/components/GalleryModal';
+import ErrorBoundary from './src/ErrorBoundary';
 
-LogBox.ignoreAllLogs();
-
+// LogBox.ignoreAllLogs();
 const LOCATION_TASK_NAME = 'background-location-task';
 
 // Globals for Background Task (since TaskManager is out of React context)
 let globalServerUrl = '';
 let globalParticipante = null;
 let globalDeviceId = null;
+let globalCheckpoint = 0;
 let globalSendingGps = false;
 let globalLastGpsSentMs = 0;
 const GPS_SEND_INTERVAL_MS = 2000;
@@ -142,20 +143,26 @@ export default function App() {
     }
 
     let savedUrl = await StorageService.getServerUrl();
+    if (!savedUrl && Platform.OS === 'web') {
+      savedUrl = window.location.origin;
+    }
     const savedParticipant = await StorageService.getParticipante();
+    const savedCheckpoint = await StorageService.getCheckpoint();
 
     globalDeviceId = id;
     globalServerUrl = cleanServerUrl(savedUrl);
     globalParticipante = savedParticipant;
+    if (savedCheckpoint) globalCheckpoint = parseInt(savedCheckpoint, 10);
 
     if (!mountedRef.current) return;
     setDeviceId(id);
     setServerUrl(savedUrl);
     setParticipante(savedParticipant);
+    if (savedCheckpoint) setCheckpointInfo({ id: parseInt(savedCheckpoint, 10) });
     setLog(
       savedParticipant
-        ? `${savedParticipant} listo. Inicia captura cuando quieras.`
-        : 'Ingresa la URL del servidor y registra este celular.',
+        ? `${savedParticipant} ready. Start capture when ready.`
+        : 'Enter Server URL and register device.',
       savedParticipant ? 'ok' : 'neutral'
     );
   };
@@ -163,11 +170,11 @@ export default function App() {
   const activateSensors = async () => {
     try {
       await SensorService.activate((data) => setAccelData(data));
-      setLog('Acelerometro activado. Ahora puedes iniciar la captura.', 'ok');
+      setLog('Accelerometer active. You can now start capture.', 'ok');
       return true;
     } catch (error) {
       setAccelData(SensorService.getData());
-      setLog(`No se pudo activar el acelerometro:\n${error.message}`, 'error');
+      setLog(`Could not activate accelerometer:\n${error.message}`, 'error');
       return false;
     }
   };
@@ -175,16 +182,16 @@ export default function App() {
   const registerParticipant = async () => {
     const url = cleanServerUrl(serverUrl);
     if (!url.startsWith('http')) {
-      Alert.alert('URL invalida', 'Ingresa una URL http/https del servidor.');
+      Alert.alert('Invalid URL', 'Enter a valid http/https server URL.');
       return;
     }
     if (!deviceId) {
-      setLog('Preparando ID del dispositivo, intenta de nuevo en un momento.', 'error');
+      setLog('Preparing device ID, try again in a moment.', 'error');
       return;
     }
 
     try {
-      setLog('Registrando participante...', 'neutral');
+      setLog('Registering participant...', 'neutral');
       const data = await NetworkService.registerDevice(url, deviceId);
 
       await StorageService.multiSet([
@@ -196,27 +203,29 @@ export default function App() {
       globalParticipante = data.participante;
       setServerUrl(url);
       setParticipante(data.participante);
-      setLog(`${data.participante} asignado.\nActiva captura para mandar GPS y acelerometro.`, 'ok');
+      setLog(`Registered correctly.`, 'success');
+      setActivo(true);
+      startCapture();
     } catch (error) {
-      setLog(`Error al registrar:\n${error.message}`, 'error');
+      setLog(`Registration error: ${error.message}`, 'error');
     }
   };
 
   const startCapture = async () => {
     if (!participante) {
-      Alert.alert('Falta registro', 'Primero conecta y registra este celular.');
+      Alert.alert('Missing registration', 'Connect and register this device first.');
       return;
     }
 
     try {
       const hasPermissions = await LocationService.requestPermissions();
       if (!hasPermissions) {
-        setLog('Permiso de fondo denegado. Funcionara mientras la app este abierta.', 'error');
+        setLog('Background permission denied. Will function while app is open.', 'error');
       }
       await activateSensors();
 
       setActivo(true);
-      setLog('Obteniendo ubicacion y acelerometro...', 'neutral');
+      setLog('Getting location and accelerometer...', 'neutral');
 
       await LocationService.startTracking(LOCATION_TASK_NAME, handleLocation);
 
@@ -245,7 +254,7 @@ export default function App() {
 
   const stopFromButton = async () => {
     await stopCapture();
-    setLog('Captura detenida.', 'neutral');
+    setLog('Capture stopped.', 'neutral');
   };
 
   const handleLocation = async (loc) => {
@@ -306,7 +315,7 @@ export default function App() {
 
     try {
       const photo = await cameraRef.current.takePictureAsync({ base64: true, quality: 0.2, shutterSound: false });
-      const data = await NetworkService.processVision(globalServerUrl, globalDeviceId, globalParticipante, photo.base64);
+      const data = await NetworkService.processVision(globalServerUrl, globalDeviceId, globalParticipante, photo.base64, globalCheckpoint);
 
       if (data.status === 'ok') {
         setDetectedBalls(data.balls || []);
@@ -314,19 +323,11 @@ export default function App() {
           for (const color of ['Rojo', 'Blanco', 'Negro']) {
             let val = data.counts[color] || 0;
             countsRef.current[color] = Math.max(countsRef.current[color], val);
-
-            if (color === 'Negro' && countsRef.current[color] > 2) countsRef.current[color] = 2;
-            if (color === 'Blanco' && countsRef.current[color] > 3) countsRef.current[color] = 3;
-            if (color === 'Rojo' && countsRef.current[color] > 10) countsRef.current[color] = 10;
           }
           setMaxCounts({ ...countsRef.current });
 
           const pts = (countsRef.current.Rojo * 1) + (countsRef.current.Blanco * 3) + (countsRef.current.Negro * 5);
-          if (pts >= 10) {
-            setLog('Límite de 10 puntos alcanzado.', 'success');
-          } else {
-            setLog(`Escaneo listo: ${pts} puntos.`, 'success');
-          }
+          setLog(`Scan ready: ${pts} points.`, 'success');
 
           setTimeout(() => {
             if (mountedRef.current) setDetectedBalls([]);
@@ -334,7 +335,7 @@ export default function App() {
         }
       }
     } catch (e) {
-      setLog('Error al conectar con servidor', 'error');
+      setLog('Error connecting to server', 'error');
     }
 
     scanningRef.current = false;
@@ -354,7 +355,7 @@ export default function App() {
       setGaleriaImagenes(data);
       setGaleriaVisible(true);
     } catch (e) {
-      setLog('Error al cargar la galería', 'error');
+      setLog('Error loading gallery', 'error');
     }
   };
 
@@ -362,27 +363,28 @@ export default function App() {
     try {
       await NetworkService.clearGallery(globalServerUrl);
       setGaleriaImagenes([]);
-      setLog('Galería limpiada', 'neutral');
+      setLog('Gallery cleared', 'neutral');
     } catch (e) {
-      setLog('Error al limpiar la galería', 'error');
+      setLog('Error clearing gallery', 'error');
     }
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ErrorBoundary>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <StatusBar style="dark" />
-      <Text style={styles.title}>Tracker y Escáner</Text>
-      <Text style={styles.subtitle}>Captura ubicación y escanea pelotas con YOLO.</Text>
+      <Text style={styles.title}>Tracker & Scanner</Text>
+      <Text style={styles.subtitle}>Capture location and scan balls with YOLO.</Text>
 
       {/* CAMERA AND YOLO */}
       {!permission ? (
-        <View style={styles.connectionPanel}><Text>Cargando permisos de cámara...</Text></View>
+        <View style={styles.connectionPanel}><Text>Loading camera permissions...</Text></View>
       ) : !permission.granted ? (
         <View style={styles.connectionPanel}>
-          <Text style={styles.label}>Cámara y Escáner YOLO</Text>
-          <Text style={{ marginBottom: 10 }}>Necesitamos permiso para usar la cámara</Text>
+          <Text style={styles.label}>CAMERA AND YOLO SCANNER</Text>
+          <Text style={{ marginBottom: 10 }}>We need permission to use the camera</Text>
           <TouchableOpacity style={[styles.button, styles.secondaryButton]} onPress={requestPermission}>
-            <Text style={styles.buttonText}>Otorgar Permiso</Text>
+            <Text style={styles.buttonText}>Grant Permission</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -409,6 +411,63 @@ export default function App() {
           autoCorrect={false}
           editable={!activo}
         />
+        
+        {Platform.OS === 'web' && (
+          <>
+            <Text style={styles.label}>Select Checkpoint (Judge)</Text>
+            <select
+              style={{ ...styles.input, height: 40, padding: 8 }}
+              value={checkpointInfo.id || ""}
+              onChange={(e) => {
+                const val = parseInt(e.target.value, 10);
+                setCheckpointInfo({ id: val });
+                StorageService.setCheckpoint(val.toString());
+                globalCheckpoint = val;
+              }}
+            >
+              <option value="">-- Select Checkpoint --</option>
+              <option value="1">Checkpoint 1</option>
+              <option value="2">Checkpoint 2</option>
+              <option value="3">Checkpoint 3</option>
+              <option value="4">Checkpoint 4</option>
+              <option value="5">Checkpoint 5</option>
+              <option value="6">Checkpoint 6</option>
+              <option value="7">Checkpoint 7</option>
+              <option value="8">Checkpoint 8</option>
+              <option value="9">Checkpoint 9</option>
+              <option value="10">Checkpoint 10</option>
+            </select>
+
+            <Text style={styles.label}>Participant to Scan</Text>
+            <select
+              style={{ ...styles.input, height: 40, padding: 8 }}
+              value={participante || "Desconocido"}
+              onChange={(e) => {
+                setParticipante(e.target.value);
+                StorageService.setParticipante(e.target.value);
+                globalParticipante = e.target.value;
+              }}
+            >
+              <option value="Desconocido">-- Select Participant --</option>
+              <option value="Participante_1">Participant 1</option>
+              <option value="Participante_2">Participant 2</option>
+              <option value="Participante_3">Participant 3</option>
+              <option value="Participante_4">Participant 4</option>
+              <option value="Participante_5">Participant 5</option>
+              <option value="Participante_6">Participant 6</option>
+              <option value="Participante_7">Participant 7</option>
+              <option value="Participante_8">Participant 8</option>
+              <option value="Participante_9">Participant 9</option>
+              <option value="Participante_10">Participant 10</option>
+              <option value="Participante_11">Participant 11</option>
+              <option value="Participante_12">Participant 12</option>
+              <option value="Participante_13">Participant 13</option>
+              <option value="Participante_14">Participant 14</option>
+              <option value="Participante_15">Participant 15</option>
+            </select>
+          </>
+        )}
+
         <TouchableOpacity
           style={[styles.button, styles.secondaryButton, (!canRegister || activo) && styles.disabledButton]}
           onPress={registerParticipant}
@@ -437,19 +496,7 @@ export default function App() {
 
       {/* METRICS */}
       <View style={styles.grid}>
-        <MetricCard label="Speed" value={`${fmt(speedInfo.speed_kmh, 2)} km/h`} detail={`Source: ${speedInfo.speed_source || 'waiting for GPS'}`} />
-        <MetricCard label="GPS Accuracy" value={location ? `+/-${fmt(location.coords.accuracy, 0)} m` : '-- m'} detail={`Time: ${location ? new Date(location.timestamp || Date.now()).toLocaleTimeString() : '--'}`} />
         <MetricCard full label="Nearest weighted checkpoint" value={checkpointInfo.label} detail={`Distance: ${fmt(checkpointInfo.distance, 2)} m`} />
-        
-        <View style={styles.cardFull}>
-          <Text style={styles.label}>Accelerometer with gravity</Text>
-          <Text style={styles.small}>X: {fmt(accelData.gx, 3)} m/s2</Text>
-          <Text style={styles.small}>Y: {fmt(accelData.gy, 3)} m/s2</Text>
-          <Text style={styles.small}>Z: {fmt(accelData.gz, 3)} m/s2</Text>
-          <Text style={styles.small}>Magnitude: {fmt(accelData.g_magnitude, 3)} m/s2</Text>
-        </View>
-
-        <MetricCard full label="Acceleration" value={`${fmt(speedInfo.acceleration_mps2, 3)} m/s2`} detail="Speed / time, 3 samples" />
       </View>
 
       {/* STATUS BOX */}
@@ -465,15 +512,16 @@ export default function App() {
         serverUrl={serverUrl}
       />
     </ScrollView>
+    </ErrorBoundary>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8fafc' },
-  content: { padding: 20, paddingTop: 58, paddingBottom: 40 },
-  title: { color: '#0f172a', fontSize: 30, fontWeight: '800', marginBottom: 6 },
-  subtitle: { color: '#475569', fontSize: 14, lineHeight: 20, marginBottom: 18 },
-  connectionPanel: { backgroundColor: '#ffffff', borderColor: '#e2e8f0', borderRadius: 8, borderWidth: 1, marginBottom: 12, padding: 14 },
+  content: { padding: 20, paddingTop: 58, paddingBottom: 40, width: '100%', maxWidth: 700, alignSelf: 'center' },
+  title: { color: '#0f172a', fontSize: 30, fontWeight: '800', marginBottom: 6, textAlign: 'center' },
+  subtitle: { color: '#475569', fontSize: 14, lineHeight: 20, marginBottom: 18, textAlign: 'center' },
+  connectionPanel: { backgroundColor: '#ffffff', borderColor: '#e2e8f0', borderRadius: 12, borderWidth: 1, marginBottom: 16, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
   input: { backgroundColor: '#f1f5f9', borderColor: '#e2e8f0', borderRadius: 8, borderWidth: 1, color: '#0f172a', fontSize: 15, marginBottom: 10, paddingHorizontal: 12, paddingVertical: 12 },
   button: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 8, marginBottom: 10, paddingHorizontal: 16, paddingVertical: 15 },
   secondaryButton: { backgroundColor: '#0f766e' },

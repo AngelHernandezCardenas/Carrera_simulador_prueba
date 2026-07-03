@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Tracker y Escáner Web</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --text: #0f172a;
+      --text-muted: #475569;
+      --primary: #2563eb;
+      --secondary: #0f766e;
+      --danger: #dc2626;
+      --border: #e2e8f0;
+      --radius: 8px;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      padding-bottom: 50px;
+    }
+
+    .container {
+      padding: 20px;
+      padding-top: 58px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 6px 0;
+      font-size: 30px;
+      font-weight: 800;
+      color: var(--text);
+    }
+    .subtitle {
+      color: var(--text-muted);
+      margin-bottom: 18px;
+      font-size: 14px;
+      line-height: 20px;
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+
+    .panel-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: #64748b;
+      margin-bottom: 6px;
+    }
+
+    input, select {
+      width: 100%;
+      background: #f1f5f9;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      box-sizing: border-box;
+      font-size: 15px;
+    }
+
+    button {
+      width: 100%;
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 15px 16px;
+      border-radius: 8px;
+      font-weight: bold;
+      font-size: 16px;
+      cursor: pointer;
+      margin-bottom: 10px;
+      font-family: "Times New Roman", Times, serif;
+    }
+    button:disabled {
+      background: #93c5fd;
+      cursor: not-allowed;
+    }
+    .btn-secondary { background: var(--secondary); }
+    .btn-danger { background: var(--danger); }
+    .row { display: flex; gap: 10px; }
+
+    /* Camera Container */
+    .camera-container {
+      position: relative;
+      width: 100%;
+      background: black;
+      border-radius: 8px;
+      overflow: hidden;
+      aspect-ratio: 3/4;
+      margin-bottom: 10px;
+    }
+    #videoElement {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    #overlayCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+    .detection-zone {
+      position: absolute;
+      top: 15%;
+      left: 15%;
+      width: 70%;
+      height: 70%;
+      border-radius: 50%;
+      border: 2px dashed rgba(255, 255, 255, 0.6);
+      pointer-events: none;
+    }
+    .scan-line {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 4px;
+      background: rgba(0, 255, 0, 0.8);
+      box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+      pointer-events: none;
+      display: none;
+    }
+    @keyframes scanAnimation {
+      0% { top: 0%; opacity: 0; }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { top: 100%; opacity: 0; }
+    }
+    .scan-active .scan-line {
+      display: block;
+      animation: scanAnimation 1.5s linear infinite;
+    }
+
+    /* Counters */
+    .counters {
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      background: white;
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      margin-bottom: 10px;
+    }
+    .circle {
+      width: 50px;
+      height: 50px;
+      border-radius: 25px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-weight: bold;
+      font-size: 20px;
+    }
+    .circle-red { background: #ef4444; color: white; }
+    .circle-white { background: white; color: black; border: 1px solid #ccc; }
+    .circle-black { background: #111111; color: white; }
+
+    /* Score */
+    .score-panel {
+      background: white;
+      padding: 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+    .score-value {
+      font-size: 20px;
+      font-weight: 800;
+      color: #0f172a;
+    }
+
+    /* Metrics Grid */
+    .metrics-grid {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      margin-top: 4px;
+    }
+    .metric-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+      width: calc(50% - 5px);
+      margin-bottom: 10px;
+      box-sizing: border-box;
+    }
+    .metric-card.full { width: 100%; min-height: 104px; }
+    .metric-label { font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; }
+    .metric-value { font-size: 16px; font-weight: bold; margin-bottom: 3px; color: var(--text); }
+    .metric-detail { font-size: 11px; color: var(--text-muted); }
+    
+    .mono { font-family: monospace; font-size: 14px; line-height: 21px; color: #334155; }
+    
+    /* Status Box */
+    .status-box {
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      margin-top: 4px;
+      padding: 14px;
+      background: #f1f5f9;
+    }
+    .status-box.ok { background: #dcfce7; border-color: #86efac; color: #166534; }
+    .status-box.error { background: #fee2e2; border-color: #fecaca; color: #991b1b; }
+    .status-text { font-size: 14px; line-height: 20px; }
+
+    /* Gallery Modal */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.8); z-index: 1000;
+      display: none; align-items: center; justify-content: center;
+    }
+    .modal-content {
+      background: #1e293b; color: white; width: 90%; max-height: 90%;
+      border-radius: 12px; padding: 20px; overflow-y: auto;
+    }
+    .modal-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #334155;
+    }
+    .gallery-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;
+    }
+    .gallery-item {
+      background: #0f172a; border-radius: 8px; overflow: hidden; border: 1px solid #334155;
+    }
+    .gallery-item img { width: 100%; height: 120px; object-fit: cover; }
+    .gallery-info { padding: 10px; font-size: 12px; }
+    
+    #visorModal { z-index: 2000; }
+    #visorImg { max-width: 100%; max-height: 70vh; object-fit: contain; }
+
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>Tracker y Escáner</h1>
+  <p class="subtitle">Captura ubicación y escanea pelotas con YOLO.</p>
+
+  <!-- CAMERA PANEL -->
+  <div class="panel">
+    <div class="panel-title">Cámara y Escáner YOLO</div>
+    
+    <div class="camera-container" id="cameraBox">
+      <video id="videoElement" autoplay playsinline muted></video>
+      <div class="detection-zone"></div>
+      <div class="scan-line"></div>
+      <canvas id="overlayCanvas"></canvas>
+    </div>
+
+    <div style="margin-bottom: 20px;">
+      <div class="row" style="margin-bottom: 10px;">
+        <button id="btnScan" class="btn-secondary" style="flex: 1;">Scan Balls</button>
+      </div>
+      <div class="row">
+        <button id="btnReset" class="btn-danger" style="flex: 1; margin-right: 5px;">Reset</button>
+        <button id="btnGallery" style="flex: 1; background-color: #8e44ad; margin-left: 5px;">Gallery</button>
+      </div>
+      <!-- ADDING SUBMIT BUTTON SO THE JUDGE CAN SCORE DIRECTLY IN TRACKER -->
+      <div class="row" style="margin-top:10px;">
+         <button id="btnSubmitScore" style="flex: 1; background-color: #16a085;">Enviar Puntaje al Mapa</button>
+      </div>
+    </div>
+
+    <div class="counters">
+      <div class="circle circle-red" id="cntRed">0</div>
+      <div class="circle circle-white" id="cntWhite">0</div>
+      <div class="circle circle-black" id="cntBlack">0</div>
+    </div>
+
+    <div class="score-panel">
+      <div class="panel-title" style="margin-bottom:4px;">Visual load scanner</div>
+      <div class="score-value" id="totalPts">0 pts</div>
+    </div>
+  </div>
+
+  <!-- SERVER URL PANEL -->
+  <div class="panel">
+    <div class="panel-title">Server URL & Registro</div>
+    <input type="text" id="serverUrl" readonly>
+    <select id="participante">
+      <option value="Desconocido">Desconocido (Selecciona Competidor)</option>
+      <script>
+        for(let i=1; i<=15; i++) {
+          let num = i.toString().padStart(2, '0');
+          document.write(`<option value="Participante_${num}">Participante ${num}</option>`);
+        }
+      </script>
+    </select>
+    <select id="checkpointSelect">
+      <option value="">-- Selecciona el Checkpoint donde te ubicas --</option>
+      <script>
+        for(let i=1; i<=10; i++) {
+          document.write(`<option value="${i}">Checkpoint ${i}</option>`);
+        }
+      </script>
+    </select>
+    <input type="text" id="deviceId" placeholder="ID del Dispositivo (ej. dev-123)" style="display:none;">
+    <button id="btnRegister" class="btn-secondary">Connect and register</button>
+  </div>
+
+  <!-- CONTROLS -->
+  <div id="sensorControls" style="display: none;">
+    <button id="btnAccel" class="btn-secondary">Activate manual accelerometer</button>
+    <button id="btnCapture">Start capture</button>
+  </div>
+
+  <!-- METRICS -->
+  <div class="metrics-grid">
+    <div class="metric-card full">
+      <div class="metric-label">Nearest weighted checkpoint</div>
+      <div class="metric-value" id="mNearest">No Data</div>
+      <div class="metric-detail" id="mNearestDist">Distance: -- m</div>
+    </div>
+  </div>
+
+  <!-- STATUS BOX -->
+  <div class="status-box" id="statusBox">
+    <div class="status-text" id="statusText">Tracker listo.</div>
+  </div>
+</div>
+
+<!-- GALLERY MODAL -->
+<div class="modal-overlay" id="galleryModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 style="margin:0; font-size: 20px;">Gallery (0 images)</h2>
+      <button onclick="document.getElementById('galleryModal').style.display='none'" style="width: auto; margin:0; padding: 5px 15px; background: transparent; border: 1px solid white;">Close</button>
+    </div>
+    <button class="btn-danger" onclick="limpiarGaleria()" style="margin-bottom: 15px;">Clear Gallery</button>
+    <div class="gallery-grid" id="galleryContent">Cargando...</div>
+  </div>
+</div>
+
+<!-- VISOR MODAL -->
+<div class="modal-overlay" id="visorModal">
+  <div class="modal-content" style="text-align: center; max-width: 95%;">
+    <div class="modal-header" style="margin-bottom: 10px;">
+      <button onclick="toggleContorno()" class="btn-secondary" style="width: auto; margin:0; padding: 5px 15px;">Toggle Contorno</button>
+      <button onclick="document.getElementById('visorModal').style.display='none'" style="width: auto; margin:0; padding: 5px 15px; background: transparent; border: 1px solid white;">Close</button>
+    </div>
+    <div style="overflow: hidden;" id="visorContainer">
+      <img id="visorImg" src="" alt="Visor">
+    </div>
+    <div class="row" style="margin-top: 10px; justify-content: center;">
+      <button onclick="zoomVisor(0.5)" style="width:auto; padding: 10px;">Zoom In (+)</button>
+      <button onclick="zoomVisor(-0.5)" style="width:auto; padding: 10px;">Zoom Out (-)</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Global State
+  let deviceId = localStorage.getItem('tracker_device_id') || `web-${Math.floor(Math.random()*10000)}`;
+  let participante = localStorage.getItem('tracker_participante') || 'Desconocido';
+  let currentCheckpoint = localStorage.getItem('tracker_checkpoint') || '';
+  
+  document.getElementById('deviceId').value = deviceId;
+  document.getElementById('participante').value = participante;
+  document.getElementById('checkpointSelect').value = currentCheckpoint;
+  document.getElementById('serverUrl').value = window.location.origin;
+
+  let isTracking = false;
+  let trackInterval = null;
+  let geoWatchId = null;
+
+  // Sensor Data
+  let lastLat = 0, lastLon = 0, lastAcc = 0;
+  let gx = 0, gy = 0, gz = 0, g_mag = 0;
+  let speedMps = 0, speedKmh = 0;
+  let lastSpeedMps = 0;
+  let acceleration_mps2 = 0;
+
+  // YOLO State
+  let maxCounts = { Rojo: 0, Blanco: 0, Negro: 0 };
+  let currentPoints = 0;
+
+  const statusBox = document.getElementById('statusBox');
+  const statusText = document.getElementById('statusText');
+  function setLog(msg, type='neutral') { 
+    statusText.innerText = msg; 
+    statusBox.className = 'status-box';
+    if(type==='ok' || type==='success') statusBox.classList.add('ok');
+    if(type==='error') statusBox.classList.add('error');
+  }
+
+  // 1. Camera Initialization
+  const video = document.getElementById('videoElement');
+  const canvas = document.getElementById('overlayCanvas');
+  const ctx = canvas.getContext('2d');
+
+  async function initCamera() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+            facingMode: 'environment', 
+            width: { ideal: 4096 }, 
+            height: { ideal: 2160 } 
+        } 
+      });
+      video.srcObject = stream;
+    } catch (err) {
+      setLog("Error cámara: " + err.message, "error");
+    }
+  }
+  
+  video.addEventListener('loadedmetadata', () => {
+    canvas.width = video.clientWidth;
+    canvas.height = video.clientHeight;
+  });
+
+  initCamera();
+
+  // 2. YOLO Scan Logic
+  document.getElementById('btnScan').addEventListener('click', async () => {
+    if (!video.videoWidth) return setLog("Cámara no lista", "error");
+    if (currentPoints >= 10) return setLog("Límite de 10 puntos alcanzado.", "ok");
+    
+    setLog("Procesando imagen...", "neutral");
+    
+    const tempCanvas = document.createElement('canvas');
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+    const cw = video.clientWidth;
+    const ch = video.clientHeight;
+    
+    // Calculate crop for object-fit: cover
+    const vRatio = vw / vh;
+    const cRatio = cw / ch;
+    let sx = 0, sy = 0, sWidth = vw, sHeight = vh;
+    if (vRatio > cRatio) {
+        sWidth = vh * cRatio;
+        sx = (vw - sWidth) / 2;
+    } else {
+        sHeight = vw / cRatio;
+        sy = (vh - sHeight) / 2;
+    }
+    
+    // Keep native cropped resolution for higher YOLO accuracy
+    tempCanvas.width = sWidth;
+    tempCanvas.height = sHeight;
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCtx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, sWidth, sHeight);
+    const b64 = tempCanvas.toDataURL('image/jpeg', 0.95);
+    
+    document.getElementById('cameraBox').classList.add('scan-active');
+
+    try {
+      const res = await fetch('/vision', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ device_id: deviceId, participante: participante, image: b64, mobile: true, checkpoint_id: currentCheckpoint || 0 })
+      });
+      const data = await res.json();
+      document.getElementById('cameraBox').classList.remove('scan-active');
+      
+      if(data.counters) {
+        maxCounts.Rojo = Math.min(10, Math.max(maxCounts.Rojo, data.counters.Rojo || 0));
+        maxCounts.Blanco = Math.min(3, Math.max(maxCounts.Blanco, data.counters.Blanco || 0));
+        maxCounts.Negro = Math.min(1, Math.max(maxCounts.Negro, data.counters.Negro || 0));
+        updateUI();
+      }
+
+      canvas.width = video.clientWidth;
+      canvas.height = video.clientHeight;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      if(data.detections) {
+        let counts = { Rojo: 0, Blanco: 0, Negro: 0 };
+        
+        const drawGroup = (colorFilter, hexColor, textColor) => {
+            const group = data.detections.filter(d => d.color === colorFilter);
+            group.forEach(d => {
+                counts[colorFilter]++;
+                const currentCount = counts[colorFilter];
+                
+                let cx = d.x_norm * canvas.width;
+                let cy = d.y_norm * canvas.height;
+                let r = d.r_norm * canvas.width;
+                
+                ctx.beginPath();
+                ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = hexColor;
+                ctx.stroke();
+                
+                ctx.font = "900 18px Arial";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                
+                // Draw text stroke for visibility
+                ctx.fillStyle = textColor === 'white' ? 'black' : 'white';
+                ctx.fillText(currentCount, cx - 1, cy - 1);
+                ctx.fillText(currentCount, cx + 1, cy - 1);
+                ctx.fillText(currentCount, cx - 1, cy + 1);
+                ctx.fillText(currentCount, cx + 1, cy + 1);
+                
+                ctx.fillStyle = textColor;
+                ctx.fillText(currentCount, cx, cy);
+            });
+        };
+        
+        // Animación de secuencia: Negras -> Blancas -> Rojas
+        drawGroup('Negro', '#111111', 'white');
+        
+        setTimeout(() => {
+            drawGroup('Blanco', '#ffffff', 'black');
+        }, 300);
+        
+        setTimeout(() => {
+            drawGroup('Rojo', '#ef4444', 'white');
+        }, 600);
+      }
+      
+      if(currentPoints >= 10) {
+        setLog('Límite de 10 puntos alcanzado.', 'ok');
+      } else {
+        setLog(`Escaneo listo: ${currentPoints} puntos.`, 'ok');
+      }
+      
+      setTimeout(() => { ctx.clearRect(0, 0, canvas.width, canvas.height); }, 3000);
+
+    } catch (e) {
+      setLog("Error al conectar con servidor", "error");
+      document.getElementById('cameraBox').classList.remove('scan-active');
+    }
+  });
+
+  document.getElementById('btnReset').addEventListener('click', () => {
+    maxCounts = { Rojo: 0, Blanco: 0, Negro: 0 };
+    updateUI();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setLog("Escaneo reiniciado", "neutral");
+  });
+
+  function updateUI() {
+    document.getElementById('cntRed').innerText = maxCounts.Rojo;
+    document.getElementById('cntWhite').innerText = maxCounts.Blanco;
+    document.getElementById('cntBlack').innerText = maxCounts.Negro;
+    currentPoints = (maxCounts.Rojo * 1) + (maxCounts.Blanco * 3) + (maxCounts.Negro * 5);
+    document.getElementById('totalPts').innerText = currentPoints + " pts";
+  }
+
+  document.getElementById('btnSubmitScore').addEventListener('click', async () => {
+    const cp = document.getElementById('checkpointSelect').value;
+    const part = document.getElementById('participante').value;
+    if(!cp) return setLog("Selecciona un Checkpoint primero.", "error");
+    if(part === "Desconocido") return setLog("Selecciona un competidor.", "error");
+    if(currentPoints === 0) return setLog("No hay puntos para enviar.", "error");
+    
+    setLog(`Enviando ${currentPoints} puntos a ${part} en Checkpoint ${cp}...`, "neutral");
+    try {
+      const res = await fetch('/api/score', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ equipo: part, checkpoint_id: parseInt(cp), puntaje: currentPoints })
+      });
+      const data = await res.json();
+      if(data.status === 'ok') {
+        setLog("¡Puntaje guardado con éxito!", "ok");
+        document.getElementById('btnReset').click();
+      } else {
+        setLog("Error: " + data.msg, "error");
+      }
+    } catch(e) {
+      setLog("Error de red: " + e.message, "error");
+    }
+  });
+
+  // 3. Sensor & GPS Logic
+  document.getElementById('btnAccel').addEventListener('click', async () => {
+    if (typeof DeviceMotionEvent.requestPermission === 'function') {
+      try {
+        const p = await DeviceMotionEvent.requestPermission();
+        if (p === 'granted') startAccel();
+        else setLog("Permiso de acelerómetro denegado", "error");
+      } catch (e) { setLog(e.message, "error"); }
+    } else {
+      startAccel();
+    }
+  });
+
+  function startAccel() {
+    window.addEventListener('devicemotion', (e) => {
+      gx = e.accelerationIncludingGravity.x || 0;
+      gy = e.accelerationIncludingGravity.y || 0;
+      gz = e.accelerationIncludingGravity.z || 0;
+      g_mag = Math.sqrt(gx*gx + gy*gy + gz*gz);
+    });
+    setLog("Acelerómetro activado", "ok");
+    const btnAccel = document.getElementById('btnAccel');
+    if (btnAccel) {
+        btnAccel.innerText = "Accelerometer active";
+        btnAccel.disabled = true;
+    }
+  }
+
+  // 4. Registration & Tracking
+  document.getElementById('btnRegister').addEventListener('click', async () => {
+    deviceId = document.getElementById('deviceId').value;
+    participante = document.getElementById('participante').value;
+    currentCheckpoint = document.getElementById('checkpointSelect').value;
+    localStorage.setItem('tracker_device_id', deviceId);
+    localStorage.setItem('tracker_participante', participante);
+    localStorage.setItem('tracker_checkpoint', currentCheckpoint);
+    try {
+      await fetch('/registrar', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ device_id: deviceId, participante: participante })
+      });
+      setLog("Registro exitoso", "ok");
+    } catch(e) { setLog("Error al registrar", "error"); }
+  });
+
+  document.getElementById('btnCapture').addEventListener('click', () => {
+    const btn = document.getElementById('btnCapture');
+    if (isTracking) {
+      isTracking = false;
+      btn.innerText = "Start capture";
+      btn.classList.remove('btn-danger');
+      if (geoWatchId) navigator.geolocation.clearWatch(geoWatchId);
+      if (trackInterval) clearInterval(trackInterval);
+      setLog("Captura detenida", "neutral");
+    } else {
+      isTracking = true;
+      btn.innerText = "Stop capture";
+      btn.classList.add('btn-danger');
+      
+      let lastTime = Date.now();
+      
+      geoWatchId = navigator.geolocation.watchPosition(pos => {
+        const now = Date.now();
+        lastLat = pos.coords.latitude;
+        lastLon = pos.coords.longitude;
+        lastAcc = pos.coords.accuracy;
+        speedMps = pos.coords.speed || 0;
+        speedKmh = speedMps * 3.6;
+        
+        let dt = (now - lastTime)/1000;
+        if(dt > 0) {
+            acceleration_mps2 = (speedMps - lastSpeedMps) / dt;
+            lastSpeedMps = speedMps;
+            lastTime = now;
+        }
+      }, err => setLog("Error GPS: "+err.message, "error"), { enableHighAccuracy: true });
+
+      trackInterval = setInterval(sendTelemetry, 2000);
+      setLog("Captura iniciada", "ok");
+    }
+  });
+
+  async function sendTelemetry() {
+    if (!lastLat) return;
+    const payload = {
+      device_id: deviceId,
+      participante: participante,
+      timestamp_ms: Date.now(),
+      lat: lastLat,
+      lon: lastLon,
+      speed_mps: speedMps,
+      speed_kmh: speedKmh,
+      speed_source: 'gps',
+      acceleration_mps2: acceleration_mps2,
+      accuracy_m: lastAcc,
+      gx: gx, gy: gy, gz: gz, g_magnitude: g_mag,
+      bg_mode: false
+    };
+    try {
+      const res = await fetch('/gps', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if(data.nearest_checkpoint) {
+         document.getElementById('mNearest').innerText = data.nearest_checkpoint.nombre || `Checkpoint ${data.nearest_checkpoint.id}`;
+         document.getElementById('mNearestDist').innerText = `Distance: ${data.nearest_checkpoint.distancia_m.toFixed(2)} m`;
+      }
+    } catch(e) {}
+  }
+
+  // 5. Gallery
+  let galeriaData = [];
+  document.getElementById('btnGallery').addEventListener('click', async () => {
+    document.getElementById('galleryModal').style.display = 'flex';
+    document.getElementById('galleryContent').innerHTML = "Cargando...";
+    try {
+      const res = await fetch('/galeria');
+      galeriaData = await res.json();
+      renderGallery();
+    } catch(e) {
+      document.getElementById('galleryContent').innerHTML = "Error cargando galería";
+    }
+  });
+
+  function renderGallery() {
+    const content = document.getElementById('galleryContent');
+    if(!galeriaData || galeriaData.length === 0) {
+      content.innerHTML = "<p>Galería vacía.</p>";
+      document.querySelector('.modal-header h2').innerText = `Gallery (0 images)`;
+      return;
+    }
+    
+    galeriaData.reverse();
+    document.querySelector('.modal-header h2').innerText = `Gallery (${galeriaData.length} images)`;
+    
+    content.innerHTML = galeriaData.map(item => {
+      let detHtml = "";
+      if (item.detections) {
+          detHtml = Object.entries(item.detections)
+              .filter(([c, v]) => v > 0)
+              .map(([c, v]) => `<strong>${c}:</strong> ${v}`)
+              .join(" | ");
+      }
+      return `
+      <div class="gallery-item">
+        <img src="/capturas/${item.filename}" onclick="abrirVisor('${item.filename}')" style="cursor: pointer;">
+        <div class="gallery-info">
+          <strong>${item.participante || item.device_id}</strong><br>
+          <span style="color:#94a3b8">${new Date(item.timestamp * 1000).toLocaleString()}</span><br>
+          ${item.checkpoint_nombre || 'Sin CP'}
+          ${detHtml ? `<div style="margin-top:5px; border-top: 1px solid #334155; padding-top: 5px;">${detHtml}</div>` : ''}
+        </div>
+      </div>
+      `;
+    }).join('');
+  }
+
+  async function limpiarGaleria() {
+    if(!confirm("¿Vaciar galería completamente?")) return;
+    try {
+      await fetch('/limpiar_galeria', { method: 'POST' });
+      galeriaData = [];
+      renderGallery();
+      setLog("Galería limpiada", "neutral");
+    } catch(e) { alert("Error al limpiar"); }
+  }
+
+  // Image Viewer Modal
+  let currentImageVisor = "";
+  let showContourVisor = true;
+  let currentScaleVisor = 1;
+
+  function abrirVisor(filename) {
+    currentImageVisor = filename;
+    showContourVisor = true;
+    zoomVisorReset();
+    actualizarVisor();
+    document.getElementById("visorModal").style.display = "flex";
+  }
+  function toggleContorno() {
+    showContourVisor = !showContourVisor;
+    actualizarVisor();
+  }
+  function actualizarVisor() {
+    const img = document.getElementById("visorImg");
+    img.src = showContourVisor ? "/capturas/" + currentImageVisor : "/capturas/" + currentImageVisor.replace('.jpg', '_clean.jpg');
+  }
+  function zoomVisor(delta) {
+    currentScaleVisor += delta;
+    if (currentScaleVisor < 1) currentScaleVisor = 1;
+    if (currentScaleVisor > 5) currentScaleVisor = 5;
+    document.getElementById("visorImg").style.transform = `scale(${currentScaleVisor})`;
+  }
+  function zoomVisorReset() {
+    currentScaleVisor = 1;
+    document.getElementById("visorImg").style.transform = `scale(1)`;
+  }
+
+</script>
+</body>
+</html>

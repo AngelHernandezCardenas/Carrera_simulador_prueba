@@ -92,11 +92,53 @@ def auto_etiquetar(modelo_yolo):
                     pts = " ".join(f"{x/fw:.6f} {y/fh:.6f}" for x, y in seg)
                     lineas.append(f"{cid} {pts}")
                     continue
+            
+            # Si no hay máscara, generamos un polígono rectangular a partir del bounding box
+            # para no romper el entrenamiento de segmentación.
             x1, y1, x2, y2 = bx.xyxy[i].tolist()
-            lineas.append(f"{cid} {((x1+x2)/2)/fw:.6f} {((y1+y2)/2)/fh:.6f} {(x2-x1)/fw:.6f} {(y2-y1)/fh:.6f}")
+            p1 = f"{x1/fw:.6f} {y1/fh:.6f}"
+            p2 = f"{x2/fw:.6f} {y1/fh:.6f}"
+            p3 = f"{x2/fw:.6f} {y2/fh:.6f}"
+            p4 = f"{x1/fw:.6f} {y2/fh:.6f}"
+            lineas.append(f"{cid} {p1} {p2} {p3} {p4}")
+            
+        # Fallback de OpenCV para pelotas Negras (Clase 2) que YOLO no haya detectado
+        try:
+            from colores.vision_backend import get_zona_deteccion, dentro_del_circulo
+            import numpy as np
+            cx_scr, cy_scr, radio_zona = get_zona_deteccion(fr.shape)
+            lab = cv2.cvtColor(fr, cv2.COLOR_BGR2LAB)
+            l, _, _ = cv2.split(lab)
+            _, thresh = cv2.threshold(l, 60, 255, cv2.THRESH_BINARY_INV)
+            contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            for cnt in contours:
+                area = cv2.contourArea(cnt)
+                if 500 < area < 50000:
+                    (x, y), radius = cv2.minEnclosingCircle(cnt)
+                    if dentro_del_circulo(int(x), int(y), cx_scr, cy_scr, radio_zona):
+                        # Evitar duplicados con YOLO
+                        duplicado = False
+                        for ln in lineas:
+                            if ln.startswith("2 "):
+                                parts = list(map(float, ln.split()[1:]))
+                                yolo_x = sum(parts[0::2]) / (len(parts)//2) * fw
+                                yolo_y = sum(parts[1::2]) / (len(parts)//2) * fh
+                                if ((yolo_x - x)**2 + (yolo_y - y)**2)**0.5 < radius:
+                                    duplicado = True
+                                    break
+                        if not duplicado:
+                            p1 = f"{max(0, x-radius)/fw:.6f} {max(0, y-radius)/fh:.6f}"
+                            p2 = f"{min(fw, x+radius)/fw:.6f} {max(0, y-radius)/fh:.6f}"
+                            p3 = f"{min(fw, x+radius)/fw:.6f} {min(fh, y+radius)/fh:.6f}"
+                            p4 = f"{max(0, x-radius)/fw:.6f} {min(fh, y+radius)/fh:.6f}"
+                            lineas.append(f"2 {p1} {p2} {p3} {p4}")
+        except Exception as e:
+            print("Error en OpenCV fallback para negras:", e)
+            
         if not lineas:
             continue
         cv2.imwrite(str(dst_i / f"{stem}.jpg"), fr)
+
         (dst_l / f"{stem}.txt").write_text("\n".join(lineas), encoding="utf-8")
         n += 1
     print(f"   {n} nuevas capturas etiquetadas | {saltadas} ya procesadas anteriormente")

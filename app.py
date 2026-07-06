@@ -16,6 +16,7 @@ from checkpoints import CHECKPOINTS, actualizar_estado_corredor, clasificar_corr
 from config import DURACION, MAX_PARTICIPANTES, participants_lock
 from geojson_store import append_feature
 from participants import get_or_create_participant, participants_cache, reset_participants, save_participants
+from judges import get_or_create_judge, judges_cache, save_judges, judges_lock
 from Puntaje import get_puntaje_retos_detalle, refrescar_puntajes_retos, sincronizar_puntajes
 from colores.vision_backend import procesar_frame_yolo_api
 from ultralytics import YOLO
@@ -58,7 +59,7 @@ device_trackers: dict[str, dict] = {}
 MIN_GPS_SAVE_INTERVAL_SECONDS = 1.5
 PESO_RESET_CHECKPOINT_ID = 4
 PESO_RESET_DISTANCE_METERS = 4.0
-COLOR_WEIGHTS_KG = {"Rojo": 1.0, "Blanco": 3.0, "Negro": 5.0}
+COLOR_WEIGHTS_KG = {"Rojo": 1.0, "Blanco": 5.0, "Negro": 3.0}
 PESO_ALERTA_KG = 10.0
 BASE_DIR = Path(__file__).resolve().parent
 VISION_CONFIG = {
@@ -219,7 +220,7 @@ def get_participants_for_view() -> list[str]:
     )
 
 def get_scoreboard_data() -> list[dict]:
-    from Puntaje import get_puntaje_retos
+    from Puntaje import get_puntaje_retos, get_team_name, nombres_equipos_cache, puntajes_retos_lock
     scoreboard_list = []
     
     galeria = load_gallery_items()
@@ -231,32 +232,48 @@ def get_scoreboard_data() -> list[dict]:
             if part not in todas_fotos_dict:
                 todas_fotos_dict[part] = []
             if item.get("filename"):
-                todas_fotos_dict[part].append(item.get("filename"))
+                todas_fotos_dict[part].append({
+                    "filename": item.get("filename"),
+                    "timestamp": item.get("timestamp")
+                })
 
             if part not in latest_images or item.get("timestamp", 0) > latest_images[part].get("timestamp", 0):
                 latest_images[part] = item
 
     with participants_lock:
-        for entry in participants_cache.values():
-            if isinstance(entry, dict) and entry.get("nombre"):
-                nombre = entry.get("nombre")
-                scores = entry.get("scores", {})
-                
-                total_local = sum(scores.values())
-                puntaje_sheets = get_puntaje_retos(nombre)
-                total_score = total_local + puntaje_sheets
-                
-                ultima_foto = latest_images[nombre].get("filename") if nombre in latest_images else None
-                fotos_lista = todas_fotos_dict.get(nombre, [])
-                
-                scoreboard_list.append({
-                    "nombre": nombre,
-                    "scores": scores,
-                    "total_score": round(total_score, 2),
-                    "puntaje_sheets": round(puntaje_sheets, 2),
-                    "ultima_foto": ultima_foto,
-                    "todas_fotos": fotos_lista
-                })
+        registered_entries = {
+            entry.get("nombre"): entry 
+            for entry in participants_cache.values() 
+            if isinstance(entry, dict) and entry.get("nombre")
+        }
+        
+    with puntajes_retos_lock:
+        all_sheets_participants = set(nombres_equipos_cache.keys())
+        
+    all_participants = set(registered_entries.keys()).union(all_sheets_participants)
+
+    for nombre in all_participants:
+        entry = registered_entries.get(nombre, {})
+        scores = entry.get("scores", {})
+        
+        total_local = sum(scores.values())
+        puntaje_sheets = get_puntaje_retos(nombre)
+        total_score = total_local + puntaje_sheets
+        
+        equipo_nombre = get_team_name(nombre)
+        
+        ultima_foto = latest_images[nombre].get("filename") if nombre in latest_images else None
+        fotos_lista = todas_fotos_dict.get(nombre, [])
+        
+        scoreboard_list.append({
+            "nombre": nombre,
+            "equipo": equipo_nombre,
+            "scores": scores,
+            "total_score": round(total_score, 2),
+            "puntaje_sheets": round(puntaje_sheets, 2),
+            "ultima_foto": ultima_foto,
+            "todas_fotos": fotos_lista
+        })
                 
     return sorted(scoreboard_list, key=lambda x: x["total_score"], reverse=True)
 
@@ -461,6 +478,7 @@ def update_runner_stats(participante: str, latitude: float, longitude: float, sp
 # ---------------------------------------------------------------------------
 
 @app.route("/")
+@app.route("/scan")
 def index():
     dist_dir = os.path.join(os.path.dirname(__file__), "tracker-app", "dist")
     resp = make_response(send_from_directory(dist_dir, "index.html"))
@@ -586,22 +604,23 @@ def registrar():
     data = request.json or {}
     device_id, device_ip, user_agent = get_device_info(data)
 
-    with participants_lock:
+    from config import judges_lock
+    with judges_lock:
         if "custom_name" in data:
             custom = data["custom_name"]
-            if device_id not in participants_cache:
-                if len(participants_cache) < MAX_PARTICIPANTES:
-                    participants_cache[device_id] = {"nombre": custom}
-                    save_participants(participants_cache)
+            if device_id not in judges_cache:
+                if len(judges_cache) < MAX_PARTICIPANTES:
+                    judges_cache[device_id] = {"nombre": custom}
+                    save_judges(judges_cache)
                     participante = custom
                 else:
                     participante = None
             else:
-                participants_cache[device_id]["nombre"] = custom
-                save_participants(participants_cache)
+                judges_cache[device_id]["nombre"] = custom
+                save_judges(judges_cache)
                 participante = custom
         else:
-            participante = get_or_create_participant(device_id)
+            participante = get_or_create_judge(device_id)
 
     if not participante:
         return jsonify({
@@ -723,6 +742,7 @@ def gps():
             "checkpoints_visitados": participant_entry.get("checkpoints_visitados", []),
             "cantidad_checkpoints_visitados": participant_entry.get("cantidad_checkpoints_visitados", 0),
             "checkpoint_descarga_visitado": participant_entry.get("checkpoint_descarga_visitado", False),
+            "blocked_by_challenge": participant_entry.get("blocked_by_challenge", False),
             "checkpoint_pendiente_mas_cercano": participant_entry.get("checkpoint_pendiente_mas_cercano"),
             "checkpoint_pendiente_mas_cercano_id": participant_entry.get("checkpoint_pendiente_mas_cercano_id"),
             "distancia_checkpoint_pendiente_mas_cercano_m": participant_entry.get("distancia_checkpoint_pendiente_mas_cercano_m"),
@@ -782,6 +802,7 @@ def gps():
             ),
             "cantidad_checkpoints_visitados": checkpoint_state["cantidad_checkpoints_visitados"],
             "checkpoint_descarga_visitado": checkpoint_state["checkpoint_descarga_visitado"],
+            "blocked_by_challenge": checkpoint_state.get("blocked_by_challenge", False),
             "checkpoint_pendiente_mas_cercano": checkpoint_state["checkpoint_pendiente_mas_cercano"],
             "checkpoint_pendiente_mas_cercano_id": checkpoint_state["checkpoint_pendiente_mas_cercano_id"],
             "distancia_checkpoint_pendiente_mas_cercano_m": checkpoint_state["distancia_checkpoint_pendiente_mas_cercano_m"],
@@ -851,6 +872,7 @@ def gps():
         "peso_descargado_kg": checkpoint_state["peso_descargado_kg"],
         "checkpoints_visitados": checkpoint_state["cantidad_checkpoints_visitados"],
         "checkpoint_descarga_visitado": checkpoint_state["checkpoint_descarga_visitado"],
+        "blocked_by_challenge": checkpoint_state.get("blocked_by_challenge", False),
         "checkpoint_pendiente_mas_cercano": checkpoint_state["checkpoint_pendiente_mas_cercano"],
         "distancia_checkpoint_pendiente_mas_cercano_m": checkpoint_state["distancia_checkpoint_pendiente_mas_cercano_m"],
         "checkpoint_mas_cercano": checkpoint_state["checkpoint_mas_cercano"],
@@ -878,6 +900,7 @@ def gps():
         "checkpoints_visitados": checkpoint_state["checkpoints_visitados"],
         "cantidad_checkpoints_visitados": checkpoint_state["cantidad_checkpoints_visitados"],
         "checkpoint_descarga_visitado": checkpoint_state["checkpoint_descarga_visitado"],
+        "blocked_by_challenge": checkpoint_state.get("blocked_by_challenge", False),
         "checkpoint_pendiente_mas_cercano": checkpoint_state["checkpoint_pendiente_mas_cercano"],
         "distancia_checkpoint_pendiente_mas_cercano_m": checkpoint_state["distancia_checkpoint_pendiente_mas_cercano_m"],
         "checkpoint_mas_cercano": checkpoint_state["checkpoint_mas_cercano"],
@@ -939,11 +962,22 @@ def vision():
 
         # Agregar marca de agua
         from datetime import datetime
-        participante_nombre = get_participant_name_for_device(device_id)
+        import judges
+        
+        participante_nombre = data.get("participante")
+        if not participante_nombre or participante_nombre == "Desconocido":
+            participante_nombre = get_participant_name_for_device(device_id)
 
         dt_now = datetime.now()
         fecha_hora = dt_now.strftime("%Y-%m-%d %H:%M:%S")
-        # No imprimimos la marca de agua en la imagen directamente según lo solicitado
+        
+        # Obtener el nombre del juez asignado a este dispositivo
+        nombre_juez = judges.get_or_create_judge(device_id) or "Desconocido"
+        
+        # Imprimir la marca de agua (Juez y Timestamp) en la imagen
+        watermark_text = f"Juez: {nombre_juez} | {fecha_hora}"
+        cv2.putText(frame_annotated, watermark_text, (20, frame_annotated.shape[0] - 20), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2, cv2.LINE_AA)
 
         jpeg_q = 35
         encode_params = [cv2.IMWRITE_JPEG_QUALITY, jpeg_q]
@@ -1006,6 +1040,7 @@ def vision():
                 "device_id": device_id,
                 "participante": participante_nombre,
                 "fecha_hora": fecha_hora,
+                "juez": nombre_juez,
                 "detections": detectado["counts"]
             }
             gallery_item.update(checkpoint_context)
@@ -1155,4 +1190,10 @@ def static_proxy(path):
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
+    import threading
+    from Puntaje import sincronizar_puntajes
+    
+    # Iniciar la sincronización de puntajes en segundo plano para reflejar los cambios del excel
+    threading.Thread(target=sincronizar_puntajes, daemon=True).start()
+    
     socketio.run(app, host="0.0.0.0", port=5000, debug=False, allow_unsafe_werkzeug=True)

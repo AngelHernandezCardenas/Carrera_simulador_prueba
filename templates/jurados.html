@@ -123,6 +123,39 @@
             <div class="circle-score circle-white"><span id="white">0</span></div>
             <div class="circle-score circle-black"><span id="black">0</span></div>
         </div>
+        <!-- Botones de registro manual -->
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:8px;">
+            <!-- Roja -->
+            <div style="background:#fff0f0; border:1px solid #fca5a5; border-radius:10px; padding:8px; text-align:center;">
+                <div style="font-size:11px; font-weight:800; color:#dc2626; text-transform:uppercase; margin-bottom:6px;">🔴 Roja</div>
+                <div style="display:flex; align-items:center; justify-content:center; gap:8px;">
+                    <button onclick="adjustCount('Rojo', -1)" style="width:34px; height:34px; padding:0; font-size:20px; font-weight:900; background:#dc2626; color:white; border-radius:8px; margin:0; line-height:1;">−</button>
+                    <span id="red-manual" style="font-size:20px; font-weight:900; color:#0f172a; min-width:24px; display:inline-block; text-align:center;">0</span>
+                    <button onclick="adjustCount('Rojo', 1)" style="width:34px; height:34px; padding:0; font-size:20px; font-weight:900; background:#dc2626; color:white; border-radius:8px; margin:0; line-height:1;">+</button>
+                </div>
+                <div style="font-size:10px; color:#6b7280; margin-top:4px;">1 kg/pelota</div>
+            </div>
+            <!-- Blanca -->
+            <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:10px; padding:8px; text-align:center;">
+                <div style="font-size:11px; font-weight:800; color:#475569; text-transform:uppercase; margin-bottom:6px;">⚪ Blanca</div>
+                <div style="display:flex; align-items:center; justify-content:center; gap:8px;">
+                    <button onclick="adjustCount('Blanco', -1)" style="width:34px; height:34px; padding:0; font-size:20px; font-weight:900; background:#475569; color:white; border-radius:8px; margin:0; line-height:1;">−</button>
+                    <span id="white-manual" style="font-size:20px; font-weight:900; color:#0f172a; min-width:24px; display:inline-block; text-align:center;">0</span>
+                    <button onclick="adjustCount('Blanco', 1)" style="width:34px; height:34px; padding:0; font-size:20px; font-weight:900; background:#475569; color:white; border-radius:8px; margin:0; line-height:1;">+</button>
+                </div>
+                <div style="font-size:10px; color:#6b7280; margin-top:4px;">5 kg/pelota</div>
+            </div>
+            <!-- Negra -->
+            <div style="background:#1e293b; border:1px solid #334155; border-radius:10px; padding:8px; text-align:center;">
+                <div style="font-size:11px; font-weight:800; color:#94a3b8; text-transform:uppercase; margin-bottom:6px;">⚫ Negra</div>
+                <div style="display:flex; align-items:center; justify-content:center; gap:8px;">
+                    <button onclick="adjustCount('Negro', -1)" style="width:34px; height:34px; padding:0; font-size:20px; font-weight:900; background:#0f172a; color:white; border:1px solid #475569; border-radius:8px; margin:0; line-height:1;">−</button>
+                    <span id="black-manual" style="font-size:20px; font-weight:900; color:#f8fafc; min-width:24px; display:inline-block; text-align:center;">0</span>
+                    <button onclick="adjustCount('Negro', 1)" style="width:34px; height:34px; padding:0; font-size:20px; font-weight:900; background:#0f172a; color:white; border:1px solid #475569; border-radius:8px; margin:0; line-height:1;">+</button>
+                </div>
+                <div style="font-size:10px; color:#6b7280; margin-top:4px;">3 kg/pelota</div>
+            </div>
+        </div>
     </section>
     
     <div class="card full" style="margin-top: 10px; text-transform: none;">
@@ -204,7 +237,14 @@ function showResults() {
     elements.red.textContent = counts.Rojo;
     elements.white.textContent = counts.Blanco;
     elements.black.textContent = counts.Negro;
-    const points = counts.Rojo + counts.Blanco * 3 + counts.Negro * 5;
+    // Sync manual counter spans
+    const rm = document.getElementById('red-manual');
+    const wm = document.getElementById('white-manual');
+    const bm = document.getElementById('black-manual');
+    if (rm) rm.textContent = counts.Rojo;
+    if (wm) wm.textContent = counts.Blanco;
+    if (bm) bm.textContent = counts.Negro;
+    const points = counts.Rojo * 1 + counts.Blanco * 5 + counts.Negro * 3;
     const colorNames = { 'Rojo': 'Red', 'Blanco': 'White', 'Negro': 'Black' };
     const names = Object.entries(counts).filter(([, value]) => value).map(([name]) => colorNames[name] || name);
     elements.load.textContent = `${points} pts`;
@@ -356,6 +396,11 @@ function reset() {
     if (clearCanvasTimeout) clearTimeout(clearCanvasTimeout);
     const ctx = elements.canvas.getContext("2d");
     ctx.clearRect(0, 0, elements.canvas.width, elements.canvas.height);
+    showResults();
+}
+
+function adjustCount(color, delta) {
+    counts[color] = Math.max(0, (counts[color] || 0) + delta);
     showResults();
 }
 

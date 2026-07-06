@@ -203,21 +203,31 @@ def actualizar_estado_corredor(
         lon,
     )
 
-    for checkpoint in checkpoints:
-        checkpoint_id = _checkpoint_id(checkpoint)
-        if checkpoint_id in visited_ids:
+    scores_dict = corredor.get("scores_dict", {})
+    blocked_by_challenge = False
+    for cid in visited_ids:
+        if cid == CHECKPOINT_DESCARGA_ID:
             continue
-        if checkpoint_id in full_checkpoint_ids_for_visits:
-            continue
+        if str(cid) not in scores_dict and cid not in scores_dict:
+            blocked_by_challenge = True
+            break
+            
+    if not blocked_by_challenge:
+        for checkpoint in checkpoints:
+            checkpoint_id = _checkpoint_id(checkpoint)
+            if checkpoint_id in visited_ids:
+                continue
+            if checkpoint_id in full_checkpoint_ids_for_visits:
+                continue
 
-        distance = haversine_distance_m(
-            lat,
-            lon,
-            float(checkpoint["lat"]),
-            float(checkpoint["lon"]),
-        )
-        if distance <= float(checkpoint.get("radio_m", 5.0)):
-            visited_ids.add(checkpoint_id)
+            distance = haversine_distance_m(
+                lat,
+                lon,
+                float(checkpoint["lat"]),
+                float(checkpoint["lon"]),
+            )
+            if distance <= float(checkpoint.get("radio_m", 5.0)):
+                visited_ids.add(checkpoint_id)
 
     available_checkpoints = [
         checkpoint
@@ -243,6 +253,7 @@ def actualizar_estado_corredor(
     corredor["checkpoints_visitados"] = _sorted_checkpoint_ids(visited_ids)
     corredor["cantidad_checkpoints_visitados"] = visited_count
     corredor["checkpoint_descarga_visitado"] = CHECKPOINT_DESCARGA_ID in visited_ids
+    corredor["blocked_by_challenge"] = blocked_by_challenge
     corredor["checkpoint_pendiente_mas_cercano"] = (
         None
         if nearest_pending is None

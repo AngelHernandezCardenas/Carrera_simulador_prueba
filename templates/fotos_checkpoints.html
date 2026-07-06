@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 
 <head>
@@ -271,7 +271,7 @@
                         <td>${checkpoint.nombre}</td>
                         <td>${participante}</td>
                         <td>${latest
-                            ? `<span class="status-yes">Si</span> <a class="photo-link" href="/capturas/${latest.filename}" target="_blank">Ver foto</a>`
+                            ? `<span class="status-yes">Si</span> <a class="photo-link" href="/capturas/${latest.filename}" target="_blank">Ver foto</a> <span style="color:#94a3b8; font-size:12px; margin-left:8px;">(Juez: ${latest.juez || 'Desconocido'})</span>`
                             : '<span class="status-no">No</span>'}
                         </td>
                     </tr>

@@ -15,6 +15,26 @@
       --radius: 12px;
     }
 
+    :root.light-mode {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --text: #0f172a;
+      --text-muted: #475569;
+      --border: #cbd5e1;
+    }
+
+    :root.light-mode th {
+      background: rgba(0, 0, 0, 0.05);
+    }
+
+    :root.light-mode tr:hover {
+      background: rgba(0, 0, 0, 0.02);
+    }
+
+    :root.light-mode .rank-1 { color: #f59e0b; text-shadow: 1px 1px 2px rgba(245, 158, 11, 0.3); }
+    :root.light-mode .rank-2 { color: #64748b; text-shadow: 1px 1px 2px rgba(100, 116, 139, 0.3); }
+    :root.light-mode .rank-3 { color: #b45309; text-shadow: 1px 1px 2px rgba(180, 83, 9, 0.3); }
+
     body {
       margin: 0;
       padding: 0;
@@ -241,6 +261,56 @@
       font-weight: bold;
       cursor: pointer;
     }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+      }
+      .header > div:last-child {
+        width: 100%;
+        justify-content: space-between;
+      }
+      h1 {
+        font-size: 24px;
+      }
+      .panel {
+        overflow-x: auto;
+      }
+      th, td {
+        padding: 10px 8px;
+        font-size: 13px;
+        white-space: nowrap;
+      }
+      .rank {
+        width: 30px;
+        font-size: 15px;
+      }
+      .rank-1 { font-size: 20px; }
+      .rank-2 { font-size: 18px; }
+      .rank-3 { font-size: 16px; }
+      .team-name {
+        font-size: 14px;
+      }
+      .score-badge {
+        font-size: 13px;
+        padding: 4px 8px;
+      }
+      .gallery-modal-content {
+        margin: 10% auto;
+        padding: 15px;
+        max-width: 95vw;
+      }
+      #singlePhotoView > div:first-child {
+        flex-direction: column;
+        gap: 10px;
+      }
+      #singlePhotoView > div:first-child button {
+        width: 100%;
+      }
+    }
   </style>
 </head>
 <body>
@@ -252,6 +322,7 @@
       <p style="color: var(--text-muted); margin: 5px 0 0 0;">Official real-time ranking</p>
     </div>
     <div style="display: flex; gap: 15px; align-items: center;">
+      <button id="themeToggle" onclick="toggleTheme()" style="background: var(--surface); color: var(--text); border: 1px solid var(--border); padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: all 0.2s;">☀️ Light Mode</button>
       <div class="status">
         <div class="pulse"></div>
         Live updating...
@@ -266,12 +337,11 @@
           <th style="text-align: center;">Position</th>
           <th>Competitor</th>
           <th>Checkpoints Visited</th>
-          <th style="text-align: center;">Photos</th>
           <th style="text-align: right;">Total Score</th>
         </tr>
       </thead>
       <tbody id="scoreboardBody">
-        <tr><td colspan="5" style="text-align: center; padding: 30px;">Loading data...</td></tr>
+        <tr><td colspan="4" style="text-align: center; padding: 30px;">Loading data...</td></tr>
       </tbody>
     </table>
   </div>
@@ -296,10 +366,13 @@
           Hide Contours
         </button>
       </div>
-      <div style="position: relative; display: inline-block;">
-        <img id="singlePhotoImg" src="" onclick="openFullscreen()" style="max-width: 100%; max-height: 85vh; border-radius: 8px; border: 2px solid var(--border); cursor: zoom-in; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'" title="Click para expandir a pantalla completa" />
-        <div style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.6); color: white; padding: 5px 10px; border-radius: 5px; pointer-events: none; font-size: 20px;">&#x26F6;</div>
+      <div style="position: relative; display: inline-block; width: 100%;">
+        <div id="imgScrollWrapper" style="width: 100%; max-height: 75vh; overflow: auto; border-radius: 8px; border: 2px solid var(--border);">
+          <img id="singlePhotoImg" src="" onclick="toggleImageZoom(event)" style="width: 100%; height: auto; object-fit: contain; cursor: zoom-in; transition: width 0.3s ease;" title="Click to zoom in/out" />
+        </div>
+        <div onclick="openFullscreen(event)" style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.6); color: white; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 20px; z-index: 10;" title="Open Fullscreen">&#x26F6;</div>
       </div>
+      <p id="singlePhotoTimestamp" style="color: var(--text-muted); font-size: 14px; margin-top: 10px;"></p>
     </div>
 
   </div>
@@ -308,7 +381,7 @@
 <!-- Visor en Pantalla Completa (720p) -->
 <div id="fullscreenViewer" class="fullscreen-viewer" onclick="closeFullscreen(event)">
   <span class="fs-close-btn" onclick="forceCloseFullscreen()">&times;</span>
-  <img id="fullscreenImg" src="" onclick="toggleFullscreenContour(event)" title="Haz clic en la imagen para mostrar/ocultar contornos" style="cursor: pointer;" />
+  <img id="fullscreenImg" src="" onclick="toggleFullscreenContour(event)" title="Click image to toggle contours" style="cursor: pointer;" />
 </div>
 
 <script>
@@ -356,12 +429,8 @@
             
           tr.innerHTML = `
             <td class="rank ${rankClass}">${rank}</td>
-            <td class="team-name">${p.nombre}</td>
+            <td class="team-name">${p.equipo || p.nombre}</td>
             <td class="checkpoints-list">${checkpointsText}</td>
-            <td style="text-align: center;">
-              ${imgHtml}
-              ${btnHtml}
-            </td>
             <td style="text-align: right;">
               <div class="score-badge">${p.total_score || 0} pts</div>
             </td>
@@ -377,6 +446,26 @@
   // Funciones del Modal
   let currentSingleImage = "";
   let showingContours = true;
+  let currentFotos = [];
+  let isZoomed = false;
+
+  function toggleImageZoom(event) {
+    if (event) event.stopPropagation();
+    isZoomed = !isZoomed;
+    const img = document.getElementById('singlePhotoImg');
+    if (isZoomed) {
+      img.style.width = '150%';
+      img.style.cursor = 'zoom-out';
+    } else {
+      img.style.width = '100%';
+      img.style.cursor = 'zoom-in';
+    }
+  }
+
+  function formatTimestamp(ts) {
+    if (!ts) return "Unknown time";
+    return new Date(ts * 1000).toLocaleString();
+  }
 
   function openModal(nombre, fotos, singlePhoto = null) {
     const modal = document.getElementById('photoModal');
@@ -384,18 +473,32 @@
     const gallery = document.getElementById('modalGallery');
     const singleView = document.getElementById('singlePhotoView');
     
+    currentFotos = fotos || [];
     title.textContent = 'All photos of ' + nombre;
     gallery.innerHTML = '';
     
     gallery.style.display = 'grid';
     singleView.style.display = 'none';
     
-    if (fotos && fotos.length > 0) {
-      fotos.forEach(foto => {
+    if (currentFotos && currentFotos.length > 0) {
+      currentFotos.forEach(item => {
+        const fotoObj = typeof item === 'string' ? { filename: item, timestamp: null } : item;
+        const div = document.createElement('div');
+        div.style.textAlign = 'center';
+        
         const img = document.createElement('img');
-        img.src = '/capturas/' + foto;
-        img.onclick = () => viewSinglePhoto(foto);
-        gallery.appendChild(img);
+        img.src = '/capturas/' + fotoObj.filename;
+        img.onclick = () => viewSinglePhoto(fotoObj.filename);
+        
+        const tsLabel = document.createElement('p');
+        tsLabel.style.fontSize = '12px';
+        tsLabel.style.color = 'var(--text-muted)';
+        tsLabel.style.margin = '5px 0 0 0';
+        tsLabel.textContent = formatTimestamp(fotoObj.timestamp);
+        
+        div.appendChild(img);
+        div.appendChild(tsLabel);
+        gallery.appendChild(div);
       });
     } else {
       gallery.style.display = 'block';
@@ -409,9 +512,23 @@
     }
   }
 
-  function viewSinglePhoto(foto) {
-    currentSingleImage = foto;
+  function viewSinglePhoto(fotoFilename) {
+    currentSingleImage = fotoFilename;
+    const fotoObj = currentFotos.find(f => (typeof f === 'string' ? f : f.filename) === fotoFilename);
+    if (fotoObj) {
+      const ts = typeof fotoObj === 'string' ? null : fotoObj.timestamp;
+      document.getElementById('singlePhotoTimestamp').textContent = formatTimestamp(ts);
+    } else {
+      document.getElementById('singlePhotoTimestamp').textContent = "";
+    }
     showingContours = true;
+    
+    isZoomed = false;
+    const img = document.getElementById('singlePhotoImg');
+    if(img) {
+      img.style.width = '100%';
+      img.style.cursor = 'zoom-in';
+    }
     
     document.getElementById('modalGallery').style.display = 'none';
     document.getElementById('singlePhotoView').style.display = 'block';
@@ -464,7 +581,8 @@
   }
 
   // Funciones de Pantalla Completa
-  function openFullscreen() {
+  function openFullscreen(event) {
+    if (event) event.stopPropagation();
     const fsViewer = document.getElementById('fullscreenViewer');
     const fsImg = document.getElementById('fullscreenImg');
     const singlePhoto = document.getElementById('singlePhotoImg');
@@ -487,6 +605,16 @@
     toggleContours(); // Alterna la variable global y el src de singlePhotoImg
     const singlePhoto = document.getElementById('singlePhotoImg');
     document.getElementById('fullscreenImg').src = singlePhoto.src;
+  }
+
+  function toggleTheme() {
+    document.documentElement.classList.toggle('light-mode');
+    const btn = document.getElementById('themeToggle');
+    if (document.documentElement.classList.contains('light-mode')) {
+      btn.textContent = '🌙 Dark Mode';
+    } else {
+      btn.textContent = '☀️ Light Mode';
+    }
   }
 
   // Actualizar cada 3 segundos

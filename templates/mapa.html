@@ -674,7 +674,6 @@
                     <button id="btn-timer-start" class="btn-3d" onclick="startGlobalTimer(event)">Iniciar</button>
                     <button id="btn-timer-stop" class="btn-3d" onclick="stopGlobalTimer(event)" disabled>Detener</button>
                     <button id="btn-theme" class="btn-3d" onclick="event.stopPropagation(); toggleTheme()">Día</button>
-                    <button id="btn-photos" class="btn-3d" onclick="togglePhotoPanel(event)">Registro fotos</button>
                     <button id="btn-3d" class="btn-3d active" onclick="event.stopPropagation(); toggle3D()">3D: ON</button>
                 </div>
             </div>
@@ -703,22 +702,7 @@
         </div>
     </div>
 
-    <aside class="photo-panel" id="photo-panel" aria-hidden="true">
-        <div class="photo-header">
-            <div class="photo-title">Fotos por checkpoint</div>
-            <button class="btn-3d" onclick="togglePhotoPanel(event)">Cerrar</button>
-        </div>
-        <div class="photo-controls">
-            <select id="photo-checkpoint-select" onchange="renderPhotoPanel()">
-                <option value="all">Todos los checkpoints</option>
-                {% for checkpoint in checkpoints %}
-                <option value="{{ checkpoint.id }}">{{ checkpoint.nombre }}</option>
-                {% endfor %}
-            </select>
-            <div class="photo-summary" id="photo-summary">0 fotos registradas</div>
-        </div>
-        <div class="photo-list" id="photo-list"></div>
-    </aside>
+
 
     <script>
         const CHECKPOINTS = {{ checkpoints | tojson }};
@@ -743,9 +727,14 @@
         }
 
         function formatPhotoDate(photo) {
-            if (photo.fecha_hora) return photo.fecha_hora;
-            if (photo.timestamp) return new Date(Number(photo.timestamp) * 1000).toLocaleString();
-            return '--';
+            let dateStr = '--';
+            if (photo.fecha_hora) dateStr = photo.fecha_hora;
+            else if (photo.timestamp) dateStr = new Date(Number(photo.timestamp) * 1000).toLocaleString();
+            
+            if (photo.juez) {
+                dateStr += ` (Juez: ${photo.juez})`;
+            }
+            return dateStr;
         }
 
         function getPhotosForParticipant(participante, checkpointFilter) {
@@ -1000,6 +989,7 @@
         }
 
         function getPendingCheckpointLabel(data) {
+            if (data.blocked_by_challenge) return 'Unavailable checkpoint';
             const pending = data.checkpoint_pendiente_mas_cercano;
             if (!pending) return 'Ninguno';
             return pending.nombre || `Checkpoint ${pending.id}`;

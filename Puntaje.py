@@ -15,8 +15,13 @@ PUNTAJE_MAXIMO = 100.0
 ultimo_estado = None
 puntajes_retos_cache: dict[str, float] = {}
 totales_retos_cache: dict[str, float] = {}
+nombres_equipos_cache: dict[str, str] = {}
 puntajes_retos_lock = threading.Lock()
 ultima_actualizacion = 0.0
+
+def get_team_name(participante: str) -> str:
+    with puntajes_retos_lock:
+        return nombres_equipos_cache.get(participante, participante)
 
 
 def normalizar_participante(equipo) -> str | None:
@@ -39,7 +44,7 @@ def normalizar_participante(equipo) -> str | None:
         except ValueError:
             return None
 
-    return f"participante_{numero:02d}"
+    return f"Participante_{numero}"
 
 
 def obtener_puntajes_por_participante(df: pd.DataFrame) -> dict[str, dict[str, float]]:
@@ -54,22 +59,26 @@ def obtener_puntajes_por_participante(df: pd.DataFrame) -> dict[str, dict[str, f
             match = re.search(r'\d+', equipo_id_str)
             if match:
                 numero = int(match.group())
-                puntaje = float(puntaje_val)
-                if pd.notna(puntaje):
-                    resultados[f"participante_{numero:02d}"] = {
-                        "puntaje": puntaje,
-                        "total": PUNTAJE_MAXIMO,
-                        "team_id": equipo_id_str,
-                        "team_name": nombre_equipo
-                    }
+                puntaje = float(puntaje_val) if pd.notna(puntaje_val) else 0.0
+                
+                resultados[f"Participante_{numero}"] = {
+                    "puntaje": puntaje,
+                    "total": PUNTAJE_MAXIMO,
+                    "team_id": equipo_id_str,
+                    "team_name": nombre_equipo
+                }
         except Exception:
             continue
     return resultados
 
 
 def leer_hoja_puntajes() -> pd.DataFrame:
-    separador = "&" if "?" in URL_CSV else "?"
-    url_sin_cache = f"{URL_CSV}{separador}download=1&_ts={time.time_ns()}"
+    # Convertir URL de edición a URL de exportación de Excel
+    base_url = URL_CSV.split("/edit")[0]
+    gid = URL_CSV.split("gid=")[1].split("#")[0] if "gid=" in URL_CSV else "0"
+    url_xlsx = f"{base_url}/export?format=xlsx&gid={gid}"
+    
+    url_sin_cache = f"{url_xlsx}&_ts={time.time_ns()}"
     request = Request(
         url_sin_cache,
         headers={
@@ -87,8 +96,8 @@ def leer_hoja_puntajes() -> pd.DataFrame:
         return pd.read_excel(
             BytesIO(excel_bytes),
             sheet_name=NOMBRE_HOJA,
-            usecols="A:C",
-            skiprows=3,
+            usecols="C:E",
+            skiprows=PRIMERA_FILA_PUNTAJES - 1,
             nrows=CANTIDAD_PARTICIPANTES,
             header=None,
         )
@@ -131,9 +140,14 @@ def set_puntajes_retos_cache(puntajes_por_participante: dict[str, dict[str, floa
     with puntajes_retos_lock:
         for participante, valores in puntajes_por_participante.items():
             puntaje_nuevo = float(valores["puntaje"])
+            puntaje_actual = float(puntajes_retos_cache.get(participante, 0.0))
 
-            puntajes_retos_cache[participante] = puntaje_nuevo
+            if puntaje_nuevo >= puntaje_actual:
+                puntajes_retos_cache[participante] = puntaje_nuevo
+                
             totales_retos_cache[participante] = PUNTAJE_MAXIMO
+            if "team_name" in valores:
+                nombres_equipos_cache[participante] = valores["team_name"]
 
         ultima_actualizacion = now
         return _get_puntajes_retos_detalle_snapshot()
@@ -187,7 +201,7 @@ def sincronizar_puntajes(intervalo_segundos: float = 1.0) -> None:
                 filas_tabla = []
                 for p, valores in puntajes_por_participante.items():
                     filas_tabla.append({
-                        "TeamID": valores.get("team_id", p.replace("participante_", "EQ")),
+                        "TeamID": valores.get("team_id", p.replace("Participante_", "EQ")),
                         "Team": valores.get("team_name", "Desconocido"),
                         "Total": f"{valores['puntaje']:.2f}"
                     })

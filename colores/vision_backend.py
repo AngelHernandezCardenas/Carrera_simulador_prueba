@@ -197,10 +197,8 @@ def es_falso_positivo_ligero(frame, x1, y1, x2, y2, nombre):
         if validar_color_en_roi(frame, x1, y1, x2, y2, 'Negro', umbral_frac=0.25):
             return True
             
-    # Previene que pelotas Blancas en sombras sean detectadas como Negras
-    if nombre == 'Negro':
-        if validar_color_en_roi(frame, x1, y1, x2, y2, 'Blanco', umbral_frac=0.25):
-            return True
+    # OMITIDO: Checar Blanco dentro de Negro causa problemas con el brillo (glare) de las luces.
+    # Las pelotas negras brillan mucho y YOLO ya hace buen trabajo detectando negro.
 
     return False
 

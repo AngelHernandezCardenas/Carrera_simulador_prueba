@@ -9,15 +9,11 @@ import math
 CHECKPOINTS = [
     #SON PARA HACER PRUEBAS DE CARRERA REAL, PARA IR A COMER SERA UNA LINEA RECTA
     #lirucisa
-    {"id": 1, "Biotecnologia-Centrales": "Checkpoint 1", "lat": 25.651796, "lon": -100.288868, "radio_m": 5.0},
+    {"id": 1, "nombre": "Biotecnologia-Centrales", "lat": 25.651133, "lon": -100.288352, "radio_m": 5.0},
     #esquina de bilbio entre biblio y aulas 4
-    {"id": 2, "Bilio-Aulas4": "Checkpoint 2", "lat": 25.650111, "lon": -100.289386, "radio_m": 5.0},
-    #atras de rectoria en carreton creo q se llama
-    {"id": 3, "Carreton": "Checkpoint 3", "lat": 25.651442, "lon": -100.290235, "radio_m": 5.0},
+    {"id": 2, "nombre": "Bilio-Aulas4", "lat": 25.6505742, "lon": -100.2903096, "radio_m": 5.0},
     #rectoria
-    {"id": 4, "Rectoria-Descarga": "Checkpoint 4", "lat": 25.651464, "lon": -100.291149, "radio_m": 5.0},
-    #antes de jubileo
-    {"id": 5, "Jubileo": "Checkpoint 5", "lat": 25.649140, "lon": -100.290238, "radio_m": 5.0},
+    {"id": 4, "nombre": "Rectoria-Descarga", "lat": 25.651464, "lon": -100.291149, "radio_m": 5.0},
 ]
 
 MAX_PERSONAS_POR_CHECKPOINT = 4
@@ -48,16 +44,7 @@ def _checkpoint_id(checkpoint: dict) -> int:
 
 def _checkpoint_name(checkpoint: dict) -> str:
     checkpoint_id = _checkpoint_id(checkpoint)
-    return (
-        checkpoint.get("nombre")
-        or checkpoint.get("Rectoria")
-        or checkpoint.get("Rectoria-Descarga")
-        or checkpoint.get("Jubileo")
-        or checkpoint.get("Carreton")
-        or checkpoint.get("Bilio-Aulas4")
-        or checkpoint.get("Biotecnologia-Centrales")
-        or f"Checkpoint {checkpoint_id}"
-    )
+    return checkpoint.get("nombre") or f"Checkpoint {checkpoint_id}"
 
 
 def _sorted_checkpoint_ids(checkpoint_ids) -> list[int]:

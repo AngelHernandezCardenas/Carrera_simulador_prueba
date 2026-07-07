@@ -333,10 +333,10 @@ export default function App() {
         distance: Number.isFinite(distance) ? distance : null,
       }));
       if (isScannerMode) {
-        setLog(`Location obtained\nJudge: ${globalParticipante}`, 'ok');
+        setLog(`Location obtained\nJudge: ${globalParticipante.replace('Judge_', '')}`, 'ok');
       } else {
         setLog(
-          `Location obtained\nParticipant: ${globalParticipante}\nLat: ${loc.coords.latitude.toFixed(6)}\nLon: ${loc.coords.longitude.toFixed(6)}\nSpeed: ${fmt(speed.speed_kmh, 2)} km/h (${fmt(speed.speed_mps, 2)} m/s)\nAcceleration: ${fmt(speed.acceleration_mps2, 3)} m/s2\nAccelerometer: ${SensorService.getData().permission_state}\nAccuracy: +/-${fmt(loc.coords.accuracy, 0)} m\nTime: ${new Date().toLocaleTimeString()}`,
+          `Location obtained\nParticipant: ${globalParticipante.replace(/participante_/i, '')}\nLat: ${loc.coords.latitude.toFixed(6)}\nLon: ${loc.coords.longitude.toFixed(6)}\nSpeed: ${fmt(speed.speed_kmh, 2)} km/h (${fmt(speed.speed_mps, 2)} m/s)\nAcceleration: ${fmt(speed.acceleration_mps2, 3)} m/s2\nAccelerometer: ${SensorService.getData().permission_state}\nAccuracy: +/-${fmt(loc.coords.accuracy, 0)} m\nTime: ${new Date().toLocaleTimeString()}`,
           'ok'
         );
       }

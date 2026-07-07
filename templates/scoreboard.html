@@ -335,8 +335,8 @@
       <thead>
         <tr>
           <th style="text-align: center;">Position</th>
+          <th>Team ID</th>
           <th>Competitor</th>
-          <th>Checkpoints Visited</th>
           <th style="text-align: center;">Current load</th>
           <th style="text-align: center;">Total load</th>
           <th style="text-align: right;">Total Score</th>
@@ -389,68 +389,91 @@
 <script>
   async function fetchScoreboard() {
     try {
-      const res = await fetch('/api/scoreboard');
-      const data = await res.json();
-      
-      if(data.participantes) {
-        // Ordenar por puntaje mayor a menor
-        let parts = data.participantes;
-        parts.sort((a, b) => (b.total_score || 0) - (a.total_score || 0));
-        
-        const tbody = document.getElementById('scoreboardBody');
-        tbody.innerHTML = '';
-        
-        parts.forEach((p, idx) => {
-          // Filtrar equipos con 0 puntos si quieres, pero mostraremos todos
-          const rank = idx + 1;
-          let rankClass = '';
-          if(rank === 1) rankClass = 'rank-1';
-          else if(rank === 2) rankClass = 'rank-2';
-          else if(rank === 3) rankClass = 'rank-3';
-          
-          const scoresDetails = p.scores || {};
-          let checkpointsText = Object.keys(scoresDetails)
-                                  .map(cp => `CP${cp}: ${scoresDetails[cp]}`)
-                                  .join(', ') || 'None';
-                                  
-          const tr = document.createElement('tr');
-          const encodedFotos = encodeURIComponent(JSON.stringify(p.todas_fotos || []));
-          const btnHtml = (p.todas_fotos && p.todas_fotos.length > 0)
-            ? `<button class="hamburger-btn" onclick="openModal('${p.nombre}', JSON.parse(decodeURIComponent('${encodedFotos}')))" title="View all photos">
-                 <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                   <rect x="2" y="4" width="20" height="3.5" rx="1.75" />
-                   <rect x="2" y="10.25" width="20" height="3.5" rx="1.75" />
-                   <rect x="2" y="16.5" width="20" height="3.5" rx="1.75" />
-                 </svg>
-               </button>`
-            : '';
-
-          const imgHtml = p.ultima_foto 
-            ? `<img src="/capturas/${p.ultima_foto}" alt="Photo" style="max-height: 40px; border-radius: 4px; object-fit: cover; cursor: pointer; vertical-align: middle;" onclick="openModal('${p.nombre}', JSON.parse(decodeURIComponent('${encodedFotos}')), '${p.ultima_foto}')">`
-            : '<span style="color: var(--text-muted); font-size: 12px; vertical-align: middle;">No photo</span>';
-            
-          const cargaActualKg = typeof p.peso_kg === 'number' ? p.peso_kg.toFixed(2) : '0.00';
-          const cargaTotalKg = typeof p.peso_entregado_kg === 'number' ? p.peso_entregado_kg.toFixed(2) : '0.00';
-
-          tr.innerHTML = `
-            <td class="rank ${rankClass}">${rank}</td>
-            <td class="team-name">${p.equipo || p.nombre}</td>
-            <td class="checkpoints-list">${checkpointsText}</td>
-            <td style="text-align: center;">
-              <span style="font-weight: bold; color: #10b981;">${cargaActualKg} kg</span>
-            </td>
-            <td style="text-align: center;">
-              <span style="font-weight: bold; color: #f59e0b;">${cargaTotalKg} kg</span>
-            </td>
-            <td style="text-align: right;">
-              <div class="score-badge">${p.total_score || 0} pts</div>
-            </td>
-          `;
-          tbody.appendChild(tr);
-        });
+      // 1. Fetch local data to get loads (kg)
+      let localData = {};
+      try {
+        const localRes = await fetch('/api/scoreboard');
+        const localJson = await localRes.json();
+        if (localJson.participantes) {
+          localJson.participantes.forEach(p => {
+            localData[p.equipo || p.nombre] = p;
+          });
+        }
+      } catch(e) {
+        console.error("Error fetching local data:", e);
       }
-    } catch (e) {
-      console.error("Error actualizando scoreboard:", e);
+
+      // 2. Fetch Google Sheets CSV
+      const sheetUrl = "https://docs.google.com/spreadsheets/d/1tmyly9tNELvQVdKPDnuv8tcL77yBGimLFpvpNAKvZZo/gviz/tq?tqx=out:csv&gid=1381314729";
+      const res = await fetch(sheetUrl);
+      const csvText = await res.text();
+      
+      const rows = csvText.split('\n').map(r => {
+        let inQuotes = false;
+        let cols = [];
+        let currCol = "";
+        for(let i = 0; i < r.length; i++){
+          let c = r[i];
+          if(c === '"'){
+            inQuotes = !inQuotes;
+          } else if(c === ',' && !inQuotes){
+            cols.push(currCol.trim());
+            currCol = "";
+          } else {
+            currCol += c;
+          }
+        }
+        cols.push(currCol.trim());
+        return cols;
+      });
+
+      const tbody = document.getElementById('scoreboardBody');
+      tbody.innerHTML = '';
+      
+      let renderedRows = 0;
+      rows.forEach((cols, idx) => {
+        const rankRaw = (cols[1] || '').replace(/"/g, '');
+        if(!rankRaw || isNaN(parseInt(rankRaw))) return;
+
+        const rank = parseInt(rankRaw);
+        const teamId = (cols[2] || '').replace(/"/g, '');
+        const teamName = (cols[3] || '').replace(/"/g, '');
+        const points = (cols[4] || '').replace(/"/g, '');
+
+        renderedRows++;
+        let rankClass = '';
+        if(rank === 1) rankClass = 'rank-1';
+        else if(rank === 2) rankClass = 'rank-2';
+        else if(rank === 3) rankClass = 'rank-3';
+
+        // Retrieve load data from local map
+        const localP = localData[teamName] || {};
+        const cargaActualKg = typeof localP.peso_kg === 'number' ? localP.peso_kg.toFixed(2) : '0.00';
+        const cargaTotalKg = typeof localP.peso_entregado_kg === 'number' ? localP.peso_entregado_kg.toFixed(2) : '0.00';
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="rank ${rankClass}">${rank}</td>
+          <td class="team-name" style="color: var(--text-muted);">${teamId}</td>
+          <td class="team-name" style="font-size: 18px;">${teamName}</td>
+          <td style="text-align: center;">
+            <span style="font-weight: bold; color: #10b981;">${cargaActualKg} kg</span>
+          </td>
+          <td style="text-align: center;">
+            <span style="font-weight: bold; color: #f59e0b;">${cargaTotalKg} kg</span>
+          </td>
+          <td style="text-align: right;">
+            <div class="score-badge">${points} pts</div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      if(renderedRows === 0){
+         tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 30px;">No data found in Google Sheets.</td></tr>';
+      }
+    } catch (err) {
+      console.error(err);
     }
   }
 

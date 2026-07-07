@@ -32,5 +32,158 @@
         "checkpoint_nombre": "Checkpoint 2",
         "checkpoint_slug": "checkpoint_2",
         "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_3_checkpoint_2_1783462574.jpg",
+        "timestamp": 1783462574,
+        "device_id": "app-mrb0911p-59dk0dc9",
+        "participante": "Participante_3",
+        "fecha_hora": "2026-07-07 16:16:14",
+        "juez": "Judge_3",
+        "detections": {
+            "Rojo": 2,
+            "Blanco": 1,
+            "Negro": 0
+        },
+        "checkpoint_id": 2,
+        "checkpoint_nombre": "Checkpoint 2",
+        "checkpoint_slug": "checkpoint_2",
+        "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_9_checkpoint_2_1783462913.jpg",
+        "timestamp": 1783462913,
+        "device_id": "app-mrb0911p-59dk0dc9",
+        "participante": "Participante_9",
+        "fecha_hora": "2026-07-07 16:21:53",
+        "juez": "Judge_3",
+        "detections": {
+            "Rojo": 2,
+            "Blanco": 1,
+            "Negro": 2
+        },
+        "checkpoint_id": 2,
+        "checkpoint_nombre": "Checkpoint 2",
+        "checkpoint_slug": "checkpoint_2",
+        "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_11_checkpoint_2_1783463023.jpg",
+        "timestamp": 1783463023,
+        "device_id": "app-mrb0911p-59dk0dc9",
+        "participante": "Participante_11",
+        "fecha_hora": "2026-07-07 16:23:43",
+        "juez": "Judge_3",
+        "detections": {
+            "Rojo": 3,
+            "Blanco": 3,
+            "Negro": 3
+        },
+        "checkpoint_id": 2,
+        "checkpoint_nombre": "Checkpoint 2",
+        "checkpoint_slug": "checkpoint_2",
+        "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_11_checkpoint_2_1783463066.jpg",
+        "timestamp": 1783463066,
+        "device_id": "app-mrb0911p-59dk0dc9",
+        "participante": "Participante_11",
+        "fecha_hora": "2026-07-07 16:24:26",
+        "juez": "Judge_3",
+        "detections": {
+            "Rojo": 4,
+            "Blanco": 4,
+            "Negro": 4
+        },
+        "checkpoint_id": 2,
+        "checkpoint_nombre": "Checkpoint 2",
+        "checkpoint_slug": "checkpoint_2",
+        "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_11_checkpoint_2_1783463142.jpg",
+        "timestamp": 1783463142,
+        "device_id": "app-mrb0911p-59dk0dc9",
+        "participante": "Participante_11",
+        "fecha_hora": "2026-07-07 16:25:42",
+        "juez": "Judge_3",
+        "detections": {
+            "Rojo": 5,
+            "Blanco": 6,
+            "Negro": 5
+        },
+        "checkpoint_id": 2,
+        "checkpoint_nombre": "Checkpoint 2",
+        "checkpoint_slug": "checkpoint_2",
+        "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_15_checkpoint_2_1783463410.jpg",
+        "timestamp": 1783463410,
+        "device_id": "app-mrb0911p-59dk0dc9",
+        "participante": "Participante_15",
+        "fecha_hora": "2026-07-07 16:30:10",
+        "juez": "Judge_3",
+        "detections": {
+            "Rojo": 5,
+            "Blanco": 5,
+            "Negro": 5
+        },
+        "checkpoint_id": 2,
+        "checkpoint_nombre": "Checkpoint 2",
+        "checkpoint_slug": "checkpoint_2",
+        "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_15_checkpoint_2_1783463422.jpg",
+        "timestamp": 1783463422,
+        "device_id": "app-mrb0911p-59dk0dc9",
+        "participante": "Participante_15",
+        "fecha_hora": "2026-07-07 16:30:22",
+        "juez": "Judge_3",
+        "detections": {
+            "Rojo": 4,
+            "Blanco": 6,
+            "Negro": 5
+        },
+        "checkpoint_id": 2,
+        "checkpoint_nombre": "Checkpoint 2",
+        "checkpoint_slug": "checkpoint_2",
+        "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_15_checkpoint_2_1783463428.jpg",
+        "timestamp": 1783463428,
+        "device_id": "app-mrb0911p-59dk0dc9",
+        "participante": "Participante_15",
+        "fecha_hora": "2026-07-07 16:30:28",
+        "juez": "Judge_3",
+        "detections": {
+            "Rojo": 4,
+            "Blanco": 6,
+            "Negro": 6
+        },
+        "checkpoint_id": 2,
+        "checkpoint_nombre": "Checkpoint 2",
+        "checkpoint_slug": "checkpoint_2",
+        "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_7_checkpoint_2_1783465890.jpg",
+        "timestamp": 1783465890,
+        "device_id": "app-mrb9gd9n-b8epw573",
+        "participante": "Participante_7",
+        "fecha_hora": "2026-07-07 17:11:30",
+        "juez": "Judge_4",
+        "detections": {
+            "Rojo": 1,
+            "Blanco": 1,
+            "Negro": 1
+        },
+        "checkpoint_id": 2,
+        "checkpoint_nombre": "Checkpoint 2",
+        "checkpoint_slug": "checkpoint_2",
+        "distancia_checkpoint_m": 0.0
     }
 ]

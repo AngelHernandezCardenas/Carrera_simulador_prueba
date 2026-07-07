@@ -118,8 +118,8 @@
     "nombre": "participante_05",
     "device_id": "app-mrazwujh-jtyd4xbm",
     "last_coord": [
-      25.651850305738474,
-      -100.29251473941675
+      25.651821333333334,
+      -100.29258200000001
     ],
     "checkpoints_visitados": [],
     "cantidad_checkpoints_visitados": 0,
@@ -130,16 +130,16 @@
       "nombre": "Checkpoint 4"
     },
     "checkpoint_pendiente_mas_cercano_id": 4,
-    "distancia_checkpoint_pendiente_mas_cercano_m": 143.48,
+    "distancia_checkpoint_pendiente_mas_cercano_m": 149.03,
     "checkpoint_mas_cercano": {
       "id": 4,
       "nombre": "Checkpoint 4"
     },
     "checkpoint_mas_cercano_id": 4,
-    "distancia_checkpoint_mas_cercano_m": 143.48,
+    "distancia_checkpoint_mas_cercano_m": 149.03,
     "estado": "corriendo",
     "scores": {},
-    "puntaje_retos": 11.23,
+    "puntaje_retos": 47.23,
     "conteo_colores": {
       "Rojo": 0,
       "Blanco": 0,
@@ -150,6 +150,6 @@
     "peso_entregado_kg": 0.0,
     "peso_descargado_kg": 0.0,
     "en_checkpoint_descarga_peso": false,
-    "nivel_bateria": 44.52808214721145
+    "nivel_bateria": 47.066228807933484
   }
 }

@@ -871,6 +871,10 @@ def gps():
         "peso_entregado_kg": checkpoint_state["peso_entregado_kg"],
         "peso_descargado_kg": checkpoint_state["peso_descargado_kg"],
         "checkpoints_visitados": checkpoint_state["cantidad_checkpoints_visitados"],
+        "checkpoints_visitados_lista": checkpoint_state["checkpoints_visitados"],
+        "checkpoints_visitados_txt": ",".join(
+            str(checkpoint_id) for checkpoint_id in checkpoint_state["checkpoints_visitados"]
+        ),
         "checkpoint_descarga_visitado": checkpoint_state["checkpoint_descarga_visitado"],
         "blocked_by_challenge": checkpoint_state.get("blocked_by_challenge", False),
         "checkpoint_pendiente_mas_cercano": checkpoint_state["checkpoint_pendiente_mas_cercano"],

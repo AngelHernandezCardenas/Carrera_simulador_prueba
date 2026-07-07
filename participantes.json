@@ -50,5 +50,245 @@
     "peso_descargado_kg": 0.0,
     "en_checkpoint_descarga_peso": false,
     "nivel_bateria": 64.39802181169894
+  },
+  "sim-live-01": {
+    "nombre": "participante_07",
+    "device_id": "sim-live-01",
+    "last_coord": [
+      25.65161508571187,
+      -100.28999358571187
+    ],
+    "checkpoints_visitados": [
+      1
+    ],
+    "cantidad_checkpoints_visitados": 1,
+    "checkpoint_descarga_visitado": false,
+    "blocked_by_challenge": true,
+    "checkpoint_pendiente_mas_cercano": {
+      "id": 3,
+      "nombre": "Checkpoint 3"
+    },
+    "checkpoint_pendiente_mas_cercano_id": 3,
+    "distancia_checkpoint_pendiente_mas_cercano_m": 30.92,
+    "checkpoint_mas_cercano": {
+      "id": 3,
+      "nombre": "Checkpoint 3"
+    },
+    "checkpoint_mas_cercano_id": 3,
+    "distancia_checkpoint_mas_cercano_m": 30.92,
+    "estado": "corriendo",
+    "scores": {},
+    "puntaje_retos": 0.0,
+    "conteo_colores": {
+      "Rojo": 0,
+      "Blanco": 0,
+      "Negro": 0
+    },
+    "color_detectado": [],
+    "peso_kg": 0.0,
+    "peso_entregado_kg": 0.0,
+    "peso_descargado_kg": 0.0,
+    "en_checkpoint_descarga_peso": false,
+    "nivel_bateria": 88.5
+  },
+  "sim-live-02": {
+    "nombre": "participante_08",
+    "device_id": "sim-live-02",
+    "last_coord": [
+      25.650111,
+      -100.289386
+    ],
+    "checkpoints_visitados": [
+      5
+    ],
+    "cantidad_checkpoints_visitados": 1,
+    "checkpoint_descarga_visitado": false,
+    "blocked_by_challenge": true,
+    "checkpoint_pendiente_mas_cercano": {
+      "id": 2,
+      "nombre": "Checkpoint 2"
+    },
+    "checkpoint_pendiente_mas_cercano_id": 2,
+    "distancia_checkpoint_pendiente_mas_cercano_m": 0.0,
+    "checkpoint_mas_cercano": {
+      "id": 2,
+      "nombre": "Checkpoint 2"
+    },
+    "checkpoint_mas_cercano_id": 2,
+    "distancia_checkpoint_mas_cercano_m": 0.0,
+    "estado": "corriendo",
+    "scores": {},
+    "puntaje_retos": 0.0,
+    "conteo_colores": {
+      "Rojo": 0,
+      "Blanco": 0,
+      "Negro": 0
+    },
+    "color_detectado": [],
+    "peso_kg": 0.0,
+    "peso_entregado_kg": 0.0,
+    "peso_descargado_kg": 0.0,
+    "en_checkpoint_descarga_peso": false,
+    "nivel_bateria": 88.5
+  },
+  "sim-live-03": {
+    "nombre": "participante_09",
+    "device_id": "sim-live-03",
+    "last_coord": [
+      25.65051578297053,
+      -100.29023078297053
+    ],
+    "checkpoints_visitados": [
+      3
+    ],
+    "cantidad_checkpoints_visitados": 1,
+    "checkpoint_descarga_visitado": false,
+    "blocked_by_challenge": true,
+    "checkpoint_pendiente_mas_cercano": {
+      "id": 2,
+      "nombre": "Checkpoint 2"
+    },
+    "checkpoint_pendiente_mas_cercano_id": 2,
+    "distancia_checkpoint_pendiente_mas_cercano_m": 95.9,
+    "checkpoint_mas_cercano": {
+      "id": 2,
+      "nombre": "Checkpoint 2"
+    },
+    "checkpoint_mas_cercano_id": 2,
+    "distancia_checkpoint_mas_cercano_m": 95.9,
+    "estado": "corriendo",
+    "scores": {},
+    "puntaje_retos": 0.0,
+    "conteo_colores": {
+      "Rojo": 0,
+      "Blanco": 0,
+      "Negro": 0
+    },
+    "color_detectado": [],
+    "peso_kg": 0.0,
+    "peso_entregado_kg": 0.0,
+    "peso_descargado_kg": 0.0,
+    "en_checkpoint_descarga_peso": false,
+    "nivel_bateria": 88.5
+  },
+  "sim-live-04": {
+    "nombre": "participante_10",
+    "device_id": "sim-live-04",
+    "last_coord": [
+      25.651463939485993,
+      -100.29114893948599
+    ],
+    "checkpoints_visitados": [
+      1
+    ],
+    "cantidad_checkpoints_visitados": 1,
+    "checkpoint_descarga_visitado": false,
+    "blocked_by_challenge": true,
+    "checkpoint_pendiente_mas_cercano": {
+      "id": 4,
+      "nombre": "Checkpoint 4"
+    },
+    "checkpoint_pendiente_mas_cercano_id": 4,
+    "distancia_checkpoint_pendiente_mas_cercano_m": 0.01,
+    "checkpoint_mas_cercano": {
+      "id": 4,
+      "nombre": "Checkpoint 4"
+    },
+    "checkpoint_mas_cercano_id": 4,
+    "distancia_checkpoint_mas_cercano_m": 0.01,
+    "estado": "corriendo",
+    "scores": {},
+    "puntaje_retos": 0.0,
+    "conteo_colores": {
+      "Rojo": 0,
+      "Blanco": 0,
+      "Negro": 0
+    },
+    "color_detectado": [],
+    "peso_kg": 0.0,
+    "peso_entregado_kg": 0.0,
+    "peso_descargado_kg": 0.0,
+    "en_checkpoint_descarga_peso": true,
+    "nivel_bateria": 88.5
+  },
+  "sim-live-05": {
+    "nombre": "participante_11",
+    "device_id": "sim-live-05",
+    "last_coord": [
+      25.65077969124006,
+      -100.28917349124005
+    ],
+    "checkpoints_visitados": [
+      2
+    ],
+    "cantidad_checkpoints_visitados": 1,
+    "checkpoint_descarga_visitado": false,
+    "blocked_by_challenge": true,
+    "checkpoint_pendiente_mas_cercano": {
+      "id": 1,
+      "nombre": "Checkpoint 1"
+    },
+    "checkpoint_pendiente_mas_cercano_id": 1,
+    "distancia_checkpoint_pendiente_mas_cercano_m": 117.08,
+    "checkpoint_mas_cercano": {
+      "id": 2,
+      "nombre": "Checkpoint 2"
+    },
+    "checkpoint_mas_cercano_id": 2,
+    "distancia_checkpoint_mas_cercano_m": 77.35,
+    "estado": "corriendo",
+    "scores": {},
+    "puntaje_retos": 0.0,
+    "conteo_colores": {
+      "Rojo": 0,
+      "Blanco": 0,
+      "Negro": 0
+    },
+    "color_detectado": [],
+    "peso_kg": 0.0,
+    "peso_entregado_kg": 0.0,
+    "peso_descargado_kg": 0.0,
+    "en_checkpoint_descarga_peso": false,
+    "nivel_bateria": 88.55
+  },
+  "sim-live-06": {
+    "nombre": "participante_12",
+    "device_id": "sim-live-06",
+    "last_coord": [
+      25.64913191233212,
+      -100.29022991233212
+    ],
+    "checkpoints_visitados": [
+      3
+    ],
+    "cantidad_checkpoints_visitados": 1,
+    "checkpoint_descarga_visitado": false,
+    "blocked_by_challenge": true,
+    "checkpoint_pendiente_mas_cercano": {
+      "id": 5,
+      "nombre": "Checkpoint 5"
+    },
+    "checkpoint_pendiente_mas_cercano_id": 5,
+    "distancia_checkpoint_pendiente_mas_cercano_m": 1.21,
+    "checkpoint_mas_cercano": {
+      "id": 5,
+      "nombre": "Checkpoint 5"
+    },
+    "checkpoint_mas_cercano_id": 5,
+    "distancia_checkpoint_mas_cercano_m": 1.21,
+    "estado": "corriendo",
+    "scores": {},
+    "puntaje_retos": 0.0,
+    "conteo_colores": {
+      "Rojo": 0,
+      "Blanco": 0,
+      "Negro": 0
+    },
+    "color_detectado": [],
+    "peso_kg": 0.0,
+    "peso_entregado_kg": 0.0,
+    "peso_descargado_kg": 0.0,
+    "en_checkpoint_descarga_peso": false,
+    "nivel_bateria": 88.55
   }
 }

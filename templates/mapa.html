@@ -95,9 +95,9 @@
         .dashboard.expanded .runner-info {
             width: 100%;
             display: grid;
-            grid-template-columns: 50px 2fr 1fr 1fr 1fr 1fr 1fr 1.4fr;
+            grid-template-columns: 50px 2fr 1fr 1.2fr 2fr;
             align-items: center;
-            gap: 15px;
+            gap: 12px;
         }
 
         .header {
@@ -333,6 +333,21 @@
             font-size: 15px;
         }
 
+        .runner-stat-col .status-blocked {
+            color: #fca5a5;
+        }
+
+        .runner-stat-col .status-ok {
+            color: #93c5fd;
+        }
+
+        .runner-stat-col .checkpoint-list {
+            color: #fde68a;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            line-height: 1.25;
+        }
+
         .timer-cell {
             gap: 6px;
         }
@@ -393,8 +408,8 @@
         .table-header {
             display: none;
             padding: 10px 14px 0 14px;
-            grid-template-columns: 50px 2fr 1fr 1fr 1fr 1fr 1fr 1.4fr;
-            gap: 15px;
+            grid-template-columns: 50px 2fr 1fr 1.2fr 2fr;
+            gap: 12px;
             font-size: 11px;
             color: var(--text-muted);
             text-transform: uppercase;
@@ -691,12 +706,9 @@
         <div class="table-header">
             <div>Pos</div>
             <div>Corredor</div>
-            <div>Puntaje</div>
-            <div>Peso</div>
-            <div>Distancia (Km)</div>
-            <div>Vel. Actual (Km/h)</div>
-            <div>Vel. Máx (Km/h)</div>
             <div>Tiempo</div>
+            <div>Visitados</div>
+            <div>Checkpoint</div>
         </div>
         <div class="runners-list" id="runners-list">
         </div>
@@ -844,6 +856,116 @@
                 || `Checkpoint ${checkpoint.id}`;
         }
 
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function toRadians(value) {
+            return Number(value) * Math.PI / 180;
+        }
+
+        function distanceMeters(lat1, lon1, lat2, lon2) {
+            const earthRadiusM = 6371000;
+            const dLat = toRadians(lat2 - lat1);
+            const dLon = toRadians(lon2 - lon1);
+            const a = Math.sin(dLat / 2) ** 2
+                + Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) * Math.sin(dLon / 2) ** 2;
+            return 2 * earthRadiusM * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
+
+        function getCurrentCheckpointId(data) {
+            const lat = Number(data.latitude);
+            const lon = Number(data.longitude);
+            if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+
+            let current = null;
+            CHECKPOINTS.forEach((checkpoint) => {
+                const distance = distanceMeters(lat, lon, Number(checkpoint.lat), Number(checkpoint.lon));
+                const radius = Number(checkpoint.radio_m || 5);
+                if (distance <= radius && (!current || distance < current.distance)) {
+                    current = { id: Number(checkpoint.id), distance };
+                }
+            });
+            return current ? current.id : null;
+        }
+
+        function getInitialCheckpointVisitCounts(data, currentCheckpointId) {
+            const counts = {};
+            const rawList = data.checkpoints_visitados_lista || data.checkpoints_visitados_ids;
+            if (Array.isArray(rawList)) {
+                rawList.forEach((checkpointId) => {
+                    const id = Number(checkpointId);
+                    if (Number.isFinite(id)) counts[id] = Math.max(counts[id] || 0, 1);
+                });
+            } else if (typeof data.checkpoints_visitados_txt === 'string' && data.checkpoints_visitados_txt.trim()) {
+                data.checkpoints_visitados_txt.split(',').forEach((checkpointId) => {
+                    const id = Number(checkpointId.trim());
+                    if (Number.isFinite(id)) counts[id] = Math.max(counts[id] || 0, 1);
+                });
+            }
+
+            if (currentCheckpointId !== null) {
+                counts[currentCheckpointId] = Math.max(counts[currentCheckpointId] || 0, 1);
+            }
+            return counts;
+        }
+
+        function updateCheckpointVisitTracking(runner, data) {
+            const currentCheckpointId = getCurrentCheckpointId(data);
+            if (currentCheckpointId !== null && currentCheckpointId !== runner.current_checkpoint_id) {
+                runner.checkpoint_visit_counts[currentCheckpointId] = (runner.checkpoint_visit_counts[currentCheckpointId] || 0) + 1;
+            }
+            runner.current_checkpoint_id = currentCheckpointId;
+            runner.latestData = data;
+        }
+
+        function getCheckpointParticipants(checkpointId) {
+            return Object.entries(state.runners)
+                .filter(([, runner]) => runner.current_checkpoint_id === checkpointId)
+                .map(([id, runner]) => ({
+                    id,
+                    visits: runner.checkpoint_visit_counts[checkpointId] || 0,
+                    color: runner.color
+                }))
+                .sort((a, b) => a.id.localeCompare(b.id));
+        }
+
+        function buildCheckpointPopupHtml(checkpoint, isNonScoring) {
+            const checkpointId = Number(checkpoint.id);
+            const participants = getCheckpointParticipants(checkpointId);
+            const participantRows = participants.length
+                ? participants.map((participant) => `
+                    <div class="popup-stat" style="margin-top: 5px;">
+                        <b style="color: ${participant.color};">${escapeHtml(participant.id)}</b>: ${participant.visits} visita${participant.visits === 1 ? '' : 's'}
+                    </div>
+                `).join('')
+                : '<div class="popup-stat" style="margin-top: 8px; color: #fca5a5;">No hay participantes en este checkpoint.</div>';
+
+            return `
+                <div class="popup-title">${escapeHtml(getCheckpointName(checkpoint))}</div>
+                <div class="popup-stat">ID: <b>${checkpointId}</b></div>
+                <div class="popup-stat">${isNonScoring ? 'Descarga de peso, no pondera' : 'Checkpoint ponderado'}</div>
+                <div class="popup-stat">Radio: ${Number(checkpoint.radio_m || 5).toFixed(1)} m</div>
+                <div class="popup-stat">Coord: ${Number(checkpoint.lat).toFixed(5)}, ${Number(checkpoint.lon).toFixed(5)}</div>
+                <div class="popup-stat" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.12);">
+                    Participantes aqui: <b>${participants.length}</b>
+                </div>
+                ${participantRows}
+            `;
+        }
+
+        function refreshOpenCheckpointPopups() {
+            Object.values(state.checkpointPopups).forEach(({ popup, checkpoint, isNonScoring }) => {
+                if (popup.isOpen()) {
+                    popup.setHTML(buildCheckpointPopupHtml(checkpoint, isNonScoring));
+                }
+            });
+        }
         function addCheckpointMarkers() {
             CHECKPOINTS.forEach((checkpoint) => {
                 const isNonScoring = NON_SCORING_CHECKPOINT_IDS.has(Number(checkpoint.id));
@@ -853,13 +975,14 @@
                 el.textContent = checkpoint.id;
                 el.title = getCheckpointName(checkpoint);
 
-                const popup = new maplibregl.Popup({ offset: 18 }).setHTML(`
-                    <div class="popup-title">${getCheckpointName(checkpoint)}</div>
-                    <div class="popup-stat">ID: <b>${checkpoint.id}</b></div>
-                    <div class="popup-stat">${isNonScoring ? 'Descarga de peso, no pondera' : 'Checkpoint ponderado'}</div>
-                    <div class="popup-stat">Radio: ${Number(checkpoint.radio_m || 5).toFixed(1)} m</div>
-                    <div class="popup-stat">Coord: ${Number(checkpoint.lat).toFixed(5)}, ${Number(checkpoint.lon).toFixed(5)}</div>
-                `);
+                const popup = new maplibregl.Popup({ offset: 18 }).setHTML(buildCheckpointPopupHtml(checkpoint, isNonScoring));
+                const checkpointId = Number(checkpoint.id);
+
+                el.addEventListener('click', () => {
+                    popup.setHTML(buildCheckpointPopupHtml(checkpoint, isNonScoring));
+                });
+
+                state.checkpointPopups[checkpointId] = { popup, checkpoint, isNonScoring };
 
                 new maplibregl.Marker({ element: el, anchor: 'center' })
                     .setLngLat([Number(checkpoint.lon), Number(checkpoint.lat)])
@@ -880,7 +1003,6 @@
         });
 
         map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
-        addCheckpointMarkers();
 
         const STYLE_DARK = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
         const STYLE_LIGHT = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
@@ -968,8 +1090,11 @@
             globalTimerRunning: false,
             globalTimerFinished: false,
             globalStartMs: null,
-            globalElapsedMs: 0
+            globalElapsedMs: 0,
+            checkpointPopups: {}
         };
+
+        addCheckpointMarkers();
 
         const listContainer = document.getElementById('runners-list');
         const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
@@ -989,12 +1114,43 @@
         }
 
         function getPendingCheckpointLabel(data) {
-            if (data.blocked_by_challenge) return 'Unavailable checkpoint';
+            if (data.blocked_by_challenge) return 'No puede ir a mas checkpoints';
             const pending = data.checkpoint_pendiente_mas_cercano;
             if (!pending) return 'Ninguno';
             return pending.nombre || `Checkpoint ${pending.id}`;
         }
 
+        function getVisitedCheckpointInfo(data) {
+            const rawList = data.checkpoints_visitados_lista || data.checkpoints_visitados_ids;
+            if (Array.isArray(rawList)) {
+                const list = rawList.map((item) => String(item)).filter(Boolean);
+                return { count: list.length, label: list.length ? list.join(', ') : 'Ninguno' };
+            }
+
+            if (typeof data.checkpoints_visitados_txt === 'string' && data.checkpoints_visitados_txt.trim()) {
+                const list = data.checkpoints_visitados_txt.split(',').map((item) => item.trim()).filter(Boolean);
+                return { count: list.length, label: list.join(', ') };
+            }
+
+            const count = Number(data.checkpoints_visitados || data.cantidad_checkpoints_visitados || 0) || 0;
+            return { count, label: count ? `${count}` : 'Ninguno' };
+        }
+
+        function hasRepeatedCurrentCheckpoint(runner) {
+            if (!runner || !runner.checkpoint_visit_counts) return false;
+            return Object.values(runner.checkpoint_visit_counts).some((visits) => Number(visits) >= 2);
+        }
+
+        function getCheckpointStatusHtml(data, runner = null) {
+            if (data.blocked_by_challenge && hasRepeatedCurrentCheckpoint(runner)) {
+                return '<span class="status-ok">Disponible para ir a cualquiera</span>';
+            }
+
+            if (data.blocked_by_challenge) {
+                return '<span class="status-blocked">No puede ir a mas checkpoints</span>';
+            }
+            return `<span class="status-ok">${getPendingCheckpointLabel(data)}</span>`;
+        }
         function getClosestCheckpointLabel(data) {
             const closest = data.checkpoint_mas_cercano;
             if (!closest) return 'Ninguno';
@@ -1183,17 +1339,7 @@
         socket.on('update_puntaje', function(data) {
             const id = data.participante;
             if (state.runners[id]) {
-                const runner = state.runners[id];
-                document.getElementById(`puntos-${id}`).textContent = Number(data.puntaje_retos).toFixed(2);
-                
-                let cards = Array.from(listContainer.children);
-                cards.sort((a, b) => {
-                    let ptsA = parseFloat(a.querySelector('[id^="puntos-"]').textContent) || 0;
-                    let ptsB = parseFloat(b.querySelector('[id^="puntos-"]').textContent) || 0;
-                    return ptsB - ptsA;
-                });
-                cards.forEach(c => listContainer.appendChild(c));
-                
+                state.runners[id].puntaje_retos = Number(data.puntaje_retos) || 0;
                 showToast(`<b>${id}</b> ha recibido un nuevo puntaje!<br>Total: <span style="color: #10b981; font-weight: bold;">${Number(data.puntaje_retos).toFixed(2)}</span>`);
             }
         });
@@ -1239,8 +1385,14 @@
 
                 // Crear card en la lista
                 const card = document.createElement('div');
-                const puntaje = Number(data.puntaje_retos ?? 0) || 0;
                 const peso = getPesoValue(data);
+                const visitedInfo = getVisitedCheckpointInfo(data);
+                const currentCheckpointId = getCurrentCheckpointId(data);
+                const initialCheckpointVisitCounts = getInitialCheckpointVisitCounts(data, currentCheckpointId);
+                const initialCheckpointRunner = {
+                    current_checkpoint_id: currentCheckpointId,
+                    checkpoint_visit_counts: initialCheckpointVisitCounts
+                };
                 card.className = `runner-card ${getPesoClass(peso)}`;
                 card.id = `card-${id}`;
                 card.onclick = (e) => {
@@ -1256,16 +1408,12 @@
                         <div class="runner-avatar" id="posicion-${id}" style="background: linear-gradient(135deg, ${assignedColor}, #000); box-shadow: 0 4px 12px ${assignedColor}60;">${posicion}</div>
                         <div class="runner-details">
                             <div class="runner-name">${id}</div>
-                            <div class="runner-stat-col" style="display: none;" class="dashboard-only-expanded"></div>
-                            <div class="runner-stat-col">Puntaje: <span id="puntos-${id}">${puntaje.toFixed(2)}</span></div>
-                            <div class="runner-stat-col">Peso: <span id="peso-${id}">${formatPeso(peso)}</span> kg</div>
-                            <div class="runner-stat-col">Dist: <span id="dist-${id}">0.00</span> km</div>
-                            <div class="runner-stat-col">Vel: <span id="speed-${id}">${speed.toFixed(1)}</span> km/h</div>
-                            <div class="runner-stat-col">Máx: <span id="max-speed-${id}">0.0</span> km/h</div>
                             <div class="runner-stat-col timer-cell">
                                 <span id="timer-${id}">00:00:00</span>
                                 <div class="timer-status" id="timer-status-${id}">corriendo</div>
                             </div>
+                            <div class="runner-stat-col">Visitados: <span id="visitados-${id}" class="checkpoint-list">${visitedInfo.label}</span></div>
+                            <div class="runner-stat-col">Checkpoint: <div id="checkpoint-state-${id}">${getCheckpointStatusHtml(data, initialCheckpointRunner)}</div></div>
                         </div>
                     </div>
                 `;
@@ -1276,7 +1424,13 @@
                     popup,
                     card,
                     color: assignedColor,
-                    checkpoints_visitados: data.checkpoints_visitados || 0,
+                    checkpoints_visitados: visitedInfo.count,
+                    checkpoint_visit_counts: initialCheckpointVisitCounts,
+                    current_checkpoint_id: currentCheckpointId,
+                    latestData: data,
+                    distancia_km: data.distancia_km || 0,
+                    max_speed: data.max_speed || speed,
+                    puntaje_retos: Number(data.puntaje_retos ?? 0) || 0,
                     timerStartMs: null,
                     elapsedMs: 0,
                     timerRunning: false,
@@ -1292,6 +1446,7 @@
                 }
                 data.estado = syncFinishedState(id, data);
                 document.getElementById('total-runners').textContent = Object.keys(state.runners).length;
+                refreshOpenCheckpointPopups();
 
                 if (!state.firstPointReceived) {
                     map.flyTo({ center: lngLat, zoom: 15, speed: 1.5 });
@@ -1302,7 +1457,8 @@
                 data.estado = syncFinishedState(id, data);
                 
                 // Detección de nuevo checkpoint visitado
-                const visitedCount = data.checkpoints_visitados || 0;
+                const visitedInfo = getVisitedCheckpointInfo(data);
+                const visitedCount = visitedInfo.count;
                 const prevVisitedCount = runner.checkpoints_visitados || 0;
                 
                 if (visitedCount > prevVisitedCount) {
@@ -1318,6 +1474,7 @@
                     }
                 }
                 runner.checkpoints_visitados = visitedCount;
+                updateCheckpointVisitTracking(runner, data);
 
                 // Animar el movimiento del marcador
                 runner.marker.setLngLat(lngLat);
@@ -1326,19 +1483,19 @@
                 const max_spd = data.max_speed || speed;
                 const pts = Number(data.puntaje_retos ?? 0) || 0;
                 const peso = getPesoValue(data);
+                runner.distancia_km = dist_km;
+                runner.max_speed = max_spd;
+                runner.puntaje_retos = pts;
 
-                document.getElementById(`speed-${id}`).textContent = speed.toFixed(1);
-                document.getElementById(`dist-${id}`).textContent = dist_km.toFixed(3);
-                document.getElementById(`max-speed-${id}`).textContent = max_spd.toFixed(1);
-                document.getElementById(`puntos-${id}`).textContent = pts.toFixed(2);
-                document.getElementById(`peso-${id}`).textContent = formatPeso(peso);
+                document.getElementById('visitados-' + id).textContent = visitedInfo.label;
+                document.getElementById('checkpoint-state-' + id).innerHTML = getCheckpointStatusHtml(data, runner);
                 document.getElementById(`posicion-${id}`).textContent = data.posicion ?? '--';
                 applyPesoClass(runner.card, peso);
                 
                 // Actualizar max distance global
                 let liderDist = 0;
                 Object.keys(state.runners).forEach(rid => {
-                    let d = parseFloat(document.getElementById(`dist-${rid}`).textContent);
+                    let d = Number(state.runners[rid].distancia_km || 0);
                     if (d > liderDist) liderDist = d;
                 });
                 document.getElementById('lider-distancia').textContent = liderDist.toFixed(3);
@@ -1359,6 +1516,7 @@
 
                 // Actualizar el HTML del popup si está abierto
                 runner.popup.setHTML(buildRunnerPopupHtml(id, runner.color, data, speed));
+                refreshOpenCheckpointPopups();
             }
         });
     </script>

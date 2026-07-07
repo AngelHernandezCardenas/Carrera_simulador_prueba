@@ -721,6 +721,7 @@
         const NON_SCORING_CHECKPOINT_IDS = new Set({{ non_scoring_checkpoint_ids | tojson }});
         let participantList = {{ participantes | tojson }};
         let photoGallery = {{ galeria | tojson }};
+        let judgesList = [];
 
         function getPhotoCheckpointId(photo) {
             const rawId = photo.checkpoint_id || photo.checkpoint_mas_cercano_id || (photo.checkpoint && photo.checkpoint.id);
@@ -830,6 +831,7 @@
                 const payload = await resp.json();
                 photoGallery = payload.galeria || [];
                 participantList = sortParticipants(payload.participantes || participantList);
+                judgesList = payload.judges || [];
                 renderPhotoPanel();
             } catch (error) {
                 console.warn('No se pudo cargar la galeria', error);
@@ -946,8 +948,12 @@
                 `).join('')
                 : '<div class="popup-stat" style="margin-top: 8px; color: #fca5a5;">No hay participantes en este checkpoint.</div>';
 
+            const judgesEnCheckpoint = judgesList.filter(j => j.checkpoint_id === checkpointId).map(j => escapeHtml(j.nombre));
+            const judgesText = judgesEnCheckpoint.length > 0 ? judgesEnCheckpoint.join(', ') : 'Ninguno';
+
             return `
                 <div class="popup-title">${escapeHtml(getCheckpointName(checkpoint))}</div>
+                <div class="popup-stat" style="margin-bottom: 8px; font-weight: bold; color: #3b82f6;">Jueces aquí: ${judgesText}</div>
                 <div class="popup-stat">ID: <b>${checkpointId}</b></div>
                 <div class="popup-stat">${isNonScoring ? 'Descarga de peso, no pondera' : 'Checkpoint ponderado'}</div>
                 <div class="popup-stat">Radio: ${Number(checkpoint.radio_m || 5).toFixed(1)} m</div>
@@ -1107,6 +1113,7 @@
 
         socket.on('connect', () => console.log('Conectado al servidor de telemetria.'));
         renderPhotoPanel();
+        setInterval(refreshPhotoGallery, 5000);
 
         function formatNullable(value, decimals = 2, fallback = '--') {
             const number = Number(value);
@@ -1174,6 +1181,21 @@
         function applyPesoClass(card, peso) {
             card.classList.remove('peso-green', 'peso-yellow', 'peso-red');
             card.classList.add(getPesoClass(peso));
+        }
+
+        function getCargaMarkerColor(peso) {
+            if (peso > 10) return '#ef4444';   // Rojo: carga > 10 kg
+            if (peso >= 10) return '#f59e0b'; // Amarillo: carga = 10 kg
+            if (peso >= 1) return '#22c55e';  // Verde: carga 1–9 kg
+            return '#94a3b8';                 // Gris: sin carga
+        }
+
+        function updateMarkerCargaColor(runner, peso) {
+            if (!runner || !runner.markerEl) return;
+            const cargaColor = getCargaMarkerColor(peso);
+            runner.markerEl.style.backgroundColor = cargaColor;
+            runner.markerEl.style.borderColor = cargaColor;
+            runner.markerEl.style.boxShadow = `0 4px 10px rgba(0,0,0,0.5), 0 0 15px ${cargaColor}80`;
         }
 
         function showToast(message) {
@@ -1367,9 +1389,11 @@
                 // Crear HTML del marcador
                 const el = document.createElement('div');
                 el.className = 'custom-marker';
-                el.style.backgroundColor = assignedColor;
-                el.style.borderColor = assignedColor; // Se usa para la animacion del borde (pulse-ring)
-                el.style.boxShadow = `0 4px 10px rgba(0,0,0,0.5), 0 0 15px ${assignedColor}80`;
+                const initialPeso = getPesoValue(data);
+                const initialCargaColor = getCargaMarkerColor(initialPeso);
+                el.style.backgroundColor = initialCargaColor;
+                el.style.borderColor = initialCargaColor;
+                el.style.boxShadow = `0 4px 10px rgba(0,0,0,0.5), 0 0 15px ${initialCargaColor}80`;
                 el.innerHTML = initials;
 
                 // Crear Popup
@@ -1421,6 +1445,7 @@
 
                 state.runners[id] = {
                     marker,
+                    markerEl: el,
                     popup,
                     card,
                     color: assignedColor,
@@ -1491,6 +1516,7 @@
                 document.getElementById('checkpoint-state-' + id).innerHTML = getCheckpointStatusHtml(data, runner);
                 document.getElementById(`posicion-${id}`).textContent = data.posicion ?? '--';
                 applyPesoClass(runner.card, peso);
+                updateMarkerCargaColor(runner, peso);
                 
                 // Actualizar max distance global
                 let liderDist = 0;

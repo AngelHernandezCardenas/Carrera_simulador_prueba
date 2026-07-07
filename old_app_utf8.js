@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+﻿import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { Alert, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, LogBox } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as TaskManager from 'expo-task-manager';
@@ -14,8 +14,6 @@ import MetricCard from './src/components/MetricCard';
 import ScannerCamera from './src/components/ScannerCamera';
 import GalleryModal from './src/components/GalleryModal';
 import ErrorBoundary from './src/ErrorBoundary';
-
-const isScannerMode = Platform.OS === 'web' && typeof window !== 'undefined' && window.location.pathname.endsWith('/scan');
 
 // LogBox.ignoreAllLogs();
 const LOCATION_TASK_NAME = 'background-location-task';
@@ -69,7 +67,6 @@ const sendGps = async (loc) => {
       sensor_timestamp_ms: accelData.sensor_timestamp_ms,
       client_timestamp_ms: nowMs,
       device_id: globalDeviceId,
-      participante: globalParticipante,
     };
 
     const data = await NetworkService.sendGpsData(globalServerUrl, payload);
@@ -95,8 +92,7 @@ export default function App() {
   const [participante, setParticipante] = useState(null);
   const [activo, setActivo] = useState(false);
   const [deviceId, setDeviceId] = useState('');
-  const [status, setStatus] = useState({ text: 'Waiting...', tone: 'neutral' });
-  const [checkpointConfirmado, setCheckpointConfirmado] = useState(false);
+  const [status, setStatus] = useState({ text: 'Esperando...', tone: 'neutral' });
   
   const [galeriaVisible, setGaleriaVisible] = useState(false);
   const [galeriaImagenes, setGaleriaImagenes] = useState([]);
@@ -105,7 +101,7 @@ export default function App() {
   const [speedInfo, setSpeedInfo] = useState({
     speed_kmh: null,
     speed_mps: null,
-    speed_source: 'waiting GPS',
+    speed_source: 'esperando GPS',
     acceleration_mps2: null,
   });
   const [checkpointInfo, setCheckpointInfo] = useState({ label: '--', distance: null });
@@ -119,7 +115,6 @@ export default function App() {
   const [contandoActivo, setContandoActivo] = useState(false);
   const [maxCounts, setMaxCounts] = useState({ Rojo: 0, Blanco: 0, Negro: 0 });
   const [detectedBalls, setDetectedBalls] = useState([]);
-  const [targetScanParticipant, setTargetScanParticipant] = useState("Desconocido");
   
   const cameraRef = useRef(null);
   const scanningRef = useRef(false);
@@ -151,12 +146,7 @@ export default function App() {
     if (!savedUrl && Platform.OS === 'web') {
       savedUrl = window.location.origin;
     }
-    let savedParticipant = await StorageService.getParticipante();
-    if (isScannerMode && savedParticipant && savedParticipant.toLowerCase().includes('participante')) {
-      savedParticipant = null; // Do not load previous participant in scanner mode so backend assigns Judge
-    } else if (!isScannerMode && savedParticipant && (savedParticipant.toLowerCase().includes('judge') || savedParticipant.toLowerCase().includes('juez'))) {
-      savedParticipant = null; // Do not load previous judge in participant mode so backend assigns Participant
-    }
+    const savedParticipant = await StorageService.getParticipante();
     const savedCheckpoint = await StorageService.getCheckpoint();
 
     globalDeviceId = id;
@@ -168,7 +158,7 @@ export default function App() {
     setDeviceId(id);
     setServerUrl(savedUrl);
     setParticipante(savedParticipant);
-    if (savedCheckpoint) setCheckpointInfo(prev => ({ ...prev, id: parseInt(savedCheckpoint, 10) }));
+    if (savedCheckpoint) setCheckpointInfo({ id: parseInt(savedCheckpoint, 10) });
     setLog(
       savedParticipant
         ? `${savedParticipant} ready. Start capture when ready.`
@@ -202,59 +192,29 @@ export default function App() {
 
     try {
       setLog('Registering participant...', 'neutral');
-      
-      const customName = !isScannerMode ? (participante || "") : undefined;
-      
-      const respData = await NetworkService.registerDevice(serverUrl, deviceId, customName);
-      
-      const assigned = respData.participante || participante || 'Unknown Participant';
-      setParticipante(assigned);
-      globalParticipante = assigned;
+      const data = await NetworkService.registerDevice(url, deviceId);
+
       await StorageService.multiSet([
         [StorageService.SERVER_URL_KEY, url],
-        [StorageService.PARTICIPANTE_KEY, assigned],
+        [StorageService.PARTICIPANTE_KEY, data.participante],
       ]);
-      
-      globalServerUrl = url;
-      setServerUrl(url);
-      setLog(`Registered correctly: ${assigned}`, 'ok');
-      setActivo(true);
-      setCheckpointConfirmado(false); // Reset checkpoint confirmation
-      return assigned;
-    } catch (error) {
-      console.warn('Error registering device:', error);
-      setLog(`Registration error: ${error.message}`, 'error');
-      return null;
-    }
-  };
 
-  const confirmarCheckpoint = async () => {
-    if (!checkpointInfo.id) {
-      Alert.alert("Error", "Select a checkpoint first.");
-      return;
-    }
-    try {
-      setLog('Confirming checkpoint...', 'neutral');
-      await NetworkService.confirmJudgeCheckpoint(serverUrl, deviceId, checkpointInfo.id);
-      setCheckpointConfirmado(true);
-      setLog(`Checkpoint ${checkpointInfo.id} confirmed.`, 'ok');
+      globalServerUrl = url;
+      globalParticipante = data.participante;
+      setServerUrl(url);
+      setParticipante(data.participante);
+      setLog(`Registered correctly.`, 'success');
+      setActivo(true);
+      startCapture();
     } catch (error) {
-      console.warn('Error confirming checkpoint:', error);
-      Alert.alert("Error", error.message);
-      setLog(error.message, 'error');
+      setLog(`Registration error: ${error.message}`, 'error');
     }
   };
 
   const startCapture = async () => {
-    if (!participante && !globalParticipante) {
-      if (!isScannerMode) {
-        // Auto-register runners if they just click Start Capture
-        const assigned = await registerParticipant();
-        if (!assigned) return; // Registration failed
-      } else {
-        Alert.alert('Missing registration', 'Connect and register this device first.');
-        return;
-      }
+    if (!participante) {
+      Alert.alert('Missing registration', 'Connect and register this device first.');
+      return;
     }
 
     try {
@@ -308,13 +268,13 @@ export default function App() {
 
       if (data.status === 'cerrado') {
         await stopCapture();
-        setLog('Session terminated by server (time limit reached).', 'error');
+        setLog('Sesion terminada por el servidor (limite de tiempo alcanzado).', 'error');
         return;
       }
 
       if (data.status === 'limite_participantes') {
         await stopCapture();
-        setLog(data.msg || 'Participant limit reached.', 'error');
+        setLog(data.msg || 'Limite de participantes alcanzado.', 'error');
         return;
       }
 
@@ -327,22 +287,17 @@ export default function App() {
       setLocation(loc);
       setSpeedInfo(speed);
       setAccelData(SensorService.getData());
-      setCheckpointInfo(prev => ({
-        ...prev,
+      setCheckpointInfo({
         label: getCheckpointLabel(checkpoint),
         distance: Number.isFinite(distance) ? distance : null,
-      }));
-      if (isScannerMode) {
-        setLog(`Location obtained\nJudge: ${globalParticipante}`, 'ok');
-      } else {
-        setLog(
-          `Location obtained\nParticipant: ${globalParticipante}\nLat: ${loc.coords.latitude.toFixed(6)}\nLon: ${loc.coords.longitude.toFixed(6)}\nSpeed: ${fmt(speed.speed_kmh, 2)} km/h (${fmt(speed.speed_mps, 2)} m/s)\nAcceleration: ${fmt(speed.acceleration_mps2, 3)} m/s2\nAccelerometer: ${SensorService.getData().permission_state}\nAccuracy: +/-${fmt(loc.coords.accuracy, 0)} m\nTime: ${new Date().toLocaleTimeString()}`,
-          'ok'
-        );
-      }
+      });
+      setLog(
+        `Ubicacion obtenida\nParticipante: ${globalParticipante}\nLat: ${loc.coords.latitude.toFixed(6)}\nLon: ${loc.coords.longitude.toFixed(6)}\nVelocidad: ${fmt(speed.speed_kmh, 2)} km/h (${fmt(speed.speed_mps, 2)} m/s)\nAceleracion: ${fmt(speed.acceleration_mps2, 3)} m/s2\nAcelerometro: ${SensorService.getData().permission_state}\nPrecision: +/-${fmt(loc.coords.accuracy, 0)} m\nHora: ${new Date().toLocaleTimeString()}`,
+        'ok'
+      );
     } catch (error) {
       if (mountedRef.current) {
-        setLog(`Location obtained but failed to send:\n${error.message}`, 'error');
+        setLog(`Datos obtenidos pero hubo error al enviar:\n${error.message}`, 'error');
       }
     }
   };
@@ -351,16 +306,16 @@ export default function App() {
   const escanearUnaVez = async () => {
     if (scanningRef.current || !cameraRef.current) return;
     
-    const ptsActuales = (countsRef.current.Rojo * 1) + (countsRef.current.Blanco * 5) + (countsRef.current.Negro * 3);
+    const ptsActuales = (countsRef.current.Rojo * 1) + (countsRef.current.Blanco * 3) + (countsRef.current.Negro * 5);
     if (ptsActuales >= 10) return;
 
     scanningRef.current = true;
     setContandoActivo(true);
-    setLog('Procesando imagen (Rápido 150%)...', 'info');
+    setLog('Procesando imagen (R├ípido 150%)...', 'info');
 
     try {
-      const photo = await cameraRef.current.takePictureAsync({ base64: true, quality: 0.8, shutterSound: false });
-      const data = await NetworkService.processVision(globalServerUrl, globalDeviceId, targetScanParticipant, photo.base64, globalCheckpoint);
+      const photo = await cameraRef.current.takePictureAsync({ base64: true, quality: 0.2, shutterSound: false });
+      const data = await NetworkService.processVision(globalServerUrl, globalDeviceId, globalParticipante, photo.base64, globalCheckpoint);
 
       if (data.status === 'ok') {
         setDetectedBalls(data.balls || []);
@@ -371,15 +326,8 @@ export default function App() {
           }
           setMaxCounts({ ...countsRef.current });
 
-          const pts = (countsRef.current.Rojo * 1) + (countsRef.current.Blanco * 5) + (countsRef.current.Negro * 3);
+          const pts = (countsRef.current.Rojo * 1) + (countsRef.current.Blanco * 3) + (countsRef.current.Negro * 5);
           setLog(`Scan ready: ${pts} points.`, 'success');
-          
-          try {
-            await NetworkService.saveWeight(globalServerUrl, targetScanParticipant, pts, countsRef.current, globalParticipante, globalCheckpoint);
-            setLog(`Saved ${pts} kg for ${targetScanParticipant}`, 'success');
-          } catch (err) {
-            setLog(`Error saving weight: ${err.message}`, 'error');
-          }
 
           setTimeout(() => {
             if (mountedRef.current) setDetectedBalls([]);
@@ -401,20 +349,9 @@ export default function App() {
     setLog('Escaneo reiniciado', 'neutral');
   };
 
-  const handleSaveScore = async () => {
-    const currentMax = maxCounts; // since we might have manually edited maxCounts
-    const pts = (currentMax.Rojo * 1) + (currentMax.Blanco * 5) + (currentMax.Negro * 3);
-    try {
-      await NetworkService.saveWeight(globalServerUrl, targetScanParticipant, pts, currentMax, globalParticipante, globalCheckpoint);
-      setLog(`Saved manually: ${pts} kg for ${targetScanParticipant}`, 'success');
-    } catch (err) {
-      setLog(`Error saving weight: ${err.message}`, 'error');
-    }
-  };
-
   const abrirGaleria = async () => {
     try {
-      const data = await NetworkService.getGallery(globalServerUrl, targetScanParticipant);
+      const data = await NetworkService.getGallery(serverUrl);
       setGaleriaImagenes(data);
       setGaleriaVisible(true);
     } catch (e) {
@@ -440,42 +377,26 @@ export default function App() {
       <Text style={styles.subtitle}>Capture location and scan balls with YOLO.</Text>
 
       {/* CAMERA AND YOLO */}
-      {isScannerMode && (
-        !permission ? (
-          <View style={styles.connectionPanel}><Text>Loading camera permissions...</Text></View>
-        ) : !permission.granted ? (
-          <View style={styles.connectionPanel}>
-            <Text style={styles.label}>CAMERA AND YOLO SCANNER</Text>
-            <Text style={{ marginBottom: 10 }}>We need permission to use the camera</Text>
-            <TouchableOpacity style={[styles.button, styles.secondaryButton]} onPress={requestPermission}>
-              <Text style={styles.buttonText}>Grant Permission</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <ScannerCamera
-            cameraRef={cameraRef}
-            contandoActivo={contandoActivo}
-            maxCounts={maxCounts}
-            setMaxCounts={setMaxCounts}
-            detectedBalls={detectedBalls}
-            onScanOnce={escanearUnaVez}
-            onReset={reiniciarEscaneo}
-            onSaveScore={handleSaveScore}
-            onOpenGallery={abrirGaleria}
-          />
-        )
-      )}
-
-      {/* METRICS */}
-      {!isScannerMode && location && (
-        <View style={styles.grid}>
-          <MetricCard label="Latitude" value={fmt(location.coords.latitude, 5)} />
-          <MetricCard label="Longitude" value={fmt(location.coords.longitude, 5)} />
-          <MetricCard label="Altitude" value={fmt(location.coords.altitude, 1)} detail="meters" />
-          <MetricCard label="Speed" value={fmt(speedInfo?.speed_kmh, 2)} detail="km/h" />
-          <MetricCard label="Accuracy" value={fmt(location.coords.accuracy, 1)} detail="meters" />
-          <MetricCard full label="Nearest weighted checkpoint" value={checkpointInfo.label} detail={`Distance: ${fmt(checkpointInfo.distance, 2)} m`} />
+      {!permission ? (
+        <View style={styles.connectionPanel}><Text>Loading camera permissions...</Text></View>
+      ) : !permission.granted ? (
+        <View style={styles.connectionPanel}>
+          <Text style={styles.label}>CAMERA AND YOLO SCANNER</Text>
+          <Text style={{ marginBottom: 10 }}>We need permission to use the camera</Text>
+          <TouchableOpacity style={[styles.button, styles.secondaryButton]} onPress={requestPermission}>
+            <Text style={styles.buttonText}>Grant Permission</Text>
+          </TouchableOpacity>
         </View>
+      ) : (
+        <ScannerCamera
+          cameraRef={cameraRef}
+          contandoActivo={contandoActivo}
+          maxCounts={maxCounts}
+          detectedBalls={detectedBalls}
+          onScanOnce={escanearUnaVez}
+          onReset={reiniciarEscaneo}
+          onOpenGallery={abrirGaleria}
+        />
       )}
 
       {/* SERVER AND REGISTRATION */}
@@ -490,38 +411,19 @@ export default function App() {
           autoCorrect={false}
           editable={!activo}
         />
-        {!isScannerMode ? (
-          <>
-            <Text style={styles.label}>PARTICIPANT / DEVICE NAME</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: '#e2e8f0', color: '#475569' }]}
-              value={participante}
-              onChangeText={setParticipante}
-              placeholder="Automatic assignment..."
-              editable={false}
-            />
-          </>
-        ) : (
+        
+        {Platform.OS === 'web' && (
           <>
             <Text style={styles.label}>Select Checkpoint (Judge)</Text>
             <select
               style={{ ...styles.input, height: 40, padding: 8 }}
-              value={checkpointInfo.id ? checkpointInfo.id.toString() : ""}
+              value={checkpointInfo.id || ""}
               onChange={(e) => {
-                const rawVal = e.target.value;
-                if (!rawVal) {
-                  setCheckpointInfo(prev => ({ ...prev, id: null }));
-                  StorageService.setCheckpoint("");
-                  globalCheckpoint = null;
-                } else {
-                  const val = parseInt(rawVal, 10);
-                  setCheckpointInfo(prev => ({ ...prev, id: val }));
-                  StorageService.setCheckpoint(val.toString());
-                  globalCheckpoint = val;
-                }
-                setCheckpointConfirmado(false);
+                const val = parseInt(e.target.value, 10);
+                setCheckpointInfo({ id: val });
+                StorageService.setCheckpoint(val.toString());
+                globalCheckpoint = val;
               }}
-              disabled={checkpointConfirmado}
             >
               <option value="">-- Select Checkpoint --</option>
               <option value="1">Checkpoint 1</option>
@@ -535,22 +437,15 @@ export default function App() {
               <option value="9">Checkpoint 9</option>
               <option value="10">Checkpoint 10</option>
             </select>
-            
-            <TouchableOpacity
-              style={[styles.button, { backgroundColor: '#f59e0b', marginBottom: 15 }, (checkpointConfirmado || !checkpointInfo.id) && styles.disabledButton]}
-              onPress={confirmarCheckpoint}
-              disabled={checkpointConfirmado || !checkpointInfo.id}
-            >
-              <Text style={styles.buttonText}>{checkpointConfirmado ? 'Checkpoint Confirmed' : 'Confirm Checkpoint'}</Text>
-            </TouchableOpacity>
 
             <Text style={styles.label}>Participant to Scan</Text>
             <select
               style={{ ...styles.input, height: 40, padding: 8 }}
-              value={targetScanParticipant || "Desconocido"}
+              value={participante || "Desconocido"}
               onChange={(e) => {
-                setTargetScanParticipant(e.target.value);
-                reiniciarEscaneo();
+                setParticipante(e.target.value);
+                StorageService.setParticipante(e.target.value);
+                globalParticipante = e.target.value;
               }}
             >
               <option value="Desconocido">-- Select Participant --</option>
@@ -575,12 +470,7 @@ export default function App() {
 
         <TouchableOpacity
           style={[styles.button, styles.secondaryButton, (!canRegister || activo) && styles.disabledButton]}
-          onPress={async () => {
-            const assigned = await registerParticipant();
-            if (assigned) {
-              startCapture();
-            }
-          }}
+          onPress={registerParticipant}
           disabled={!canRegister || activo}
         >
           <Text style={styles.buttonText}>Connect and register</Text>
@@ -588,11 +478,26 @@ export default function App() {
       </View>
 
       <TouchableOpacity
+        style={[styles.button, styles.secondaryButton, accelData.permission_state === 'granted' && styles.disabledButton]}
+        onPress={activateSensors}
+        disabled={accelData.permission_state === 'granted'}
+      >
+        <Text style={styles.buttonText}>
+          {accelData.permission_state === 'granted' ? 'Accelerometer active' : 'Activate manual accelerometer'}
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
         style={[styles.button, activo && styles.dangerButton]}
         onPress={activo ? stopFromButton : startCapture}
       >
         <Text style={styles.buttonText}>{activo ? 'Stop capture' : 'Start capture'}</Text>
       </TouchableOpacity>
+
+      {/* METRICS */}
+      <View style={styles.grid}>
+        <MetricCard full label="Nearest weighted checkpoint" value={checkpointInfo.label} detail={`Distance: ${fmt(checkpointInfo.distance, 2)} m`} />
+      </View>
 
       {/* STATUS BOX */}
       <View style={[styles.statusBox, styles[`status_${status.tone}`]]}>

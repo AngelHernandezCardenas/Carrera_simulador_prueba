@@ -44,7 +44,7 @@ def normalizar_participante(equipo) -> str | None:
         except ValueError:
             return None
 
-    return f"Participante_{numero}"
+    return f"participante_{numero:02d}"
 
 
 def obtener_puntajes_por_participante(df: pd.DataFrame) -> dict[str, dict[str, float]]:
@@ -61,7 +61,7 @@ def obtener_puntajes_por_participante(df: pd.DataFrame) -> dict[str, dict[str, f
                 numero = int(match.group())
                 puntaje = float(puntaje_val) if pd.notna(puntaje_val) else 0.0
                 
-                resultados[f"Participante_{numero}"] = {
+                resultados[f"participante_{numero:02d}"] = {
                     "puntaje": puntaje,
                     "total": PUNTAJE_MAXIMO,
                     "team_id": equipo_id_str,
@@ -201,7 +201,7 @@ def sincronizar_puntajes(intervalo_segundos: float = 1.0) -> None:
                 filas_tabla = []
                 for p, valores in puntajes_por_participante.items():
                     filas_tabla.append({
-                        "TeamID": valores.get("team_id", p.replace("Participante_", "EQ")),
+                        "TeamID": valores.get("team_id", p.replace("participante_", "EQ").upper()),
                         "Team": valores.get("team_name", "Desconocido"),
                         "Total": f"{valores['puntaje']:.2f}"
                     })

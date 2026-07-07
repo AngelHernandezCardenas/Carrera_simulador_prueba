@@ -337,11 +337,13 @@
           <th style="text-align: center;">Position</th>
           <th>Competitor</th>
           <th>Checkpoints Visited</th>
+          <th style="text-align: center;">Current load</th>
+          <th style="text-align: center;">Total load</th>
           <th style="text-align: right;">Total Score</th>
         </tr>
       </thead>
       <tbody id="scoreboardBody">
-        <tr><td colspan="4" style="text-align: center; padding: 30px;">Loading data...</td></tr>
+        <tr><td colspan="6" style="text-align: center; padding: 30px;">Loading data...</td></tr>
       </tbody>
     </table>
   </div>
@@ -427,10 +429,19 @@
             ? `<img src="/capturas/${p.ultima_foto}" alt="Photo" style="max-height: 40px; border-radius: 4px; object-fit: cover; cursor: pointer; vertical-align: middle;" onclick="openModal('${p.nombre}', JSON.parse(decodeURIComponent('${encodedFotos}')), '${p.ultima_foto}')">`
             : '<span style="color: var(--text-muted); font-size: 12px; vertical-align: middle;">No photo</span>';
             
+          const cargaActualKg = typeof p.peso_kg === 'number' ? p.peso_kg.toFixed(2) : '0.00';
+          const cargaTotalKg = typeof p.peso_entregado_kg === 'number' ? p.peso_entregado_kg.toFixed(2) : '0.00';
+
           tr.innerHTML = `
             <td class="rank ${rankClass}">${rank}</td>
             <td class="team-name">${p.equipo || p.nombre}</td>
             <td class="checkpoints-list">${checkpointsText}</td>
+            <td style="text-align: center;">
+              <span style="font-weight: bold; color: #10b981;">${cargaActualKg} kg</span>
+            </td>
+            <td style="text-align: center;">
+              <span style="font-weight: bold; color: #f59e0b;">${cargaTotalKg} kg</span>
+            </td>
             <td style="text-align: right;">
               <div class="score-badge">${p.total_score || 0} pts</div>
             </td>

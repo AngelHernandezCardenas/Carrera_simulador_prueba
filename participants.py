@@ -1,6 +1,5 @@
-import json
 from config import PARTICIPANTS_FILE, MAX_PARTICIPANTES, participants_lock
-
+from judges import judges_cache
 
 # Cache en memoria de los participantes
 participants_cache: dict = {}
@@ -14,6 +13,8 @@ OBSOLETE_SCORE_FIELDS = {
     "puntaje_equipo",
 }
 
+
+import json
 
 # ---------------------------------------------------------------------------
 # Persistencia
@@ -68,12 +69,20 @@ def get_or_create_participant(device_id: str) -> str | None:
         return None
 
     if device_id in participants_cache:
-        return participants_cache[device_id]["nombre"]
+        nombre = participants_cache[device_id]["nombre"]
+        if "Judge" not in nombre and "Juez" not in nombre:
+            return nombre
 
     if len(participants_cache) >= MAX_PARTICIPANTES:
         return None
 
-    nombre = f"participante_{len(participants_cache) + 1:02d}"
+    # Avoid collisions with existing names by finding the next available slot
+    slot = len(participants_cache) + 1
+    nombre = f"participante_{slot:02d}"
+    while any(p.get("nombre") == nombre for p in participants_cache.values()):
+        slot += 1
+        nombre = f"participante_{slot:02d}"
+
     participants_cache[device_id] = {"nombre": nombre}
     save_participants(participants_cache)
     return nombre

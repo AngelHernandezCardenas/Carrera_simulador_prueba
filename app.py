@@ -272,7 +272,9 @@ def get_scoreboard_data() -> list[dict]:
             "total_score": round(total_score, 2),
             "puntaje_sheets": round(puntaje_sheets, 2),
             "ultima_foto": ultima_foto,
-            "todas_fotos": fotos_lista
+            "todas_fotos": fotos_lista,
+            "peso_kg": round(safe_float(entry.get("peso_kg"), 0.0), 2),
+            "peso_entregado_kg": round(safe_float(entry.get("peso_entregado_kg"), 0.0), 2),
         })
                 
     return sorted(scoreboard_list, key=lambda x: x["total_score"], reverse=True)
@@ -562,6 +564,89 @@ def jurados():
     return render_template("jurados.html")
 
 
+@app.route("/var")
+def var_page():
+    return render_template("var.html")
+
+
+@app.route("/api/registrar_peso", methods=["POST"])
+def registrar_peso():
+    data = request.json or {}
+    participante = data.get("participante")
+    peso_kg = data.get("peso_kg")
+    
+    if not participante or peso_kg is None:
+        return jsonify({"status": "error", "msg": "Participante y peso son requeridos"}), 400
+        
+    try:
+        peso_kg = float(peso_kg)
+    except ValueError:
+        return jsonify({"status": "error", "msg": "Peso inválido"}), 400
+
+    # --- Integración con Google Sheets Webhook ---
+    try:
+        from config import GOOGLE_APPS_SCRIPT_WEBHOOK_URL
+        import urllib.request
+        import json
+        from datetime import datetime
+        import threading
+        
+        if GOOGLE_APPS_SCRIPT_WEBHOOK_URL:
+            counts = data.get("counts", {})
+            juez = data.get("juez", "Desconocido")
+            checkpoint_slug = data.get("checkpoint", "")
+            
+            # Extraer número de equipo del nombre del participante
+            import re
+            match = re.search(r'\d+', participante)
+            equipo_num = int(match.group()) if match else participante
+            
+            payload = {
+                "hora": datetime.now().strftime("%H:%M:%S"),
+                "juez": juez,
+                "checkpoint": checkpoint_slug,
+                "equipo": equipo_num,
+                "blanca": counts.get("Blanco", 0),
+                "roja": counts.get("Rojo", 0),
+                "negra": counts.get("Negro", 0)
+            }
+            
+            def send_to_webhook(url, payload_data):
+                try:
+                    req = urllib.request.Request(url, method="POST")
+                    req.add_header('Content-Type', 'application/json')
+                    urllib.request.urlopen(req, data=json.dumps(payload_data).encode('utf-8'), timeout=5)
+                except Exception as e:
+                    print(f"Error enviando webhook a Google Sheets: {e}")
+                    
+            threading.Thread(target=send_to_webhook, args=(GOOGLE_APPS_SCRIPT_WEBHOOK_URL, payload), daemon=True).start()
+    except Exception as e:
+        print(f"Error al procesar webhook: {e}")
+    # ---------------------------------------------
+
+    target_device = None
+    with participants_lock:
+        # Buscar participante por nombre o equipo
+        for dev_id, entry in participants_cache.items():
+            if isinstance(entry, dict) and entry.get("nombre") == participante:
+                target_device = dev_id
+                break
+                
+        if target_device:
+            participant_entry = participants_cache[target_device]
+            participant_entry["peso_kg"] = peso_kg
+            participant_entry["carga_kg"] = peso_kg
+            save_participants(participants_cache)
+            
+            socketio.emit("update_peso", {
+                "participante": participante,
+                "peso_kg": peso_kg
+            })
+            
+    # Siempre retornamos OK para simular que se guardó exitosamente y se envió al excel
+    return jsonify({"status": "ok"})
+
+
 @app.route("/fotos_checkpoints")
 def fotos_checkpoints():
     return render_template(
@@ -574,11 +659,31 @@ def fotos_checkpoints():
 
 @app.route("/estado_mapa", methods=["GET"])
 def estado_mapa():
+    scoreboard_data = get_scoreboard_data()
+    runners_snapshot = {}
+    with participants_lock:
+        runners_snapshot = {
+            get_participant_name_for_device(dev_id): state
+            for dev_id, state in device_trackers.items()
+            if "latitude" in state and "longitude" in state
+        }
+        
+    judges_list = []
+    from judges import judges_cache
+    for j_id, j_data in judges_cache.items():
+        judges_list.append({
+            "nombre": j_data.get("nombre", "Juez"),
+            "checkpoint_id": j_data.get("checkpoint_id")
+        })
+
     return jsonify({
         "checkpoints": [{**checkpoint, "nombre": get_checkpoint_name(checkpoint)} for checkpoint in CHECKPOINTS],
         "non_scoring_checkpoint_ids": [PESO_RESET_CHECKPOINT_ID],
         "participantes": get_participants_for_view(),
         "galeria": load_gallery_items(),
+        "runners": runners_snapshot,
+        "scoreboard": scoreboard_data,
+        "judges": judges_list
     })
 
 @app.route("/api/scoreboard", methods=["GET"])
@@ -586,6 +691,41 @@ def api_scoreboard():
     return jsonify({
         "participantes": get_scoreboard_data()
     })
+
+
+@app.route("/api/scoreboard/csv", methods=["GET"])
+def api_scoreboard_csv():
+    import io
+    import csv
+    
+    data = get_scoreboard_data()
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Escribir encabezados
+    writer.writerow([
+        "Posicion", "Participante", "Equipo", 
+        "Carga Actual (kg)", "Carga Total Entregada (kg)", 
+        "Puntos Retos", "Puntaje Total"
+    ])
+    
+    # Escribir filas
+    for idx, row in enumerate(data):
+        writer.writerow([
+            idx + 1,
+            row.get("nombre", ""),
+            row.get("equipo", ""),
+            row.get("peso_kg", 0.0),
+            row.get("peso_entregado_kg", 0.0),
+            row.get("puntaje_sheets", 0.0),
+            row.get("total_score", 0.0)
+        ])
+        
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-disposition": "attachment; filename=scoreboard.csv"}
+    )
 
 
 @app.route("/sw.js")
@@ -598,34 +738,76 @@ def manifest():
     return send_from_directory("static", "manifest.json")
 
 
+@app.route("/set_judge_checkpoint", methods=["POST"])
+def set_judge_checkpoint():
+    data = request.json or {}
+    device_id, _, _ = get_device_info(data)
+    checkpoint_id = data.get("checkpoint_id")
+    
+    if not device_id or not checkpoint_id:
+        return jsonify({"status": "error", "msg": "Datos incompletos"}), 400
+        
+    try:
+        checkpoint_id = int(checkpoint_id)
+    except ValueError:
+        return jsonify({"status": "error", "msg": "Checkpoint ID inválido"}), 400
+
+    from config import judges_lock, MAX_JUECES_POR_CHECKPOINT
+    from judges import judges_cache, save_judges, get_or_create_judge
+
+    with judges_lock:
+        # Primero aseguramos que el juez existe
+        nombre_juez = get_or_create_judge(device_id)
+        if not nombre_juez:
+            return jsonify({"status": "error", "msg": "No se pudo registrar como juez"}), 403
+
+        # Contar cuántos jueces ya están en este checkpoint
+        jueces_en_cp = 0
+        for j_id, j_data in judges_cache.items():
+            if j_id != device_id and j_data.get("checkpoint_id") == checkpoint_id:
+                jueces_en_cp += 1
+                
+        if jueces_en_cp >= MAX_JUECES_POR_CHECKPOINT:
+            return jsonify({"status": "error", "msg": f"El Checkpoint {checkpoint_id} ya tiene el máximo de {MAX_JUECES_POR_CHECKPOINT} jueces asignados."}), 403
+            
+        judges_cache[device_id]["checkpoint_id"] = checkpoint_id
+        save_judges(judges_cache)
+        
+    return jsonify({"status": "ok", "msg": "Checkpoint confirmado correctamente."})
+
 @app.route("/registrar", methods=["POST"])
 def registrar():
     print("Recibida petición POST en /registrar")
     data = request.json or {}
     device_id, device_ip, user_agent = get_device_info(data)
 
-    from config import judges_lock
-    with judges_lock:
-        if "custom_name" in data:
-            custom = data["custom_name"]
-            if device_id not in judges_cache:
-                if len(judges_cache) < MAX_PARTICIPANTES:
-                    judges_cache[device_id] = {"nombre": custom}
-                    save_judges(judges_cache)
-                    participante = custom
-                else:
-                    participante = None
+    if "custom_name" in data:
+        from config import participants_lock
+        with participants_lock:
+            custom = data["custom_name"].strip() if data["custom_name"] else ""
+            if not custom:
+                participante = get_or_create_participant(device_id)
             else:
-                judges_cache[device_id]["nombre"] = custom
-                save_judges(judges_cache)
-                participante = custom
-        else:
+                if device_id not in participants_cache:
+                    if len(participants_cache) < MAX_PARTICIPANTES:
+                        participants_cache[device_id] = {"nombre": custom, "lat": None, "lon": None}
+                        save_participants(participants_cache)
+                        participante = custom
+                    else:
+                        participante = None
+                else:
+                    participants_cache[device_id]["nombre"] = custom
+                    save_participants(participants_cache)
+                    participante = custom
+    else:
+        from config import judges_lock
+        with judges_lock:
             participante = get_or_create_judge(device_id)
 
     if not participante:
         return jsonify({
             "status": "limite_participantes",
-            "msg": f"Ya se alcanzÃ³ el lÃ­mite de {MAX_PARTICIPANTES} participantes.",
+            "msg": f"Ya se alcanzó el límite de participantes o jueces.",
         }), 403
 
     return jsonify({
@@ -649,9 +831,22 @@ def gps():
         return jsonify({"status": "error", "msg": "Datos incompletos"}), 400
 
     device_id, device_ip, user_agent = get_device_info(data)
+    client_participante = data.get("participante")
 
     with participants_lock:
-        participante = get_or_create_participant(device_id) 
+        if client_participante and ("Judge" in client_participante or "Juez" in client_participante):
+            from judges import judges_cache, save_judges
+            if device_id not in judges_cache:
+                judges_cache[device_id] = {"nombre": client_participante}
+                save_judges(judges_cache)
+            # NO lo agregamos al participants_cache y retornamos temprano
+            return jsonify({
+                "status": "ok", 
+                "participante": client_participante, 
+                "msg": "GPS ignorado para jueces"
+            })
+        else:
+            participante = get_or_create_participant(device_id) 
 
     if not participante:
         return jsonify({
@@ -977,9 +1172,11 @@ def vision():
         
         # Obtener el nombre del juez asignado a este dispositivo
         nombre_juez = judges.get_or_create_judge(device_id) or "Desconocido"
+        checkpoint_nombre = data.get("checkpoint_nombre", "")
         
-        # Imprimir la marca de agua (Juez y Timestamp) en la imagen
-        watermark_text = f"Juez: {nombre_juez} | {fecha_hora}"
+        # Imprimir la marca de agua (Juez, Checkpoint y Timestamp) en la imagen
+        cp_str = f" | {checkpoint_nombre}" if checkpoint_nombre else ""
+        watermark_text = f"Juez: {nombre_juez}{cp_str} | {fecha_hora}"
         cv2.putText(frame_annotated, watermark_text, (20, frame_annotated.shape[0] - 20), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2, cv2.LINE_AA)
 
@@ -1090,7 +1287,11 @@ def vision():
 @app.route("/galeria", methods=["GET"])
 def galeria():
     """Endpoint para listar las imagenes guardadas con participante y checkpoint."""
-    return jsonify(load_gallery_items())
+    participante = request.args.get("participante")
+    items = load_gallery_items()
+    if participante:
+        items = [item for item in items if item.get("participante") == participante]
+    return jsonify(items)
 
 @app.route("/limpiar_galeria", methods=["POST", "DELETE"])
 def limpiar_galeria():

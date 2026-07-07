@@ -356,7 +356,7 @@ def procesar_frame_yolo_api(frame, estado, modelo_yolo, mobile_mode=False, calib
                 })
                 
                 # Reportar detectado instantáneo
-                mapa_cargas = {"Rojo": 1.0, "Blanco": 3.0, "Negro": 5.0}
+                mapa_cargas = {"Rojo": 1.0, "Blanco": 5.0, "Negro": 3.0}
                 
                 if not detectado_result:
                     detectado_result = {
@@ -406,7 +406,7 @@ def procesar_frame_yolo_api(frame, estado, modelo_yolo, mobile_mode=False, calib
             # Registrar Detección y Puntos
             if (t_act - ultimo_intento.get(nombre, 0.0)) >= COOLDOWN and not detectado_result:
                 ultimo_intento[nombre] = t_act
-                mapa_cargas = {"Rojo": 15.0, "Blanco": 25.0, "Negro": 40.0}
+                mapa_cargas = {"Rojo": 1.0, "Blanco": 5.0, "Negro": 3.0}
                 detectado_result = {
                     "color": nombre,
                     "carga_kg": mapa_cargas.get(nombre, 0.0),

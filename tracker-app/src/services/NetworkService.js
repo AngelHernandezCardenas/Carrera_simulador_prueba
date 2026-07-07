@@ -1,20 +1,44 @@
 import { cleanServerUrl, createDeviceLabel } from '../utils/FormatUtils';
 
 class NetworkService {
-  async registerDevice(serverUrl, deviceId) {
+  async registerDevice(serverUrl, deviceId, customName) {
     const url = cleanServerUrl(serverUrl);
+    
+    const payload = {
+      device_id: deviceId,
+      device_label: createDeviceLabel(deviceId),
+    };
+    if (customName !== undefined && customName !== null) {
+      payload.custom_name = customName || "";
+    }
+
     const resp = await fetch(`${url}/registrar`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        device_id: deviceId,
-        device_label: createDeviceLabel(deviceId),
-      }),
+      body: JSON.stringify(payload),
     });
     
     const data = await resp.json();
     if (!resp.ok || data.status !== 'ok') {
       throw new Error(data.msg || 'No se pudo registrar el dispositivo.');
+    }
+    return data;
+  }
+
+  async confirmJudgeCheckpoint(serverUrl, deviceId, checkpointId) {
+    const url = cleanServerUrl(serverUrl);
+    const resp = await fetch(`${url}/set_judge_checkpoint`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        device_id: deviceId,
+        checkpoint_id: checkpointId,
+      }),
+    });
+    
+    const data = await resp.json();
+    if (!resp.ok || data.status !== 'ok') {
+      throw new Error(data.msg || 'No se pudo confirmar el checkpoint.');
     }
     return data;
   }
@@ -65,8 +89,12 @@ class NetworkService {
     return data;
   }
 
-  async getGallery(serverUrl) {
-    const resp = await fetch(`${serverUrl}/galeria`);
+  async getGallery(serverUrl, participante = null) {
+    let url = `${serverUrl}/galeria`;
+    if (participante) {
+      url += `?participante=${encodeURIComponent(participante)}`;
+    }
+    const resp = await fetch(url);
     if (resp.ok) {
       return await resp.json();
     }
@@ -82,6 +110,26 @@ class NetworkService {
     } catch (e) {
       throw new Error(`Invalid response (${resp.status}): ${respText.substring(0, 100)}`);
     }
+    return data;
+  }
+
+  async saveWeight(serverUrl, participante, peso_kg, counts = {}, juez = "Desconocido", checkpoint = "") {
+    const url = serverUrl.replace(/\/$/, '');
+    const resp = await fetch(`${url}/api/registrar_peso`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        participante,
+        peso_kg,
+        counts,
+        juez,
+        checkpoint
+      })
+    });
+    const text = await resp.text();
+    let data;
+    try { data = JSON.parse(text); } catch(e) { throw new Error(`Invalid response (${resp.status}): ${text.substring(0, 100)}`); }
+    if (!resp.ok) throw new Error(data.msg || "Error registrando peso");
     return data;
   }
 }

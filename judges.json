@@ -14,5 +14,16 @@
   "app-mrb9gd9n-b8epw573": {
     "nombre": "Judge_4",
     "checkpoint_id": 2
+  },
+  "app-mrb9x2t4-eyfbj5vr": {
+    "nombre": "Judge_5",
+    "checkpoint_id": 1
+  },
+  "app-mrb9smz0-dqymw13r": {
+    "nombre": "Judge_6",
+    "checkpoint_id": 9
+  },
+  "app-mrb9z3y5-6rvrunke": {
+    "nombre": "Judge_7"
   }
 }

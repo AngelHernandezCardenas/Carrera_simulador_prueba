@@ -265,7 +265,7 @@ function applyFilters() {
 
 function calcWeight(det) {
     if (!det) return 0;
-    return (det.Rojo||0)*1 + (det.Blanco||0)*5 + (det.Negro||0)*3;
+    return (det.Rojo||0)*3 + (det.Blanco||0)*1 + (det.Negro||0)*5;
 }
 
 // ── RENDERIZAR ────────────────────────────────────────
@@ -289,7 +289,7 @@ function renderGallery(photos) {
     }
 
     gallery.innerHTML = photos.map((item, idx) => {
-        const name = String(item.participante || item.device_id || "Unknown").replace(/participante_?/i, "Participante ");
+        const name = String(item.participante || item.device_id || "Unknown").replace(/participante_?/i, "Participant ");
         const cp   = item.checkpoint_nombre || (item.checkpoint_id ? `Checkpoint ${item.checkpoint_id}` : "No checkpoint");
         const dt   = new Date(item.timestamp * 1000).toLocaleString("es-MX");
         const det  = item.detections || {};
@@ -344,7 +344,7 @@ function openViewer(idx) {
     viewerScale = 1;
     viewerCurrentFile = item.filename;
 
-    const name = String(item.participante||item.device_id||"Unknown").replace(/participante_?/i,"Participante ");
+    const name = String(item.participante||item.device_id||"Unknown").replace(/participante_?/i,"Participant ");
     const cp   = item.checkpoint_nombre||(item.checkpoint_id?`Checkpoint ${item.checkpoint_id}`:"No checkpoint");
     const dt   = new Date(item.timestamp*1000).toLocaleString("es-MX");
     const det  = item.detections||{};

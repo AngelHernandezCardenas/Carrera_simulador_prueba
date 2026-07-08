@@ -59,7 +59,7 @@ device_trackers: dict[str, dict] = {}
 MIN_GPS_SAVE_INTERVAL_SECONDS = 1.5
 PESO_RESET_CHECKPOINT_ID = 4
 PESO_RESET_DISTANCE_METERS = 4.0
-COLOR_WEIGHTS_KG = {"Rojo": 1.0, "Blanco": 5.0, "Negro": 3.0}
+COLOR_WEIGHTS_KG = {"Rojo": 3.0, "Blanco": 1.0, "Negro": 5.0}
 PESO_ALERTA_KG = 10.0
 BASE_DIR = Path(__file__).resolve().parent
 VISION_CONFIG = {
@@ -87,6 +87,44 @@ VISION_CONFIG = {
     "color_weights_kg": COLOR_WEIGHTS_KG,
 }
 
+
+# ---------------------------------------------------------------------------
+# Race Timer State
+# ---------------------------------------------------------------------------
+RACE_START_TIME_MS = None
+RACE_ELAPSED_TIME_MS = 0
+_race_timer_lock = threading.Lock()
+
+def get_current_race_time_ms():
+    global RACE_START_TIME_MS, RACE_ELAPSED_TIME_MS
+    with _race_timer_lock:
+        if RACE_START_TIME_MS is not None:
+            return RACE_ELAPSED_TIME_MS + int(time.time() * 1000) - RACE_START_TIME_MS
+        return RACE_ELAPSED_TIME_MS
+
+@app.route("/api/race/start", methods=["POST"])
+def start_race():
+    global RACE_START_TIME_MS, RACE_ELAPSED_TIME_MS
+    with _race_timer_lock:
+        if RACE_START_TIME_MS is None:
+            RACE_START_TIME_MS = int(time.time() * 1000)
+    return jsonify({"status": "started", "start_time": RACE_START_TIME_MS})
+
+@app.route("/api/race/stop", methods=["POST"])
+def stop_race():
+    global RACE_START_TIME_MS, RACE_ELAPSED_TIME_MS
+    with _race_timer_lock:
+        if RACE_START_TIME_MS is not None:
+            RACE_ELAPSED_TIME_MS += int(time.time() * 1000) - RACE_START_TIME_MS
+            RACE_START_TIME_MS = None
+    return jsonify({"status": "stopped", "elapsed": RACE_ELAPSED_TIME_MS})
+
+@app.route("/api/race/state", methods=["GET"])
+def race_state():
+    return jsonify({
+        "running": RACE_START_TIME_MS is not None,
+        "elapsed_ms": get_current_race_time_ms()
+    })
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -220,7 +258,7 @@ def get_participants_for_view() -> list[str]:
     )
 
 def get_scoreboard_data() -> list[dict]:
-    from Puntaje import get_puntaje_retos, get_team_name, nombres_equipos_cache, puntajes_retos_lock
+    from Puntaje import get_puntaje_retos, get_activity_points, get_time_s, get_team_name, get_team_id, nombres_equipos_cache, puntajes_retos_lock
     scoreboard_list = []
     
     galeria = load_gallery_items()
@@ -260,7 +298,11 @@ def get_scoreboard_data() -> list[dict]:
         puntaje_sheets = get_puntaje_retos(nombre)
         total_score = total_local + puntaje_sheets
         
+        activity_points = get_activity_points(nombre)
+        time_s = get_time_s(nombre)
+        
         equipo_nombre = get_team_name(nombre)
+        team_id = get_team_id(nombre)
         
         ultima_foto = latest_images[nombre].get("filename") if nombre in latest_images else None
         fotos_lista = todas_fotos_dict.get(nombre, [])
@@ -268,9 +310,12 @@ def get_scoreboard_data() -> list[dict]:
         scoreboard_list.append({
             "nombre": nombre,
             "equipo": equipo_nombre,
+            "team_id": team_id,
             "scores": scores,
             "total_score": round(total_score, 2),
             "puntaje_sheets": round(puntaje_sheets, 2),
+            "activity_points": round(activity_points, 2),
+            "time_s": round(time_s, 2),
             "ultima_foto": ultima_foto,
             "todas_fotos": fotos_lista,
             "peso_kg": round(safe_float(entry.get("peso_kg"), 0.0), 2),
@@ -556,7 +601,7 @@ def api_score():
             })
             return jsonify({"status": "ok"})
             
-    return jsonify({"status": "error", "msg": "Equipo no encontrado"}), 404
+    return jsonify({"status": "error", "msg": "Team not found"}), 404
 
 
 @app.route("/jurados")
@@ -688,8 +733,12 @@ def estado_mapa():
 
 @app.route("/api/scoreboard", methods=["GET"])
 def api_scoreboard():
+    global RACE_START_TIME_MS, RACE_ELAPSED_TIME_MS
     return jsonify({
-        "participantes": get_scoreboard_data()
+        "participantes": get_scoreboard_data(),
+        "race_running": RACE_START_TIME_MS is not None,
+        "race_elapsed_ms": get_current_race_time_ms(),
+        "race_start_time_ms": RACE_START_TIME_MS
     })
 
 

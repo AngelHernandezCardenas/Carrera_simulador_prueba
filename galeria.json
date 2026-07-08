@@ -219,5 +219,39 @@
         "checkpoint_nombre": "Manual / Sin GPS",
         "checkpoint_slug": "manual",
         "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_1_checkpoint_2_1783468144.jpg",
+        "timestamp": 1783468144,
+        "device_id": "app-mrbav3yx-yalstw1c",
+        "participante": "Participante_1",
+        "fecha_hora": "2026-07-07 17:49:04",
+        "juez": "Judge_8",
+        "detections": {
+            "Rojo": 1,
+            "Blanco": 1,
+            "Negro": 0
+        },
+        "checkpoint_id": 2,
+        "checkpoint_nombre": "Bilio-Aulas4",
+        "checkpoint_slug": "checkpoint_2",
+        "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_1_checkpoint_2_1783468216.jpg",
+        "timestamp": 1783468216,
+        "device_id": "app-mrbav3yx-yalstw1c",
+        "participante": "Participante_1",
+        "fecha_hora": "2026-07-07 17:50:16",
+        "juez": "Judge_8",
+        "detections": {
+            "Rojo": 0,
+            "Blanco": 1,
+            "Negro": 1
+        },
+        "checkpoint_id": 2,
+        "checkpoint_nombre": "Bilio-Aulas4",
+        "checkpoint_slug": "checkpoint_2",
+        "distancia_checkpoint_m": 0.0
     }
 ]

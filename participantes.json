@@ -1,30 +1,30 @@
 {
-  "app-mrawo7tj-1u0zy6mc": {
+  "app-mrblvrim-bbm15e9e": {
     "nombre": "participante_01",
-    "device_id": "app-mrawo7tj-1u0zy6mc",
+    "device_id": "app-mrblvrim-bbm15e9e",
     "last_coord": [
-      25.61879755726155,
-      -100.29502277172202
+      25.831703692351482,
+      -97.49415824026534
     ],
     "checkpoints_visitados": [],
     "cantidad_checkpoints_visitados": 0,
     "checkpoint_descarga_visitado": false,
     "blocked_by_challenge": false,
     "checkpoint_pendiente_mas_cercano": {
-      "id": 5,
-      "nombre": "Checkpoint 5"
+      "id": 1,
+      "nombre": "Biotecnologia-Centrales"
     },
-    "checkpoint_pendiente_mas_cercano_id": 5,
-    "distancia_checkpoint_pendiente_mas_cercano_m": 3407.85,
+    "checkpoint_pendiente_mas_cercano_id": 1,
+    "distancia_checkpoint_pendiente_mas_cercano_m": 280581.22,
     "checkpoint_mas_cercano": {
-      "id": 5,
-      "nombre": "Checkpoint 5"
+      "id": 1,
+      "nombre": "Biotecnologia-Centrales"
     },
-    "checkpoint_mas_cercano_id": 5,
-    "distancia_checkpoint_mas_cercano_m": 3407.85,
+    "checkpoint_mas_cercano_id": 1,
+    "distancia_checkpoint_mas_cercano_m": 280581.22,
     "estado": "corriendo",
     "scores": {},
-    "puntaje_retos": 100.0,
+    "puntaje_retos": 96.0,
     "conteo_colores": {
       "Rojo": 0,
       "Blanco": 0,
@@ -35,35 +35,34 @@
     "peso_entregado_kg": 0.0,
     "peso_descargado_kg": 0.0,
     "en_checkpoint_descarga_peso": false,
-    "nivel_bateria": 13.002305696824987,
-    "carga_kg": 0.0
+    "nivel_bateria": 9.227249032775049
   },
-  "app-mraw2u59-n32mssfc": {
-    "nombre": "Judge_1",
-    "device_id": "app-mraw2u59-n32mssfc",
+  "app-mrbozb7a-m29wbiei": {
+    "nombre": "participante_02",
+    "device_id": "app-mrbozb7a-m29wbiei",
     "last_coord": [
-      25.6518523421989,
-      -100.29257315628892
+      25.831703430878537,
+      -97.49415967091971
     ],
     "checkpoints_visitados": [],
     "cantidad_checkpoints_visitados": 0,
     "checkpoint_descarga_visitado": false,
     "blocked_by_challenge": false,
     "checkpoint_pendiente_mas_cercano": {
-      "id": 4,
-      "nombre": "Checkpoint 4"
+      "id": 1,
+      "nombre": "Biotecnologia-Centrales"
     },
-    "checkpoint_pendiente_mas_cercano_id": 4,
-    "distancia_checkpoint_pendiente_mas_cercano_m": 149.14,
+    "checkpoint_pendiente_mas_cercano_id": 1,
+    "distancia_checkpoint_pendiente_mas_cercano_m": 280581.07,
     "checkpoint_mas_cercano": {
-      "id": 4,
-      "nombre": "Checkpoint 4"
+      "id": 1,
+      "nombre": "Biotecnologia-Centrales"
     },
-    "checkpoint_mas_cercano_id": 4,
-    "distancia_checkpoint_mas_cercano_m": 149.14,
+    "checkpoint_mas_cercano_id": 1,
+    "distancia_checkpoint_mas_cercano_m": 280581.07,
     "estado": "corriendo",
     "scores": {},
-    "puntaje_retos": 0.0,
+    "puntaje_retos": 93.18,
     "conteo_colores": {
       "Rojo": 0,
       "Blanco": 0,
@@ -74,82 +73,6 @@
     "peso_entregado_kg": 0.0,
     "peso_descargado_kg": 0.0,
     "en_checkpoint_descarga_peso": false,
-    "nivel_bateria": 81.16116277676619
-  },
-  "app-mrawjfoe-o0xxfnte": {
-    "nombre": "participante_03",
-    "device_id": "app-mrawjfoe-o0xxfnte",
-    "last_coord": [
-      25.652431,
-      -100.292564
-    ],
-    "checkpoints_visitados": [],
-    "cantidad_checkpoints_visitados": 0,
-    "checkpoint_descarga_visitado": false,
-    "blocked_by_challenge": false,
-    "checkpoint_pendiente_mas_cercano": {
-      "id": 4,
-      "nombre": "Checkpoint 4"
-    },
-    "checkpoint_pendiente_mas_cercano_id": 4,
-    "distancia_checkpoint_pendiente_mas_cercano_m": 177.98,
-    "checkpoint_mas_cercano": {
-      "id": 4,
-      "nombre": "Checkpoint 4"
-    },
-    "checkpoint_mas_cercano_id": 4,
-    "distancia_checkpoint_mas_cercano_m": 177.98,
-    "estado": "corriendo",
-    "scores": {},
-    "puntaje_retos": 39.13,
-    "conteo_colores": {
-      "Rojo": 0,
-      "Blanco": 0,
-      "Negro": 0
-    },
-    "color_detectado": [],
-    "peso_kg": 0.0,
-    "peso_entregado_kg": 0.0,
-    "peso_descargado_kg": 0.0,
-    "en_checkpoint_descarga_peso": false,
-    "nivel_bateria": 60.68887574864996
-  },
-  "app-mrazwujh-jtyd4xbm": {
-    "nombre": "participante_05",
-    "device_id": "app-mrazwujh-jtyd4xbm",
-    "last_coord": [
-      25.651821333333334,
-      -100.29258200000001
-    ],
-    "checkpoints_visitados": [],
-    "cantidad_checkpoints_visitados": 0,
-    "checkpoint_descarga_visitado": false,
-    "blocked_by_challenge": false,
-    "checkpoint_pendiente_mas_cercano": {
-      "id": 4,
-      "nombre": "Checkpoint 4"
-    },
-    "checkpoint_pendiente_mas_cercano_id": 4,
-    "distancia_checkpoint_pendiente_mas_cercano_m": 149.03,
-    "checkpoint_mas_cercano": {
-      "id": 4,
-      "nombre": "Checkpoint 4"
-    },
-    "checkpoint_mas_cercano_id": 4,
-    "distancia_checkpoint_mas_cercano_m": 149.03,
-    "estado": "corriendo",
-    "scores": {},
-    "puntaje_retos": 47.23,
-    "conteo_colores": {
-      "Rojo": 0,
-      "Blanco": 0,
-      "Negro": 0
-    },
-    "color_detectado": [],
-    "peso_kg": 0.0,
-    "peso_entregado_kg": 0.0,
-    "peso_descargado_kg": 0.0,
-    "en_checkpoint_descarga_peso": false,
-    "nivel_bateria": 47.066228807933484
+    "nivel_bateria": 56.51040303795183
   }
 }

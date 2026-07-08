@@ -55,7 +55,7 @@ export default function ScannerCamera({
     outputRange: ['0deg', '360deg']
   });
 
-  const totalPts = (maxCounts.Rojo * 1) + (maxCounts.Blanco * 5) + (maxCounts.Negro * 3);
+  const totalPts = (maxCounts.Rojo * 3) + (maxCounts.Blanco * 1) + (maxCounts.Negro * 5);
 
   return (
     <View style={styles.connectionPanel}>

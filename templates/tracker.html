@@ -299,11 +299,11 @@
     <div class="panel-title">Server URL & Registro</div>
     <input type="text" id="serverUrl" readonly>
     <select id="participante">
-      <option value="Desconocido">Desconocido (Selecciona Competidor)</option>
+      <option value="Unknown">Unknown (Selecciona Competidor)</option>
       <script>
         for(let i=1; i<=15; i++) {
           let num = i.toString().padStart(2, '0');
-          document.write(`<option value="Participante_${num}">Participante ${num}</option>`);
+          document.write(`<option value="Participant_${num}">Participant ${num}</option>`);
         }
       </script>
     </select>
@@ -315,7 +315,7 @@
         }
       </script>
     </select>
-    <input type="text" id="deviceId" placeholder="ID del Dispositivo (ej. dev-123)" style="display:none;">
+    <input type="text" id="deviceId" placeholder="ID del Device (ej. dev-123)" style="display:none;">
     <button id="btnRegister" class="btn-secondary">Connect and register</button>
   </div>
 
@@ -348,7 +348,7 @@
       <button onclick="document.getElementById('galleryModal').style.display='none'" style="width: auto; margin:0; padding: 5px 15px; background: transparent; border: 1px solid white;">Close</button>
     </div>
     <button class="btn-danger" onclick="limpiarGaleria()" style="margin-bottom: 15px;">Clear Gallery</button>
-    <div class="gallery-grid" id="galleryContent">Cargando...</div>
+    <div class="gallery-grid" id="galleryContent">Loading...</div>
   </div>
 </div>
 
@@ -372,7 +372,7 @@
 <script>
   // Global State
   let deviceId = localStorage.getItem('tracker_device_id') || `web-${Math.floor(Math.random()*10000)}`;
-  let participante = localStorage.getItem('tracker_participante') || 'Desconocido';
+  let participante = localStorage.getItem('tracker_participante') || 'Unknown';
   let currentCheckpoint = localStorage.getItem('tracker_checkpoint') || '';
   
   document.getElementById('deviceId').value = deviceId;
@@ -434,7 +434,7 @@
   // 2. YOLO Scan Logic
   document.getElementById('btnScan').addEventListener('click', async () => {
     if (!video.videoWidth) return setLog("Cámara no lista", "error");
-    if (currentPoints >= 10) return setLog("Límite de 10 puntos alcanzado.", "ok");
+    if (currentPoints >= 10) return setLog("Límite de 10 points tolcanzado.", "ok");
     
     setLog("Procesando imagen...", "neutral");
     
@@ -533,7 +533,7 @@
       }
       
       if(currentPoints >= 10) {
-        setLog('Límite de 10 puntos alcanzado.', 'ok');
+        setLog('Límite de 10 points tolcanzado.', 'ok');
       } else {
         setLog(`Escaneo listo: ${currentPoints} puntos.`, 'ok');
       }
@@ -557,18 +557,18 @@
     document.getElementById('cntRed').innerText = maxCounts.Rojo;
     document.getElementById('cntWhite').innerText = maxCounts.Blanco;
     document.getElementById('cntBlack').innerText = maxCounts.Negro;
-    currentPoints = (maxCounts.Rojo * 1) + (maxCounts.Blanco * 3) + (maxCounts.Negro * 5);
+    currentPoints = (maxCounts.Rojo * 3) + (maxCounts.Blanco * 1) + (maxCounts.Negro * 5);
     document.getElementById('totalPts').innerText = currentPoints + " pts";
   }
 
   document.getElementById('btnSubmitScore').addEventListener('click', async () => {
     const cp = document.getElementById('checkpointSelect').value;
     const part = document.getElementById('participante').value;
-    if(!cp) return setLog("Selecciona un Checkpoint primero.", "error");
-    if(part === "Desconocido") return setLog("Selecciona un competidor.", "error");
-    if(currentPoints === 0) return setLog("No hay puntos para enviar.", "error");
+    if(!cp) return setLog("Select a Checkpoint first.", "error");
+    if(part === "Unknown") return setLog("Select a competitor.", "error");
+    if(currentPoints === 0) return setLog("No points to submit.", "error");
     
-    setLog(`Enviando ${currentPoints} puntos a ${part} en Checkpoint ${cp}...`, "neutral");
+    setLog(`Sending ${currentPoints} points to ${part} en Checkpoint ${cp}...`, "neutral");
     try {
       const res = await fetch('/api/score', {
         method: 'POST',
@@ -577,13 +577,13 @@
       });
       const data = await res.json();
       if(data.status === 'ok') {
-        setLog("¡Puntaje guardado con éxito!", "ok");
+        setLog("¡Score successfully saved éxito!", "ok");
         document.getElementById('btnReset').click();
       } else {
         setLog("Error: " + data.msg, "error");
       }
     } catch(e) {
-      setLog("Error de red: " + e.message, "error");
+      setLog("Network error: " + e.message, "error");
     }
   });
 
@@ -593,7 +593,7 @@
       try {
         const p = await DeviceMotionEvent.requestPermission();
         if (p === 'granted') startAccel();
-        else setLog("Permiso de acelerómetro denegado", "error");
+        else setLog("Accelerometer permission denied", "error");
       } catch (e) { setLog(e.message, "error"); }
     } else {
       startAccel();
@@ -607,7 +607,7 @@
       gz = e.accelerationIncludingGravity.z || 0;
       g_mag = Math.sqrt(gx*gx + gy*gy + gz*gz);
     });
-    setLog("Acelerómetro activado", "ok");
+    setLog("Accelerometer activated", "ok");
     const btnAccel = document.getElementById('btnAccel');
     if (btnAccel) {
         btnAccel.innerText = "Accelerometer active";
@@ -629,8 +629,8 @@
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ device_id: deviceId, participante: participante })
       });
-      setLog("Registro exitoso", "ok");
-    } catch(e) { setLog("Error al registrar", "error"); }
+      setLog("Registration successful", "ok");
+    } catch(e) { setLog("Error registering", "error"); }
   });
 
   document.getElementById('btnCapture').addEventListener('click', () => {
@@ -641,7 +641,7 @@
       btn.classList.remove('btn-danger');
       if (geoWatchId) navigator.geolocation.clearWatch(geoWatchId);
       if (trackInterval) clearInterval(trackInterval);
-      setLog("Captura detenida", "neutral");
+      setLog("Capture stopped", "neutral");
     } else {
       isTracking = true;
       btn.innerText = "Stop capture";
@@ -666,7 +666,7 @@
       }, err => setLog("Error GPS: "+err.message, "error"), { enableHighAccuracy: true });
 
       trackInterval = setInterval(sendTelemetry, 2000);
-      setLog("Captura iniciada", "ok");
+      setLog("Capture started", "ok");
     }
   });
 
@@ -704,20 +704,20 @@
   let galeriaData = [];
   document.getElementById('btnGallery').addEventListener('click', async () => {
     document.getElementById('galleryModal').style.display = 'flex';
-    document.getElementById('galleryContent').innerHTML = "Cargando...";
+    document.getElementById('galleryContent').innerHTML = "Loading...";
     try {
       const res = await fetch('/galeria');
       galeriaData = await res.json();
       renderGallery();
     } catch(e) {
-      document.getElementById('galleryContent').innerHTML = "Error cargando galería";
+      document.getElementById('galleryContent').innerHTML = "Error loading gallery";
     }
   });
 
   function renderGallery() {
     const content = document.getElementById('galleryContent');
     if(!galeriaData || galeriaData.length === 0) {
-      content.innerHTML = "<p>Galería vacía.</p>";
+      content.innerHTML = "<p>Gallery vacía.</p>";
       document.querySelector('.modal-header h2').innerText = `Gallery (0 images)`;
       return;
     }
@@ -739,7 +739,7 @@
         <div class="gallery-info">
           <strong>${item.participante || item.device_id}</strong><br>
           <span style="color:#94a3b8">${new Date(item.timestamp * 1000).toLocaleString()}</span><br>
-          ${item.checkpoint_nombre || 'Sin CP'}
+          ${item.checkpoint_nombre || 'No CP'}
           ${detHtml ? `<div style="margin-top:5px; border-top: 1px solid #334155; padding-top: 5px;">${detHtml}</div>` : ''}
         </div>
       </div>
@@ -748,13 +748,13 @@
   }
 
   async function limpiarGaleria() {
-    if(!confirm("¿Vaciar galería completamente?")) return;
+    if(!confirm("¿Empty gallery completely?")) return;
     try {
       await fetch('/limpiar_galeria', { method: 'POST' });
       galeriaData = [];
       renderGallery();
-      setLog("Galería limpiada", "neutral");
-    } catch(e) { alert("Error al limpiar"); }
+      setLog("Gallery limpiada", "neutral");
+    } catch(e) { alert("Error clearing"); }
   }
 
   // Image Viewer Modal

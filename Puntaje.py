@@ -6,22 +6,26 @@ from urllib.request import Request, urlopen
 import pandas as pd
 
 
-URL_CSV = "https://docs.google.com/spreadsheets/d/1qGKsNsSf92LY7IdazkQSR3xunPAjPSfe/edit?gid=1381314729#gid=1381314729"
-NOMBRE_HOJA = "Stream_Final"
-PRIMERA_FILA_PUNTAJES = 19
-CANTIDAD_PARTICIPANTES = 15
-PUNTAJE_MAXIMO = 100.0
+URL_CSV = "https://docs.google.com/spreadsheets/d/1qGKsNsSf92LY7IdazkQSR3xunPAjPSfe/export?format=xlsx"
+NOMBRE_HOJA = "Results_Resultados"
 
 ultimo_estado = None
 puntajes_retos_cache: dict[str, float] = {}
+activity_points_cache: dict[str, float] = {}
+time_s_cache: dict[str, float] = {}
 totales_retos_cache: dict[str, float] = {}
 nombres_equipos_cache: dict[str, str] = {}
+team_id_cache: dict[str, str] = {}
 puntajes_retos_lock = threading.Lock()
 ultima_actualizacion = 0.0
 
 def get_team_name(participante: str) -> str:
     with puntajes_retos_lock:
         return nombres_equipos_cache.get(participante, participante)
+
+def get_team_id(participante: str) -> str:
+    with puntajes_retos_lock:
+        return team_id_cache.get(participante, "")
 
 
 def normalizar_participante(equipo) -> str | None:
@@ -50,22 +54,51 @@ def normalizar_participante(equipo) -> str | None:
 def obtener_puntajes_por_participante(df: pd.DataFrame) -> dict[str, dict[str, float]]:
     import re
     resultados = {}
+    
+    # Cast column names to str to avoid 'int has no attribute replace' when
+    # pandas loads a sheet without a proper header row (columns become 0,1,2,...)\
+    str_columns = [str(c) for c in df.columns]
+    cols = {c.replace('\n', '').replace(' ', '').lower(): orig for c, orig in zip(str_columns, df.columns)}
+
+    col_team_id   = cols.get('teamidequipoid')   or df.columns[0]
+    col_team_name = cols.get('teamequipo')        or (df.columns[1] if len(df.columns) > 1 else df.columns[0])
+    col_total     = cols.get('totaltotal')        or (df.columns[17] if len(df.columns) > 17 else df.columns[-1])
+    col_time      = cols.get('time_stiempo_s')   or (df.columns[3]  if len(df.columns) > 3  else None)
+
+    # Challenges = sum of columns E:N (indices 4 to 13, the 10 individual challenge scores)
+    # This matches the user request: cells E2:O17 on the Results page
+    challenge_col_indices = [i for i in range(4, 14) if i < len(df.columns)]
+
     for idx, row in df.iterrows():
         try:
-            equipo_id_str = str(row.iloc[0])
-            nombre_equipo = str(row.iloc[1])
-            puntaje_val = row.iloc[2]
+            equipo_id_str = str(row[col_team_id])
+            nombre_equipo = str(row[col_team_name])
+            puntaje_val   = row[col_total]
+            time_val      = row[col_time] if col_time is not None else None
+            
+            # Sum all individual challenge columns (E to N = indices 4 to 13)
+            challenge_total = 0.0
+            for ci in challenge_col_indices:
+                val = row[df.columns[ci]]
+                if pd.notna(val):
+                    try:
+                        challenge_total += float(val)
+                    except (ValueError, TypeError):
+                        pass
             
             match = re.search(r'\d+', equipo_id_str)
             if match:
-                numero = int(match.group())
-                puntaje = float(puntaje_val) if pd.notna(puntaje_val) else 0.0
+                numero   = int(match.group())
+                puntaje  = float(puntaje_val)  if pd.notna(puntaje_val)  else 0.0
+                time_s   = float(time_val)     if (time_val is not None and pd.notna(time_val)) else 0.0
                 
                 resultados[f"participante_{numero:02d}"] = {
-                    "puntaje": puntaje,
-                    "total": PUNTAJE_MAXIMO,
-                    "team_id": equipo_id_str,
-                    "team_name": nombre_equipo
+                    "puntaje":         puntaje,
+                    "activity_points": challenge_total,
+                    "time_s":          time_s,
+                    "total":           100.0,
+                    "team_id":         equipo_id_str,
+                    "team_name":       nombre_equipo
                 }
         except Exception:
             continue
@@ -73,12 +106,8 @@ def obtener_puntajes_por_participante(df: pd.DataFrame) -> dict[str, dict[str, f
 
 
 def leer_hoja_puntajes() -> pd.DataFrame:
-    # Convertir URL de edición a URL de exportación de Excel
-    base_url = URL_CSV.split("/edit")[0]
-    gid = URL_CSV.split("gid=")[1].split("#")[0] if "gid=" in URL_CSV else "0"
-    url_xlsx = f"{base_url}/export?format=xlsx&gid={gid}"
-    
-    url_sin_cache = f"{url_xlsx}&_ts={time.time_ns()}"
+    # URL_CSV is already a direct export URL
+    url_sin_cache = f"{URL_CSV}&_ts={time.time_ns()}"
     request = Request(
         url_sin_cache,
         headers={
@@ -96,10 +125,6 @@ def leer_hoja_puntajes() -> pd.DataFrame:
         return pd.read_excel(
             BytesIO(excel_bytes),
             sheet_name=NOMBRE_HOJA,
-            usecols="C:E",
-            skiprows=PRIMERA_FILA_PUNTAJES - 1,
-            nrows=CANTIDAD_PARTICIPANTES,
-            header=None,
         )
     except Exception:
         # Devuelve un DataFrame simulado con los datos de la imagen si SharePoint bloquea
@@ -140,14 +165,14 @@ def set_puntajes_retos_cache(puntajes_por_participante: dict[str, dict[str, floa
     with puntajes_retos_lock:
         for participante, valores in puntajes_por_participante.items():
             puntaje_nuevo = float(valores["puntaje"])
-            puntaje_actual = float(puntajes_retos_cache.get(participante, 0.0))
-
-            if puntaje_nuevo >= puntaje_actual:
-                puntajes_retos_cache[participante] = puntaje_nuevo
-                
-            totales_retos_cache[participante] = PUNTAJE_MAXIMO
+            puntajes_retos_cache[participante] = puntaje_nuevo
+            activity_points_cache[participante] = float(valores.get("activity_points", 0.0))
+            time_s_cache[participante] = float(valores.get("time_s", 0.0))
+            totales_retos_cache[participante] = 100.0
             if "team_name" in valores:
                 nombres_equipos_cache[participante] = valores["team_name"]
+            if "team_id" in valores:
+                team_id_cache[participante] = str(valores["team_id"]).strip().upper()
 
         ultima_actualizacion = now
         return _get_puntajes_retos_detalle_snapshot()
@@ -162,6 +187,14 @@ def refrescar_puntajes_retos() -> dict[str, dict[str, float]]:
 def get_puntaje_retos(participante: str) -> float:
     with puntajes_retos_lock:
         return float(puntajes_retos_cache.get(participante, 0.0))
+
+def get_activity_points(participante: str) -> float:
+    with puntajes_retos_lock:
+        return float(activity_points_cache.get(participante, 0.0))
+
+def get_time_s(participante: str) -> float:
+    with puntajes_retos_lock:
+        return float(time_s_cache.get(participante, 0.0))
 
 
 def get_puntaje_retos_detalle(participante: str) -> dict:
@@ -197,13 +230,15 @@ def sincronizar_puntajes(intervalo_segundos: float = 1.0) -> None:
             estado_actual = tuple(sorted(puntajes_por_participante.items()))
 
             if estado_actual != ultimo_estado:
-                print("SCOREBOARD / TABLA DE POSICIONES actualizados en memoria:")
+                print("SCOREBOARD updated in memory:")
                 filas_tabla = []
                 for p, valores in puntajes_por_participante.items():
+                    raw_id = valores.get("team_id", p)
+                    team_id_str = str(raw_id) if raw_id is not None else p.replace("participante_", "EQ").upper()
                     filas_tabla.append({
-                        "TeamID": valores.get("team_id", p.replace("participante_", "EQ").upper()),
-                        "Team": valores.get("team_name", "Desconocido"),
-                        "Total": f"{valores['puntaje']:.2f}"
+                        "TeamID": team_id_str,
+                        "Team":   valores.get("team_name", "Unknown"),
+                        "Total":  f"{valores['puntaje']:.2f}"
                     })
                 print(pd.DataFrame(filas_tabla).to_string(index=False))
 
@@ -212,7 +247,7 @@ def sincronizar_puntajes(intervalo_segundos: float = 1.0) -> None:
             time.sleep(intervalo_segundos)
 
         except Exception as e:
-            print("Error leyendo la hoja de puntajes:", e)
+            print("Error reading scores sheet:", e)
             time.sleep(intervalo_segundos)
 
 

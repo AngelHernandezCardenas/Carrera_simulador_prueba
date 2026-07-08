@@ -240,7 +240,7 @@
             border-color: rgba(239, 68, 68, 0.5);
         }
 
-        .runner-card.terminado {
+        .runner-card.finished {
             opacity: 0.82;
             border-color: rgba(16, 185, 129, 0.65);
         }
@@ -683,31 +683,31 @@
         <div class="header">
             <div class="header-title-row">
                 <h1>
-                    <div class="status-dot"></div> Telemetria
+                    <div class="status-dot"></div> Telemetry
                 </h1>
                 <div style="display: flex; gap: 8px;" id="header-buttons">
-                    <button id="btn-timer-start" class="btn-3d" onclick="startGlobalTimer(event)">Iniciar</button>
-                    <button id="btn-timer-stop" class="btn-3d" onclick="stopGlobalTimer(event)" disabled>Detener</button>
-                    <button id="btn-theme" class="btn-3d" onclick="event.stopPropagation(); toggleTheme()">Día</button>
+                    <button id="btn-timer-start" class="btn-3d" onclick="startGlobalTimer(event)">Start</button>
+                    <button id="btn-timer-stop" class="btn-3d" onclick="stopGlobalTimer(event)" disabled>Stop</button>
+                    <button id="btn-theme" class="btn-3d" onclick="event.stopPropagation(); toggleTheme()">Night</button>
                     <button id="btn-3d" class="btn-3d active" onclick="event.stopPropagation(); toggle3D()">3D: ON</button>
                 </div>
             </div>
             <div class="stats">
                 <div class="stat-box">
-                    <div class="stat-label">Corredores</div>
+                    <div class="stat-label">Runners</div>
                     <div class="stat-value" id="total-runners">0</div>
                 </div>
                 <div class="stat-box">
-                    <div class="stat-label">Líder (Km)</div>
+                    <div class="stat-label">Leader (KM)</div>
                     <div class="stat-value" id="lider-distancia">0.00</div>
                 </div>
             </div>
         </div>
         <div class="table-header">
             <div>Pos</div>
-            <div>Corredor</div>
-            <div>Tiempo</div>
-            <div>Visitados</div>
+            <div>Runner</div>
+            <div>Time</div>
+            <div>Visited</div>
             <div>Checkpoint</div>
         </div>
         <div class="runners-list" id="runners-list">
@@ -949,7 +949,7 @@
                 : '<div class="popup-stat" style="margin-top: 8px; color: #fca5a5;">No hay participantes en este checkpoint.</div>';
 
             const judgesEnCheckpoint = judgesList.filter(j => j.checkpoint_id === checkpointId).map(j => escapeHtml(j.nombre));
-            const judgesText = judgesEnCheckpoint.length > 0 ? judgesEnCheckpoint.join(', ') : 'Ninguno';
+            const judgesText = judgesEnCheckpoint.length > 0 ? judgesEnCheckpoint.join(', ') : 'None';
 
             return `
                 <div class="popup-title">${escapeHtml(getCheckpointName(checkpoint))}</div>
@@ -1000,7 +1000,7 @@
         // 1. Inicializacion de MapLibre GL JS
         const map = new maplibregl.Map({
             container: 'map',
-            style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json', // Estilo Vectorial Oscuro
+            style: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json', // Default: Light style
             center: [-100.3706, 25.7735], // [Longitud, Latitud]
             zoom: 15,
             pitch: 60, // Inclinacion 3D inicial
@@ -1037,15 +1037,18 @@
             addBuildingsLayer();
         });
 
-        let isDarkTheme = true;
+        // false = currently Light (Day), true = currently Dark (Night)
+        let isDarkTheme = false;
         function toggleTheme() {
             isDarkTheme = !isDarkTheme;
             const btn = document.getElementById('btn-theme');
             if (isDarkTheme) {
-                btn.textContent = 'Día';
+                // Now in Night mode — button offers to switch back to Day
+                btn.textContent = 'Day';
                 map.setStyle(STYLE_DARK);
             } else {
-                btn.textContent = 'Noche';
+                // Now in Day mode — button offers to switch to Night
+                btn.textContent = 'Night';
                 map.setStyle(STYLE_LIGHT);
             }
         }
@@ -1123,7 +1126,7 @@
         function getPendingCheckpointLabel(data) {
             if (data.blocked_by_challenge) return 'No puede ir a mas checkpoints';
             const pending = data.checkpoint_pendiente_mas_cercano;
-            if (!pending) return 'Ninguno';
+            if (!pending) return 'None';
             return pending.nombre || `Checkpoint ${pending.id}`;
         }
 
@@ -1131,7 +1134,7 @@
             const rawList = data.checkpoints_visitados_lista || data.checkpoints_visitados_ids;
             if (Array.isArray(rawList)) {
                 const list = rawList.map((item) => String(item)).filter(Boolean);
-                return { count: list.length, label: list.length ? list.join(', ') : 'Ninguno' };
+                return { count: list.length, label: list.length ? list.join(', ') : 'None' };
             }
 
             if (typeof data.checkpoints_visitados_txt === 'string' && data.checkpoints_visitados_txt.trim()) {
@@ -1140,7 +1143,7 @@
             }
 
             const count = Number(data.checkpoints_visitados || data.cantidad_checkpoints_visitados || 0) || 0;
-            return { count, label: count ? `${count}` : 'Ninguno' };
+            return { count, label: count ? `${count}` : 'None' };
         }
 
         function hasRepeatedCurrentCheckpoint(runner) {
@@ -1160,27 +1163,27 @@
         }
         function getClosestCheckpointLabel(data) {
             const closest = data.checkpoint_mas_cercano;
-            if (!closest) return 'Ninguno';
+            if (!closest) return 'None';
             return closest.nombre || `Checkpoint ${closest.id}`;
         }
 
-        function getPesoValue(data) {
+        function getWeightValue(data) {
             return Number(data.peso_kg ?? data.carga_kg ?? data.peso ?? 0) || 0;
         }
 
-        function formatPeso(value) {
+        function formatWeight(value) {
             return Number(value).toFixed(2);
         }
 
-        function getPesoClass(peso) {
+        function getWeightClass(peso) {
             if (peso > 10) return 'peso-red';
             if (peso >= 7) return 'peso-yellow';
             return 'peso-green';
         }
 
-        function applyPesoClass(card, peso) {
+        function applyWeightClass(card, peso) {
             card.classList.remove('peso-green', 'peso-yellow', 'peso-red');
-            card.classList.add(getPesoClass(peso));
+            card.classList.add(getWeightClass(peso));
         }
 
         function getCargaMarkerColor(peso) {
@@ -1229,13 +1232,18 @@
 
         function updateRunnerTimerDisplay(id) {
             const runner = state.runners[id];
-            const timerEl = document.getElementById(`timer-${id}`);
-            if (!runner || !timerEl) return;
+            if (!runner) return;
 
-            timerEl.textContent = formatElapsed(getRunnerElapsed(runner));
+            const formattedTime = formatElapsed(getRunnerElapsed(runner));
+            localStorage.setItem('timer_' + id, formattedTime);
+
+            const timerEl = document.getElementById(`timer-${id}`);
+            if (!timerEl) return;
+
+            timerEl.textContent = formattedTime;
             const statusEl = document.getElementById(`timer-status-${id}`);
-            if (statusEl) statusEl.textContent = runner.localEstado || 'corriendo';
-            runner.card.classList.toggle('terminado', runner.timerFinished);
+            if (statusEl) statusEl.textContent = runner.localEstado || 'running';
+            runner.card.classList.toggle('finished', runner.timerFinished);
         }
 
         function updateAllTimers() {
@@ -1275,7 +1283,7 @@
             runner.timerStartMs = null;
             runner.timerRunning = false;
             runner.timerFinished = true;
-            runner.localEstado = 'terminado';
+            runner.localEstado = 'finished';
             updateRunnerTimerDisplay(id);
         }
 
@@ -1283,43 +1291,59 @@
             if (event) event.stopPropagation();
             if (state.globalTimerRunning || state.globalTimerFinished) return;
 
-            state.globalStartMs = Date.now();
-            state.globalTimerRunning = true;
-            state.globalElapsedMs = 0;
-            Object.keys(state.runners).forEach(startRunnerTimer);
-            ensureTimerTick();
-            updateGlobalTimerButtons();
-            showToast('Contador iniciado para todos los participantes.');
+            fetch('/api/race/start', { method: 'POST' })
+                .then(res => res.json())
+                .then(data => {
+                    state.globalStartMs = Date.now();
+                    state.globalTimerRunning = true;
+                    state.globalElapsedMs = 0;
+                    Object.keys(state.runners).forEach(startRunnerTimer);
+                    ensureTimerTick();
+                    updateGlobalTimerButtons();
+                    showToast('Timer started for all participants.');
+                })
+                .catch(err => {
+                    console.error("Failed to start global timer on server:", err);
+                    showToast('Error starting timer globally.', true);
+                });
         }
 
         function stopGlobalTimer(event) {
             if (event) event.stopPropagation();
             if (state.globalTimerFinished) return;
 
-            state.globalElapsedMs = state.globalTimerRunning && state.globalStartMs !== null
-                ? Date.now() - state.globalStartMs
-                : state.globalElapsedMs;
-            state.globalTimerRunning = false;
-            state.globalTimerFinished = true;
-            state.globalStartMs = null;
-            Object.keys(state.runners).forEach(stopRunnerTimer);
-            updateGlobalTimerButtons();
-            showToast(`Estatus terminado para todos<br>Tiempo final: <span style="color: #10b981; font-weight: bold;">${formatElapsed(state.globalElapsedMs)}</span>`);
+            fetch('/api/race/stop', { method: 'POST' })
+                .then(res => res.json())
+                .then(data => {
+                    state.globalElapsedMs = state.globalTimerRunning && state.globalStartMs !== null
+                        ? Date.now() - state.globalStartMs
+                        : state.globalElapsedMs;
+                    state.globalTimerRunning = false;
+                    state.globalTimerFinished = true;
+                    state.globalStartMs = null;
+                    Object.keys(state.runners).forEach(stopRunnerTimer);
+                    updateGlobalTimerButtons();
+                    showToast(`Estatus finished para todos<br>Final time: <span style="color: #10b981; font-weight: bold;">${formatElapsed(state.globalElapsedMs)}</span>`);
+                })
+                .catch(err => {
+                    console.error("Failed to stop global timer on server:", err);
+                    showToast('Error stopping timer globally.', true);
+                });
         }
 
         function syncFinishedState(id, data) {
             const runner = state.runners[id];
-            if (!runner) return data.estado || 'corriendo';
+            if (!runner) return data.estado || 'running';
 
-            if (data.estado === 'terminado' && !runner.timerFinished) {
+            if (data.estado === 'finished' && !runner.timerFinished) {
                 runner.elapsedMs = getRunnerElapsed(runner);
                 runner.timerStartMs = null;
                 runner.timerRunning = false;
                 runner.timerFinished = true;
-                runner.localEstado = 'terminado';
+                runner.localEstado = 'finished';
             }
 
-            const estado = runner.localEstado || data.estado || 'corriendo';
+            const estado = runner.localEstado || data.estado || 'running';
             updateRunnerTimerDisplay(id);
             return estado;
         }
@@ -1329,30 +1353,30 @@
             if (data.checkpoint_mas_cercano && data.distancia_checkpoint_mas_cercano_m <= 5) {
                 const cp_id = String(data.checkpoint_mas_cercano.id);
                 if (data.scores_dict && data.scores_dict[cp_id] !== undefined) {
-                    cp_status = '<span style="color: #10b981;">Completado</span>';
+                    cp_status = '<span style="color: #10b981;">Completed</span>';
                 } else {
-                    cp_status = '<span style="color: #ef4444;">En evaluación (No available)</span>';
+                    cp_status = '<span style="color: #ef4444;">In evaluation (No available)</span>';
                 }
             }
 
             return `
                 <div class="popup-title" style="color: ${color};">${id}</div>
-                <div class="popup-stat">Velocidad: <b id="popup-speed-${id}">${speed.toFixed(1)}</b> km/h</div>
-                <div class="popup-stat">Posición: <b>${data.posicion ?? '--'}</b></div>
-                <div class="popup-stat">Checkpoints visitados: <b>${data.checkpoints_visitados ?? 0}</b></div>
-                <div class="popup-stat">Puntaje: <b style="color: #10b981;">${formatNullable(data.puntaje_retos, 2, '0.00')}</b></div>
-                <div class="popup-stat">Peso: <b>${formatPeso(getPesoValue(data))}</b> kg</div>
-                <div class="popup-stat">Checkpoint ponderado mas cercano: <b>${getClosestCheckpointLabel(data)}</b></div>
-                <div class="popup-stat">Dist. al ponderado: <b>${formatNullable(data.distancia_checkpoint_mas_cercano_m, 2)}</b> m</div>
-                <div class="popup-stat">Estado Checkpoint Actual: <b>${cp_status}</b></div>
-                <div class="popup-stat">Checkpoint pendiente: <b>${getPendingCheckpointLabel(data)}</b></div>
-                <div class="popup-stat">Dist. pendiente: <b>${formatNullable(data.distancia_checkpoint_pendiente_mas_cercano_m, 2)}</b> m</div>
-                <div class="popup-stat">Estado general: <b>${data.estado || '--'}</b></div>
-                <div class="popup-stat">Nivel bateria: <b>${formatNullable(data.nivel_bateria, 2)}</b>%</div>
+                <div class="popup-stat">Speed: <b id="popup-speed-${id}">${speed.toFixed(1)}</b> km/h</div>
+                <div class="popup-stat">Position: <b>${data.posicion ?? '--'}</b></div>
+                <div class="popup-stat">Visited checkpoints: <b>${data.checkpoints_visitados ?? 0}</b></div>
+                <div class="popup-stat">Score: <b style="color: #10b981;">${formatNullable(data.puntaje_retos, 2, '0.00')}</b></div>
+                <div class="popup-stat">Weight: <b>${formatWeight(getWeightValue(data))}</b> kg</div>
+                <div class="popup-stat">Nearest weighted checkpoint: <b>${getClosestCheckpointLabel(data)}</b></div>
+                <div class="popup-stat">Dist. to weighted: <b>${formatNullable(data.distancia_checkpoint_mas_cercano_m, 2)}</b> m</div>
+                <div class="popup-stat">Current Checkpoint Status: <b>${cp_status}</b></div>
+                <div class="popup-stat">Pending checkpoint: <b>${getPendingCheckpointLabel(data)}</b></div>
+                <div class="popup-stat">Pending dist.: <b>${formatNullable(data.distancia_checkpoint_pendiente_mas_cercano_m, 2)}</b> m</div>
+                <div class="popup-stat">Overall status: <b>${data.estado || '--'}</b></div>
+                <div class="popup-stat">Battery level: <b>${formatNullable(data.nivel_bateria, 2)}</b>%</div>
                 ${data.motor_voltaje !== undefined && data.motor_voltaje !== null ? `
-                <div class="popup-stat" style="margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1); color: #f59e0b;"><b>Telemetría Hardware</b></div>
-                <div class="popup-stat">Voltaje/Corr: <b>${formatNullable(data.motor_voltaje, 2)}V / ${formatNullable(data.motor_corriente, 2)}A</b></div>
-                <div class="popup-stat">Potencia/Ah: <b>${formatNullable(data.motor_potencia, 1)}W / ${formatNullable(data.ah_consumidos, 2)}Ah</b></div>
+                <div class="popup-stat" style="margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1); color: #f59e0b;"><b>Hardware Telemetry</b></div>
+                <div class="popup-stat">Voltage/Curr: <b>${formatNullable(data.motor_voltaje, 2)}V / ${formatNullable(data.motor_corriente, 2)}A</b></div>
+                <div class="popup-stat">Power/Ah: <b>${formatNullable(data.motor_potencia, 1)}W / ${formatNullable(data.ah_consumidos, 2)}Ah</b></div>
                 <div class="popup-stat">RPM/Temp: <b>${data.motor_rpm ?? '--'} / ${data.motor_temp ?? '--'}°C</b></div>
                 ` : ''}
             `;
@@ -1362,7 +1386,7 @@
             const id = data.participante;
             if (state.runners[id]) {
                 state.runners[id].puntaje_retos = Number(data.puntaje_retos) || 0;
-                showToast(`<b>${id}</b> ha recibido un nuevo puntaje!<br>Total: <span style="color: #10b981; font-weight: bold;">${Number(data.puntaje_retos).toFixed(2)}</span>`);
+                showToast(`<b>${id}</b> has received a new score!<br>Total: <span style="color: #10b981; font-weight: bold;">${Number(data.puntaje_retos).toFixed(2)}</span>`);
             }
         });
 
@@ -1389,8 +1413,8 @@
                 // Crear HTML del marcador
                 const el = document.createElement('div');
                 el.className = 'custom-marker';
-                const initialPeso = getPesoValue(data);
-                const initialCargaColor = getCargaMarkerColor(initialPeso);
+                const initialWeight = getWeightValue(data);
+                const initialCargaColor = getCargaMarkerColor(initialWeight);
                 el.style.backgroundColor = initialCargaColor;
                 el.style.borderColor = initialCargaColor;
                 el.style.boxShadow = `0 4px 10px rgba(0,0,0,0.5), 0 0 15px ${initialCargaColor}80`;
@@ -1409,7 +1433,7 @@
 
                 // Crear card en la lista
                 const card = document.createElement('div');
-                const peso = getPesoValue(data);
+                const peso = getWeightValue(data);
                 const visitedInfo = getVisitedCheckpointInfo(data);
                 const currentCheckpointId = getCurrentCheckpointId(data);
                 const initialCheckpointVisitCounts = getInitialCheckpointVisitCounts(data, currentCheckpointId);
@@ -1417,7 +1441,7 @@
                     current_checkpoint_id: currentCheckpointId,
                     checkpoint_visit_counts: initialCheckpointVisitCounts
                 };
-                card.className = `runner-card ${getPesoClass(peso)}`;
+                card.className = `runner-card ${getWeightClass(peso)}`;
                 card.id = `card-${id}`;
                 card.onclick = (e) => {
                     e.stopPropagation(); // Evitar que colapse si el cajon esta abierto
@@ -1434,9 +1458,9 @@
                             <div class="runner-name">${id}</div>
                             <div class="runner-stat-col timer-cell">
                                 <span id="timer-${id}">00:00:00</span>
-                                <div class="timer-status" id="timer-status-${id}">corriendo</div>
+                                <div class="timer-status" id="timer-status-${id}">running</div>
                             </div>
-                            <div class="runner-stat-col">Visitados: <span id="visitados-${id}" class="checkpoint-list">${visitedInfo.label}</span></div>
+                            <div class="runner-stat-col">Visited: <span id="visitados-${id}" class="checkpoint-list">${visitedInfo.label}</span></div>
                             <div class="runner-stat-col">Checkpoint: <div id="checkpoint-state-${id}">${getCheckpointStatusHtml(data, initialCheckpointRunner)}</div></div>
                         </div>
                     </div>
@@ -1467,7 +1491,7 @@
                 } else if (state.globalTimerFinished) {
                     state.runners[id].elapsedMs = state.globalElapsedMs;
                     state.runners[id].timerFinished = true;
-                    state.runners[id].localEstado = 'terminado';
+                    state.runners[id].localEstado = 'finished';
                 }
                 data.estado = syncFinishedState(id, data);
                 document.getElementById('total-runners').textContent = Object.keys(state.runners).length;
@@ -1487,7 +1511,7 @@
                 const prevVisitedCount = runner.checkpoints_visitados || 0;
                 
                 if (visitedCount > prevVisitedCount) {
-                    showToast(`<b>${id}</b> llegó a un nuevo Checkpoint!<br>Puntaje: <span style="color: #10b981; font-weight: bold;">${formatNullable(data.puntaje_retos, 2, '0.00')}</span>`);
+                    showToast(`<b>${id}</b> reached a new Checkpoint!<br>Score: <span style="color: #10b981; font-weight: bold;">${formatNullable(data.puntaje_retos, 2, '0.00')}</span>`);
                     
                     if (data.checkpoint_mas_cercano && data.distancia_checkpoint_mas_cercano_m < 20) {
                         const cpEl = document.getElementById(`cp-marker-${data.checkpoint_mas_cercano.id}`);
@@ -1507,7 +1531,7 @@
                 const dist_km = data.distancia_km || 0;
                 const max_spd = data.max_speed || speed;
                 const pts = Number(data.puntaje_retos ?? 0) || 0;
-                const peso = getPesoValue(data);
+                const peso = getWeightValue(data);
                 runner.distancia_km = dist_km;
                 runner.max_speed = max_spd;
                 runner.puntaje_retos = pts;
@@ -1515,7 +1539,7 @@
                 document.getElementById('visitados-' + id).textContent = visitedInfo.label;
                 document.getElementById('checkpoint-state-' + id).innerHTML = getCheckpointStatusHtml(data, runner);
                 document.getElementById(`posicion-${id}`).textContent = data.posicion ?? '--';
-                applyPesoClass(runner.card, peso);
+                applyWeightClass(runner.card, peso);
                 updateMarkerCargaColor(runner, peso);
                 
                 // Actualizar max distance global

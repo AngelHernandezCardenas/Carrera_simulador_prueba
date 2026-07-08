@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark">
   <title>General Real-Time Scoreboard</title>
   <style>
     :root {
@@ -31,9 +33,20 @@
       background: rgba(0, 0, 0, 0.02);
     }
 
-    :root.light-mode .rank-1 { color: #f59e0b; text-shadow: 1px 1px 2px rgba(245, 158, 11, 0.3); }
-    :root.light-mode .rank-2 { color: #64748b; text-shadow: 1px 1px 2px rgba(100, 116, 139, 0.3); }
-    :root.light-mode .rank-3 { color: #b45309; text-shadow: 1px 1px 2px rgba(180, 83, 9, 0.3); }
+    :root.light-mode .rank-1 {
+      color: #f59e0b;
+      text-shadow: 1px 1px 2px rgba(245, 158, 11, 0.3);
+    }
+
+    :root.light-mode .rank-2 {
+      color: #64748b;
+      text-shadow: 1px 1px 2px rgba(100, 116, 139, 0.3);
+    }
+
+    :root.light-mode .rank-3 {
+      color: #b45309;
+      text-shadow: 1px 1px 2px rgba(180, 83, 9, 0.3);
+    }
 
     body {
       margin: 0;
@@ -82,9 +95,20 @@
     }
 
     @keyframes pulse {
-      0% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.5; transform: scale(1.2); }
-      100% { opacity: 1; transform: scale(1); }
+      0% {
+        opacity: 1;
+        transform: scale(1);
+      }
+
+      50% {
+        opacity: 0.5;
+        transform: scale(1.2);
+      }
+
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
     }
 
     .panel {
@@ -101,7 +125,8 @@
       text-align: left;
     }
 
-    th, td {
+    th,
+    td {
       padding: 16px 20px;
       border-bottom: 1px solid var(--border);
     }
@@ -131,9 +156,21 @@
       text-align: center;
     }
 
-    .rank-1 { color: #fbbf24; font-size: 24px; text-shadow: 0 0 10px rgba(251, 191, 36, 0.5); }
-    .rank-2 { color: #94a3b8; font-size: 22px; }
-    .rank-3 { color: #b45309; font-size: 20px; }
+    .rank-1 {
+      color: #fbbf24;
+      font-size: 24px;
+      text-shadow: 0 0 10px rgba(251, 191, 36, 0.5);
+    }
+
+    .rank-2 {
+      color: #94a3b8;
+      font-size: 22px;
+    }
+
+    .rank-3 {
+      color: #b45309;
+      font-size: 20px;
+    }
 
     .team-name {
       font-weight: bold;
@@ -188,10 +225,11 @@
       align-items: center;
       justify-content: center;
     }
+
     .hamburger-btn:hover {
       color: var(--text);
     }
-    
+
     .gallery-modal {
       display: none;
       position: fixed;
@@ -203,6 +241,7 @@
       background-color: rgba(15, 23, 42, 0.9);
       overflow-y: auto;
     }
+
     .gallery-modal-content {
       margin: 5% auto;
       padding: 20px;
@@ -212,6 +251,7 @@
       max-width: 90vw;
       position: relative;
     }
+
     .close-modal {
       color: var(--text-muted);
       float: right;
@@ -219,15 +259,18 @@
       font-weight: bold;
       cursor: pointer;
     }
+
     .close-modal:hover {
       color: white;
     }
+
     .gallery-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
       gap: 10px;
       margin-top: 20px;
     }
+
     .gallery-grid img {
       width: 100%;
       height: 150px;
@@ -236,22 +279,28 @@
       cursor: pointer;
       border: 1px solid var(--border);
     }
+
     .fullscreen-viewer {
       display: none;
       position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.95);
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.95);
       z-index: 9999;
       align-items: center;
       justify-content: center;
       cursor: zoom-out;
     }
+
     .fullscreen-viewer img {
       max-width: 95%;
       max-height: 95%;
       border-radius: 12px;
-      box-shadow: 0 0 30px rgba(0,0,0,0.8);
+      box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
     }
+
     .fs-close-btn {
       position: absolute;
       top: 20px;
@@ -269,392 +318,495 @@
         align-items: flex-start;
         gap: 15px;
       }
-      .header > div:last-child {
+
+      .header>div:last-child {
         width: 100%;
         justify-content: space-between;
       }
+
       h1 {
         font-size: 24px;
       }
+
       .panel {
         overflow-x: auto;
       }
-      th, td {
+
+      th,
+      td {
         padding: 10px 8px;
         font-size: 13px;
         white-space: nowrap;
       }
+
       .rank {
         width: 30px;
         font-size: 15px;
       }
-      .rank-1 { font-size: 20px; }
-      .rank-2 { font-size: 18px; }
-      .rank-3 { font-size: 16px; }
+
+      .rank-1 {
+        font-size: 20px;
+      }
+
+      .rank-2 {
+        font-size: 18px;
+      }
+
+      .rank-3 {
+        font-size: 16px;
+      }
+
       .team-name {
         font-size: 14px;
       }
+
       .score-badge {
         font-size: 13px;
         padding: 4px 8px;
       }
+
       .gallery-modal-content {
         margin: 10% auto;
         padding: 15px;
         max-width: 95vw;
       }
-      #singlePhotoView > div:first-child {
+
+      #singlePhotoView>div:first-child {
         flex-direction: column;
         gap: 10px;
       }
-      #singlePhotoView > div:first-child button {
+
+      #singlePhotoView>div:first-child button {
         width: 100%;
       }
     }
   </style>
 </head>
+
 <body>
 
-<div class="container">
-  <div class="header">
-    <div>
-      <h1>Live Scoreboard</h1>
-      <p style="color: var(--text-muted); margin: 5px 0 0 0;">Official real-time ranking</p>
-    </div>
-    <div style="display: flex; gap: 15px; align-items: center;">
-      <button id="themeToggle" onclick="toggleTheme()" style="background: var(--surface); color: var(--text); border: 1px solid var(--border); padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: all 0.2s;">☀️ Light Mode</button>
-      <div class="status">
-        <div class="pulse"></div>
-        Live updating...
+  <div class="container">
+    <div class="header">
+      <div>
+        <h1>Live Scoreboard</h1>
+        <p style="color: var(--text-muted); margin: 5px 0 0 0;">Official real-time ranking</p>
       </div>
-    </div>
-  </div>
-
-  <div class="panel">
-    <table>
-      <thead>
-        <tr>
-          <th style="text-align: center;">Position</th>
-          <th>Team ID</th>
-          <th>Competitor</th>
-          <th style="text-align: center;">Current load</th>
-          <th style="text-align: center;">Total load</th>
-          <th style="text-align: right;">Total Score</th>
-        </tr>
-      </thead>
-      <tbody id="scoreboardBody">
-        <tr><td colspan="6" style="text-align: center; padding: 30px;">Loading data...</td></tr>
-      </tbody>
-    </table>
-  </div>
-</div>
-
-<!-- Modal para Galería de Fotos -->
-<div id="photoModal" class="gallery-modal">
-  <div class="gallery-modal-content">
-    <span class="close-modal" onclick="closeModal()">&times;</span>
-    <h2 id="modalTitle" style="margin-top: 0;">Photos of participant</h2>
-    
-    <!-- Gallery Grid View -->
-    <div id="modalGallery" class="gallery-grid"></div>
-    
-    <!-- Single Photo View -->
-    <div id="singlePhotoView" style="display: none; text-align: center; margin-top: 20px;">
-      <div style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
-        <button onclick="backToGallery()" style="padding: 10px 20px; background: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">
-          &larr; Back to Gallery
-        </button>
-        <button id="toggleContoursBtn" onclick="toggleContours()" style="padding: 15px 30px; background: #ef4444; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
-          Hide Contours
-        </button>
-      </div>
-      <div style="position: relative; display: inline-block; width: 100%;">
-        <div id="imgScrollWrapper" style="width: 100%; max-height: 75vh; overflow: auto; border-radius: 8px; border: 2px solid var(--border);">
-          <img id="singlePhotoImg" src="" onclick="toggleImageZoom(event)" style="width: 100%; height: auto; object-fit: contain; cursor: zoom-in; transition: width 0.3s ease;" title="Click to zoom in/out" />
+      <div style="display: flex; gap: 15px; align-items: center;">
+        <button id="themeToggle" onclick="toggleTheme()"
+          style="background: var(--surface); color: var(--text); border: 1px solid var(--border); padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: all 0.2s;">☀️
+          Light Mode</button>
+        <div class="status">
+          <div class="pulse"></div>
+          Live updating...
         </div>
-        <div onclick="openFullscreen(event)" style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.6); color: white; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 20px; z-index: 10;" title="Open Fullscreen">&#x26F6;</div>
       </div>
-      <p id="singlePhotoTimestamp" style="color: var(--text-muted); font-size: 14px; margin-top: 10px;"></p>
     </div>
 
+    <div class="panel">
+      <table>
+        <thead>
+          <tr>
+            <th style="text-align: center;">Position</th>
+            <th style="display: none;">Team ID</th>
+            <th>Competitor</th>
+            <th style="text-align: center;">Challenges</th>
+            <th style="text-align: center;">Race Time</th>
+            <th style="text-align: center;">Battery</th>
+            <th style="text-align: center;">Current load</th>
+            <th style="text-align: center;">Total load</th>
+            <th style="text-align: right;">Total Score</th>
+          </tr>
+        </thead>
+        <tbody id="scoreboardBody">
+          <tr>
+            <td colspan="9" style="text-align: center; padding: 30px;">Loading data...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
-</div>
 
-<!-- Visor en Pantalla Completa (720p) -->
-<div id="fullscreenViewer" class="fullscreen-viewer" onclick="closeFullscreen(event)">
-  <span class="fs-close-btn" onclick="forceCloseFullscreen()">&times;</span>
-  <img id="fullscreenImg" src="" onclick="toggleFullscreenContour(event)" title="Click image to toggle contours" style="cursor: pointer;" />
-</div>
+  <!-- Modal para Galería de Fotos -->
+  <div id="photoModal" class="gallery-modal">
+    <div class="gallery-modal-content">
+      <span class="close-modal" onclick="closeModal()">&times;</span>
+      <h2 id="modalTitle" style="margin-top: 0;">Photos of participant</h2>
 
-<script>
-  async function fetchScoreboard() {
-    try {
-      // 1. Fetch local data to get loads (kg)
-      let localData = {};
-      try {
-        const localRes = await fetch('/api/scoreboard');
-        const localJson = await localRes.json();
-        if (localJson.participantes) {
-          localJson.participantes.forEach(p => {
-            localData[p.equipo || p.nombre] = p;
-          });
+      <!-- Gallery Grid View -->
+      <div id="modalGallery" class="gallery-grid"></div>
+
+      <!-- Single Photo View -->
+      <div id="singlePhotoView" style="display: none; text-align: center; margin-top: 20px;">
+        <div style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+          <button onclick="backToGallery()"
+            style="padding: 10px 20px; background: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">
+            &larr; Back to Gallery
+          </button>
+          <button id="toggleContoursBtn" onclick="toggleContours()"
+            style="padding: 15px 30px; background: #ef4444; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+            Hide Contours
+          </button>
+        </div>
+        <div style="position: relative; display: inline-block; width: 100%;">
+          <div id="imgScrollWrapper"
+            style="width: 100%; max-height: 75vh; overflow: auto; border-radius: 8px; border: 2px solid var(--border);">
+            <img id="singlePhotoImg" src="" onclick="toggleImageZoom(event)"
+              style="width: 100%; height: auto; object-fit: contain; cursor: zoom-in; transition: width 0.3s ease;"
+              title="Click to zoom in/out" />
+          </div>
+          <div onclick="openFullscreen(event)"
+            style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.6); color: white; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 20px; z-index: 10;"
+            title="Open Fullscreen">&#x26F6;</div>
+        </div>
+        <p id="singlePhotoTimestamp" style="color: var(--text-muted); font-size: 14px; margin-top: 10px;"></p>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Visor en Pantalla Completa (720p) -->
+  <div id="fullscreenViewer" class="fullscreen-viewer" onclick="closeFullscreen(event)">
+    <span class="fs-close-btn" onclick="forceCloseFullscreen()">&times;</span>
+    <img id="fullscreenImg" src="" onclick="toggleFullscreenContour(event)" title="Click image to toggle contours"
+      style="cursor: pointer;" />
+  </div>
+
+  <script>
+    let isGlobalRaceRunning = false;
+    let globalRaceElapsedMs = 0;
+    let lastSyncTimeMs = Date.now();
+
+    function formatTimeMs(ms) {
+      const timeS = Math.floor(ms / 1000);
+      const h = Math.floor(timeS / 3600).toString().padStart(2, '0');
+      const m = Math.floor((timeS % 3600) / 60).toString().padStart(2, '0');
+      const s = (timeS % 60).toString().padStart(2, '0');
+      return `${h}:${m}:${s}`;
+    }
+
+    // Timer loop for smooth UI updates
+    setInterval(() => {
+      const elapsed = isGlobalRaceRunning
+        ? globalRaceElapsedMs + (Date.now() - lastSyncTimeMs)
+        : globalRaceElapsedMs;
+
+      document.querySelectorAll('.race-timer').forEach(el => {
+        const fallback = el.getAttribute('data-fallback-time');
+        if (isGlobalRaceRunning || globalRaceElapsedMs > 0) {
+          el.textContent = formatTimeMs(elapsed);
+        } else {
+          // use fallback if not started globally
+          el.textContent = formatTimeMs((parseFloat(fallback) || 0) * 1000);
         }
-      } catch(e) {
-        console.error("Error fetching local data:", e);
-      }
-
-      // 2. Fetch Google Sheets CSV
-      const sheetUrl = "https://docs.google.com/spreadsheets/d/1tmyly9tNELvQVdKPDnuv8tcL77yBGimLFpvpNAKvZZo/gviz/tq?tqx=out:csv&gid=1381314729";
-      const res = await fetch(sheetUrl);
-      const csvText = await res.text();
-      
-      const rows = csvText.split('\n').map(r => {
-        let inQuotes = false;
-        let cols = [];
-        let currCol = "";
-        for(let i = 0; i < r.length; i++){
-          let c = r[i];
-          if(c === '"'){
-            inQuotes = !inQuotes;
-          } else if(c === ',' && !inQuotes){
-            cols.push(currCol.trim());
-            currCol = "";
-          } else {
-            currCol += c;
-          }
-        }
-        cols.push(currCol.trim());
-        return cols;
       });
+    }, 1000);
 
-      const tbody = document.getElementById('scoreboardBody');
-      tbody.innerHTML = '';
-      
-      let renderedRows = 0;
-      rows.forEach((cols, idx) => {
-        const rankRaw = (cols[1] || '').replace(/"/g, '');
-        if(!rankRaw || isNaN(parseInt(rankRaw))) return;
+    async function fetchScoreboard() {
+      try {
+        // 1. Fetch local data to get loads (kg) and timer state
+        let localData = {};
+        try {
+          const localRes = await fetch('/api/scoreboard');
+          const localJson = await localRes.json();
 
-        const rank = parseInt(rankRaw);
-        const teamId = (cols[2] || '').replace(/"/g, '');
-        const teamName = (cols[3] || '').replace(/"/g, '');
-        const points = (cols[4] || '').replace(/"/g, '');
+          isGlobalRaceRunning = !!localJson.race_running;
+          globalRaceElapsedMs = localJson.race_elapsed_ms || 0;
+          lastSyncTimeMs = Date.now();
 
-        renderedRows++;
-        let rankClass = '';
-        if(rank === 1) rankClass = 'rank-1';
-        else if(rank === 2) rankClass = 'rank-2';
-        else if(rank === 3) rankClass = 'rank-3';
+          if (localJson.participantes) {
+            localJson.participantes.forEach(p => {
+              if (p.team_id) {
+                localData[p.team_id.toUpperCase()] = p;
+              }
+              localData[p.equipo || p.nombre] = p; // fallback
+            });
+          }
+        } catch (e) {
+          console.error("Error fetching local data:", e);
+        }
 
-        // Retrieve load data from local map
-        const localP = localData[teamName] || {};
-        const cargaActualKg = typeof localP.peso_kg === 'number' ? localP.peso_kg.toFixed(2) : '0.00';
-        const cargaTotalKg = typeof localP.peso_entregado_kg === 'number' ? localP.peso_entregado_kg.toFixed(2) : '0.00';
+        // 2. Fetch Google Sheets CSV
+        const sheetUrl = "https://docs.google.com/spreadsheets/d/1tmyly9tNELvQVdKPDnuv8tcL77yBGimLFpvpNAKvZZo/gviz/tq?tqx=out:csv&gid=1381314729";
+        const res = await fetch(sheetUrl);
+        const csvText = await res.text();
 
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
+        const rows = csvText.split('\n').map(r => {
+          let inQuotes = false;
+          let cols = [];
+          let currCol = "";
+          for (let i = 0; i < r.length; i++) {
+            let c = r[i];
+            if (c === '"') {
+              inQuotes = !inQuotes;
+            } else if (c === ',' && !inQuotes) {
+              cols.push(currCol.trim());
+              currCol = "";
+            } else {
+              currCol += c;
+            }
+          }
+          cols.push(currCol.trim());
+          return cols;
+        });
+
+        const tbody = document.getElementById('scoreboardBody');
+        tbody.innerHTML = '';
+
+        let renderedRows = 0;
+        rows.forEach((cols, idx) => {
+          const rankRaw = (cols[1] || '').replace(/"/g, '');
+          if (!rankRaw || isNaN(parseInt(rankRaw))) return;
+
+          const rank = parseInt(rankRaw);
+          const teamId = (cols[2] || '').replace(/"/g, '');
+          const teamName = (cols[3] || '').replace(/"/g, '');
+          const points = (cols[4] || '').replace(/"/g, '');
+
+          renderedRows++;
+          let rankClass = '';
+          if (rank === 1) rankClass = 'rank-1';
+          else if (rank === 2) rankClass = 'rank-2';
+          else if (rank === 3) rankClass = 'rank-3';
+
+          // Retrieve load data from local map using teamId
+          const localP = localData[teamId.toUpperCase()] || localData[teamName] || {};
+          const cargaActualKg = typeof localP.peso_kg === 'number' ? localP.peso_kg.toFixed(2) : '0.00';
+          const totalLoadPercentage = typeof localP.peso_entregado_kg === 'number' ? ((localP.peso_entregado_kg / 300) * 100).toFixed(2) : '0.00';
+
+          const challengePoints = typeof localP.activity_points === 'number' ? localP.activity_points.toFixed(2) : '0.00';
+
+          // Extract fallback time from Excel
+          const fallbackTimeS = typeof localP.time_s === 'number' ? localP.time_s : 0;
+
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
           <td class="rank ${rankClass}">${rank}</td>
-          <td class="team-name" style="color: var(--text-muted);">${teamId}</td>
+          <td class="team-name" style="color: var(--text-muted); display: none;">${teamId}</td>
           <td class="team-name" style="font-size: 18px;">${teamName}</td>
+          <td style="text-align: center;">
+            <span style="font-weight: bold; color: #8b5cf6;">${challengePoints} pts</span>
+          </td>
+          <td style="text-align: center;">
+            <span class="race-timer" data-fallback-time="${fallbackTimeS}" style="font-weight: bold; color: #06b6d4;">00:00:00</span>
+          </td>
+          <td style="text-align: center;">
+            <span style="font-weight: bold; color: #f43f5e;"></span>
+          </td>
           <td style="text-align: center;">
             <span style="font-weight: bold; color: #10b981;">${cargaActualKg} kg</span>
           </td>
           <td style="text-align: center;">
-            <span style="font-weight: bold; color: #f59e0b;">${cargaTotalKg} kg</span>
+            <span style="font-weight: bold; color: #f59e0b;">${totalLoadPercentage}%</span>
           </td>
           <td style="text-align: right;">
             <div class="score-badge">${points} pts</div>
           </td>
         `;
-        tbody.appendChild(tr);
-      });
+          tbody.appendChild(tr);
+        });
 
-      if(renderedRows === 0){
-         tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 30px;">No data found in Google Sheets.</td></tr>';
+        if (renderedRows === 0) {
+          tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 30px;">No data found in Google Sheets.</td></tr>';
+        }
+      } catch (err) {
+        console.error(err);
       }
-    } catch (err) {
-      console.error(err);
     }
-  }
 
-  // Funciones del Modal
-  let currentSingleImage = "";
-  let showingContours = true;
-  let currentFotos = [];
-  let isZoomed = false;
+    // Funciones del Modal
+    let currentSingleImage = "";
+    let showingContours = true;
+    let currentFotos = [];
+    let isZoomed = false;
 
-  function toggleImageZoom(event) {
-    if (event) event.stopPropagation();
-    isZoomed = !isZoomed;
-    const img = document.getElementById('singlePhotoImg');
-    if (isZoomed) {
-      img.style.width = '150%';
-      img.style.cursor = 'zoom-out';
-    } else {
-      img.style.width = '100%';
-      img.style.cursor = 'zoom-in';
+    function toggleImageZoom(event) {
+      if (event) event.stopPropagation();
+      isZoomed = !isZoomed;
+      const img = document.getElementById('singlePhotoImg');
+      if (isZoomed) {
+        img.style.width = '150%';
+        img.style.cursor = 'zoom-out';
+      } else {
+        img.style.width = '100%';
+        img.style.cursor = 'zoom-in';
+      }
     }
-  }
 
-  function formatTimestamp(ts) {
-    if (!ts) return "Unknown time";
-    return new Date(ts * 1000).toLocaleString();
-  }
+    function formatTimestamp(ts) {
+      if (!ts) return "Unknown time";
+      return new Date(ts * 1000).toLocaleString();
+    }
 
-  function openModal(nombre, fotos, singlePhoto = null) {
-    const modal = document.getElementById('photoModal');
-    const title = document.getElementById('modalTitle');
-    const gallery = document.getElementById('modalGallery');
-    const singleView = document.getElementById('singlePhotoView');
-    
-    currentFotos = fotos || [];
-    title.textContent = 'All photos of ' + nombre;
-    gallery.innerHTML = '';
-    
-    gallery.style.display = 'grid';
-    singleView.style.display = 'none';
-    
-    if (currentFotos && currentFotos.length > 0) {
-      currentFotos.forEach(item => {
-        const fotoObj = typeof item === 'string' ? { filename: item, timestamp: null } : item;
-        const div = document.createElement('div');
-        div.style.textAlign = 'center';
-        
-        const img = document.createElement('img');
-        img.src = '/capturas/' + fotoObj.filename;
-        img.onclick = () => viewSinglePhoto(fotoObj.filename);
-        
-        const tsLabel = document.createElement('p');
-        tsLabel.style.fontSize = '12px';
-        tsLabel.style.color = 'var(--text-muted)';
-        tsLabel.style.margin = '5px 0 0 0';
-        tsLabel.textContent = formatTimestamp(fotoObj.timestamp);
-        
-        div.appendChild(img);
-        div.appendChild(tsLabel);
-        gallery.appendChild(div);
-      });
-    } else {
-      gallery.style.display = 'block';
-      gallery.innerHTML = '<p style="color: var(--text-muted);">No photos available.</p>';
-    }
-    
-    modal.style.display = 'block';
-    
-    if (singlePhoto) {
-      viewSinglePhoto(singlePhoto);
-    }
-  }
+    function openModal(nombre, fotos, singlePhoto = null) {
+      const modal = document.getElementById('photoModal');
+      const title = document.getElementById('modalTitle');
+      const gallery = document.getElementById('modalGallery');
+      const singleView = document.getElementById('singlePhotoView');
 
-  function viewSinglePhoto(fotoFilename) {
-    currentSingleImage = fotoFilename;
-    const fotoObj = currentFotos.find(f => (typeof f === 'string' ? f : f.filename) === fotoFilename);
-    if (fotoObj) {
-      const ts = typeof fotoObj === 'string' ? null : fotoObj.timestamp;
-      document.getElementById('singlePhotoTimestamp').textContent = formatTimestamp(ts);
-    } else {
-      document.getElementById('singlePhotoTimestamp').textContent = "";
+      currentFotos = fotos || [];
+      title.textContent = 'All photos of ' + nombre;
+      gallery.innerHTML = '';
+
+      gallery.style.display = 'grid';
+      singleView.style.display = 'none';
+
+      if (currentFotos && currentFotos.length > 0) {
+        currentFotos.forEach(item => {
+          const fotoObj = typeof item === 'string' ? { filename: item, timestamp: null } : item;
+          const div = document.createElement('div');
+          div.style.textAlign = 'center';
+
+          const img = document.createElement('img');
+          img.src = '/capturas/' + fotoObj.filename;
+          img.onclick = () => viewSinglePhoto(fotoObj.filename);
+
+          const tsLabel = document.createElement('p');
+          tsLabel.style.fontSize = '12px';
+          tsLabel.style.color = 'var(--text-muted)';
+          tsLabel.style.margin = '5px 0 0 0';
+          tsLabel.textContent = formatTimestamp(fotoObj.timestamp);
+
+          div.appendChild(img);
+          div.appendChild(tsLabel);
+          gallery.appendChild(div);
+        });
+      } else {
+        gallery.style.display = 'block';
+        gallery.innerHTML = '<p style="color: var(--text-muted);">No photos available.</p>';
+      }
+
+      modal.style.display = 'block';
+
+      if (singlePhoto) {
+        viewSinglePhoto(singlePhoto);
+      }
     }
-    showingContours = true;
-    
-    isZoomed = false;
-    const img = document.getElementById('singlePhotoImg');
-    if(img) {
-      img.style.width = '100%';
-      img.style.cursor = 'zoom-in';
-    }
-    
-    document.getElementById('modalGallery').style.display = 'none';
-    document.getElementById('singlePhotoView').style.display = 'block';
-    
-    updateSingleImageSource();
-    const btn = document.getElementById('toggleContoursBtn');
-    btn.textContent = 'Hide Contours';
-    btn.style.background = '#ef4444';
-  }
-  
-  function backToGallery() {
-    document.getElementById('modalGallery').style.display = 'grid';
-    document.getElementById('singlePhotoView').style.display = 'none';
-  }
-  
-  function toggleContours() {
-    showingContours = !showingContours;
-    const btn = document.getElementById('toggleContoursBtn');
-    
-    if (showingContours) {
+
+    function viewSinglePhoto(fotoFilename) {
+      currentSingleImage = fotoFilename;
+      const fotoObj = currentFotos.find(f => (typeof f === 'string' ? f : f.filename) === fotoFilename);
+      if (fotoObj) {
+        const ts = typeof fotoObj === 'string' ? null : fotoObj.timestamp;
+        document.getElementById('singlePhotoTimestamp').textContent = formatTimestamp(ts);
+      } else {
+        document.getElementById('singlePhotoTimestamp').textContent = "";
+      }
+      showingContours = true;
+
+      isZoomed = false;
+      const img = document.getElementById('singlePhotoImg');
+      if (img) {
+        img.style.width = '100%';
+        img.style.cursor = 'zoom-in';
+      }
+
+      document.getElementById('modalGallery').style.display = 'none';
+      document.getElementById('singlePhotoView').style.display = 'block';
+
+      updateSingleImageSource();
+      const btn = document.getElementById('toggleContoursBtn');
       btn.textContent = 'Hide Contours';
       btn.style.background = '#ef4444';
-    } else {
-      btn.textContent = 'Show Contours';
-      btn.style.background = '#22c55e';
     }
-    
-    updateSingleImageSource();
-  }
-  
-  function updateSingleImageSource() {
-    const imgElement = document.getElementById('singlePhotoImg');
-    if (showingContours) {
-      imgElement.src = '/capturas/' + currentSingleImage;
-    } else {
-      imgElement.src = '/capturas/' + currentSingleImage.replace('.jpg', '_clean.jpg');
-    }
-  }
 
-  function closeModal() {
-    document.getElementById('photoModal').style.display = 'none';
-  }
-  
-  // Cerrar al hacer clic fuera del contenido del modal
-  window.onclick = function(event) {
-    const modal = document.getElementById('photoModal');
-    if (event.target == modal) {
-      modal.style.display = 'none';
+    function backToGallery() {
+      document.getElementById('modalGallery').style.display = 'grid';
+      document.getElementById('singlePhotoView').style.display = 'none';
     }
-  }
 
-  // Funciones de Pantalla Completa
-  function openFullscreen(event) {
-    if (event) event.stopPropagation();
-    const fsViewer = document.getElementById('fullscreenViewer');
-    const fsImg = document.getElementById('fullscreenImg');
-    const singlePhoto = document.getElementById('singlePhotoImg');
-    fsImg.src = singlePhoto.src;
-    fsViewer.style.display = 'flex';
-  }
-  
-  function closeFullscreen(event) {
-    if (event.target.id === 'fullscreenViewer') {
+    function toggleContours() {
+      showingContours = !showingContours;
+      const btn = document.getElementById('toggleContoursBtn');
+
+      if (showingContours) {
+        btn.textContent = 'Hide Contours';
+        btn.style.background = '#ef4444';
+      } else {
+        btn.textContent = 'Show Contours';
+        btn.style.background = '#22c55e';
+      }
+
+      updateSingleImageSource();
+    }
+
+    function updateSingleImageSource() {
+      const imgElement = document.getElementById('singlePhotoImg');
+      if (showingContours) {
+        imgElement.src = '/capturas/' + currentSingleImage;
+      } else {
+        imgElement.src = '/capturas/' + currentSingleImage.replace('.jpg', '_clean.jpg');
+      }
+    }
+
+    function closeModal() {
+      document.getElementById('photoModal').style.display = 'none';
+    }
+
+    // Cerrar al hacer clic fuera del contenido del modal
+    window.onclick = function (event) {
+      const modal = document.getElementById('photoModal');
+      if (event.target == modal) {
+        modal.style.display = 'none';
+      }
+    }
+
+    // Funciones de Pantalla Completa
+    function openFullscreen(event) {
+      if (event) event.stopPropagation();
+      const fsViewer = document.getElementById('fullscreenViewer');
+      const fsImg = document.getElementById('fullscreenImg');
+      const singlePhoto = document.getElementById('singlePhotoImg');
+      fsImg.src = singlePhoto.src;
+      fsViewer.style.display = 'flex';
+    }
+
+    function closeFullscreen(event) {
+      if (event.target.id === 'fullscreenViewer') {
+        document.getElementById('fullscreenViewer').style.display = 'none';
+      }
+    }
+
+    function forceCloseFullscreen() {
       document.getElementById('fullscreenViewer').style.display = 'none';
     }
-  }
 
-  function forceCloseFullscreen() {
-    document.getElementById('fullscreenViewer').style.display = 'none';
-  }
-
-  function toggleFullscreenContour(event) {
-    event.stopPropagation();
-    toggleContours(); // Alterna la variable global y el src de singlePhotoImg
-    const singlePhoto = document.getElementById('singlePhotoImg');
-    document.getElementById('fullscreenImg').src = singlePhoto.src;
-  }
-
-  function toggleTheme() {
-    document.documentElement.classList.toggle('light-mode');
-    const btn = document.getElementById('themeToggle');
-    if (document.documentElement.classList.contains('light-mode')) {
-      btn.textContent = '🌙 Dark Mode';
-    } else {
-      btn.textContent = '☀️ Light Mode';
+    function toggleFullscreenContour(event) {
+      event.stopPropagation();
+      toggleContours(); // Alterna la variable global y el src de singlePhotoImg
+      const singlePhoto = document.getElementById('singlePhotoImg');
+      document.getElementById('fullscreenImg').src = singlePhoto.src;
     }
-  }
 
-  // Actualizar cada 3 segundos
-  setInterval(fetchScoreboard, 3000);
-  fetchScoreboard();
-</script>
+    function toggleTheme() {
+      document.documentElement.classList.toggle('light-mode');
+      const btn = document.getElementById('themeToggle');
+      if (document.documentElement.classList.contains('light-mode')) {
+        btn.textContent = '🌙 Dark Mode';
+        localStorage.setItem('scoreboard-theme', 'light');
+      } else {
+        btn.textContent = '☀️ Light Mode';
+        localStorage.setItem('scoreboard-theme', 'dark');
+      }
+    }
+
+    // Initialize theme: default is light
+    (function initTheme() {
+      const saved = localStorage.getItem('scoreboard-theme');
+      if (saved === 'dark') {
+        document.documentElement.classList.remove('light-mode');
+        document.getElementById('themeToggle').textContent = '☀️ Light Mode';
+      } else {
+        // Explicitly ensure light mode, regardless of system preference
+        document.documentElement.classList.add('light-mode');
+        document.getElementById('themeToggle').textContent = '🌙 Dark Mode';
+      }
+    })();
+
+    // Actualizar cada 3 segundos
+    setInterval(fetchScoreboard, 3000);
+    fetchScoreboard();
+  </script>
 
 </body>
+
 </html>

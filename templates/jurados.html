@@ -340,7 +340,7 @@
 const el = id => document.getElementById(id);
 let stream = null, busy = false, clearCanvasTimeout = null;
 let counts = { Rojo: 0, Blanco: 0, Negro: 0 };
-const WEIGHTS = { Rojo: 1, Blanco: 5, Negro: 3 };
+const WEIGHTS = { Rojo: 3, Blanco: 1, Negro: 5 };
 let cpStep = 0, cpSelectedId = null, cpSelectedName = null;
 
 // ── DEVICE ID ─────────────────────────────────────────
@@ -389,7 +389,7 @@ function handleCheckpointStep() {
 }
 
 async function registrarJurado(cpId, cpName) {
-    const customName = "Juez_CP" + cpId;
+    const customName = "Judge_CP" + cpId;
     try {
         const resp = await fetch("/registrar", {
             method: "POST", headers: {"Content-Type":"application/json"},
@@ -427,9 +427,9 @@ function showResults() {
     const kg = counts.Rojo*WEIGHTS.Rojo + counts.Blanco*WEIGHTS.Blanco + counts.Negro*WEIGHTS.Negro;
     el("summaryWeight").textContent = kg.toFixed(2) + " kg";
     const parts = [];
-    if (counts.Rojo)   parts.push(counts.Rojo   + " red×1kg");
-    if (counts.Blanco) parts.push(counts.Blanco + " white×5kg");
-    if (counts.Negro)  parts.push(counts.Negro  + " black×3kg");
+    if (counts.Rojo)   parts.push(counts.Rojo   + " red×3kg");
+    if (counts.Blanco) parts.push(counts.Blanco + " white×1kg");
+    if (counts.Negro)  parts.push(counts.Negro  + " black×5kg");
     el("summaryDetail").textContent = parts.length ? parts.join(" + ") : "No balls registered";
     return kg;
 }
@@ -473,7 +473,7 @@ async function toggleScan() {
             method: "POST", headers: {"Content-Type":"application/json"},
             body: JSON.stringify({
                 device_id: deviceId(),
-                participante: cpSelectedName || "Juez",
+                participante: cpSelectedName || "Judge",
                 checkpoint_id: parseInt(cpSelectedId) || 0,
                 checkpoint_nombre: cpSelectedName || "",
                 image: b64, mobile: true

@@ -351,7 +351,7 @@ export default function App() {
   const escanearUnaVez = async () => {
     if (scanningRef.current || !cameraRef.current) return;
     
-    const ptsActuales = (countsRef.current.Rojo * 1) + (countsRef.current.Blanco * 5) + (countsRef.current.Negro * 3);
+    const ptsActuales = (countsRef.current.Rojo * 3) + (countsRef.current.Blanco * 1) + (countsRef.current.Negro * 5);
     if (ptsActuales >= 10) return;
 
     scanningRef.current = true;
@@ -371,7 +371,7 @@ export default function App() {
           }
           setMaxCounts({ ...countsRef.current });
 
-          const pts = (countsRef.current.Rojo * 1) + (countsRef.current.Blanco * 5) + (countsRef.current.Negro * 3);
+          const pts = (countsRef.current.Rojo * 3) + (countsRef.current.Blanco * 1) + (countsRef.current.Negro * 5);
           setLog(`Scan ready: ${pts} points.`, 'success');
           
           try {
@@ -403,7 +403,7 @@ export default function App() {
 
   const handleSaveScore = async () => {
     const currentMax = maxCounts; // since we might have manually edited maxCounts
-    const pts = (currentMax.Rojo * 1) + (currentMax.Blanco * 5) + (currentMax.Negro * 3);
+    const pts = (currentMax.Rojo * 3) + (currentMax.Blanco * 1) + (currentMax.Negro * 5);
     try {
       await NetworkService.saveWeight(globalServerUrl, targetScanParticipant, pts, currentMax, globalParticipante, globalCheckpoint);
       setLog(`Saved manually: ${pts} kg for ${targetScanParticipant}`, 'success');

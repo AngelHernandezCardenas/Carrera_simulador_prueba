@@ -83,5 +83,90 @@
   },
   "dev-mr2bychh-g5ndug0v": {
     "nombre": "participante_15"
+  },
+  "Raspberry_Relieve1": {
+    "nombre": "participante_16",
+    "device_id": "Raspberry_Relieve1",
+    "last_coord": [
+      25.65299,
+      -100.29013
+    ],
+    "checkpoints_visitados": [],
+    "cantidad_checkpoints_visitados": 0,
+    "cantidad_checkpoints_ponderados_visitados": 0,
+    "checkpoint_descarga_visitado": false,
+    "checkpoint_pendiente_mas_cercano": {
+      "id": 3,
+      "nombre": "Checkpoint 3"
+    },
+    "checkpoint_pendiente_mas_cercano_id": 3,
+    "distancia_checkpoint_pendiente_mas_cercano_m": 172.45,
+    "checkpoint_mas_cercano": {
+      "id": 3,
+      "nombre": "Checkpoint 3"
+    },
+    "checkpoint_mas_cercano_id": 3,
+    "distancia_checkpoint_mas_cercano_m": 172.45,
+    "puntuacion_checkpoints": -172.45,
+    "puntaje_checkpoints": 6.2,
+    "checkpoints_puntos_entregados": [],
+    "puntos_totales": 0,
+    "peso": 0,
+    "puntaje_equipo": 0.0,
+    "estado": "corriendo",
+    "puntaje_retos": 0.0,
+    "conteo_colores": {
+      "Rojo": 0,
+      "Blanco": 0,
+      "Negro": 0
+    },
+    "color_detectado": [],
+    "peso_kg": 0.0,
+    "peso_entregado_kg": 0.0,
+    "peso_descargado_kg": 0.0,
+    "en_checkpoint_descarga_peso": false,
+    "nivel_bateria": 100.0
+  },
+  "dev-mr54kncf-jtigj1qj": {
+    "nombre": "participante_17"
+  },
+  "dev-mr54w5yi-1ydqg8mo": {
+    "nombre": "participante_18"
+  },
+  "dev-mr54wb5r-y5rm6qse": {
+    "nombre": "participante_19"
+  },
+  "dev-mr54wh13-o9ah5vys": {
+    "nombre": "participante_20"
+  },
+  "dev-mr9ffoym-33r5o3i7": {
+    "nombre": "participante_21"
+  },
+  "dev-mr9fhnvw-fw577vea": {
+    "nombre": "participante_22"
+  },
+  "dev-mr9fjkmk-8mqsqbnt": {
+    "nombre": "participante_23"
+  },
+  "dev-mr9ftkz6-3tnbj428": {
+    "nombre": "participante_24"
+  },
+  "dev-mr9k637f-r9d2zfds": {
+    "nombre": "participante_25"
+  },
+  "dev-mrawjqi6-3obo72p6": {
+    "nombre": "participante_26"
+  },
+  "dev-mrawmv06-hpjkryug": {
+    "nombre": "participante_27"
+  },
+  "dev-mrawmwzi-ay4ctauv": {
+    "nombre": "participante_28"
+  },
+  "dev-mrax8ndr-2czkbdzk": {
+    "nombre": "participante_29"
+  },
+  "dev-mrayoori-mg7lo9c6": {
+    "nombre": "participante_30"
   }
 }

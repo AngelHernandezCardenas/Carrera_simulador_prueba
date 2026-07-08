@@ -154,16 +154,17 @@ def activar_datos_celular() -> bool:
         print("[CEL] Iniciando conexión de datos celular...")
 
         try:
-            ser = serial.Serial()
-            ser.port = CEL_PORT
-            ser.baudrate = CEL_BAUDRATE
-            ser.timeout = 2
+            # En pyserial, rtscts y dsrdtr deshabilitan el flujo por hardware desde el inicio
+            ser = serial.Serial(
+                port=CEL_PORT, 
+                baudrate=CEL_BAUDRATE, 
+                timeout=2,
+                rtscts=False,
+                dsrdtr=False
+            )
+            ser.dtr = False
+            ser.rts = False
             
-            # Deshabilitar señales de control por hardware para evitar el Broken Pipe
-            ser.setDTR(False)
-            ser.setRTS(False)
-            
-            ser.open()
         except serial.SerialException as e:
             print(f"[CEL] No se pudo abrir puerto AT (CEL_PORT): {e}")
             return False

@@ -79,7 +79,7 @@
             width: 60vw;
             cursor: default;
         }
-        
+
         .dashboard.collapsed .header-title-row h1,
         .dashboard.collapsed .stats,
         .dashboard.collapsed .runner-details,
@@ -268,10 +268,11 @@
             display: flex;
             flex-direction: column;
         }
-        
+
         .dashboard.expanded .runner-details {
             flex-direction: row;
-            display: contents; /* Para que los hijos usen el CSS Grid de .runner-info */
+            display: contents;
+            /* Para que los hijos usen el CSS Grid de .runner-info */
         }
 
         .runner-name {
@@ -310,14 +311,22 @@
             right: -5px;
             bottom: -5px;
             border-radius: 50%;
-            border: 2px solid inherit; /* Hereda el color desde JS */
+            border: 2px solid inherit;
+            /* Hereda el color desde JS */
             animation: pulse-ring 1.5s infinite cubic-bezier(0.215, 0.61, 0.355, 1);
             z-index: -1;
         }
 
         @keyframes pulse-ring {
-            0% { transform: scale(0.8); opacity: 0.8; }
-            100% { transform: scale(1.5); opacity: 0; }
+            0% {
+                transform: scale(0.8);
+                opacity: 0.8;
+            }
+
+            100% {
+                transform: scale(1.5);
+                opacity: 0;
+            }
         }
 
         .runner-stat-col {
@@ -484,9 +493,22 @@
         }
 
         @keyframes checkpoint-pulse {
-            0% { transform: scale(1); box-shadow: 0 0 10px rgba(245, 158, 11, 0.8); }
-            50% { transform: scale(1.6); box-shadow: 0 0 30px rgba(245, 158, 11, 1); background-color: #ffffff; color: #f59e0b; }
-            100% { transform: scale(1); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45), 0 0 16px rgba(245, 158, 11, 0.55); }
+            0% {
+                transform: scale(1);
+                box-shadow: 0 0 10px rgba(245, 158, 11, 0.8);
+            }
+
+            50% {
+                transform: scale(1.6);
+                box-shadow: 0 0 30px rgba(245, 158, 11, 1);
+                background-color: #ffffff;
+                color: #f59e0b;
+            }
+
+            100% {
+                transform: scale(1);
+                box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45), 0 0 16px rgba(245, 158, 11, 0.55);
+            }
         }
 
         .checkpoint-marker.animate-pulse {
@@ -649,13 +671,25 @@
         }
 
         @keyframes slide-in-toast {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
         }
 
         @keyframes fade-out-toast {
-            from { opacity: 1; }
-            to { opacity: 0; }
+            from {
+                opacity: 1;
+            }
+
+            to {
+                opacity: 0;
+            }
         }
     </style>
 </head>
@@ -672,10 +706,12 @@
                 </h1>
                 <div style="display: flex; gap: 8px;" id="header-buttons">
                     <button id="btn-timer-start" class="btn-3d" onclick="startGlobalTimer(event)">Iniciar</button>
-                    <button id="btn-timer-stop" class="btn-3d" onclick="stopGlobalTimer(event)" disabled>Detener</button>
+                    <button id="btn-timer-stop" class="btn-3d" onclick="stopGlobalTimer(event)"
+                        disabled>Detener</button>
                     <button id="btn-theme" class="btn-3d" onclick="event.stopPropagation(); toggleTheme()">Día</button>
                     <button id="btn-photos" class="btn-3d" onclick="togglePhotoPanel(event)">Registro fotos</button>
-                    <button id="btn-3d" class="btn-3d active" onclick="event.stopPropagation(); toggle3D()">3D: ON</button>
+                    <button id="btn-3d" class="btn-3d active" onclick="event.stopPropagation(); toggle3D()">3D:
+                        ON</button>
                 </div>
             </div>
             <div class="stats">
@@ -1156,10 +1192,21 @@
             return estado;
         }
 
-        function buildRunnerPopupHtml(id, color, data, speed) {
+        function fmtDuracion(ms) {
+            const s = Math.max(0, Math.floor(ms / 1000));
+            const h = Math.floor(s / 3600);
+            const m = Math.floor((s % 3600) / 60);
+            const sec = s % 60;
+            return [h, m, sec].map(v => String(v).padStart(2, '0')).join(':');
+        }
+
+        function buildRunnerPopupHtml(id, color, data, speed, energiaStats) {
+            const hasBat = data.voltaje != null || data.corriente != null || data.soc != null;
+            const hasMotor = data.motor_voltaje != null || data.motor_corriente != null;
+            const es = energiaStats || {};
+
             return `
                 <div class="popup-title" style="color: ${color};">${id}</div>
-                <div class="popup-stat">Velocidad: <b id="popup-speed-${id}">${speed.toFixed(1)}</b> km/h</div>
                 <div class="popup-stat">Posición: <b>${data.posicion ?? '--'}</b></div>
                 <div class="popup-stat">Checkpoints visitados: <b>${data.checkpoints_visitados ?? 0}</b></div>
                 <div class="popup-stat">Puntaje: <b style="color: #10b981;">${formatNullable(data.puntaje, 2, '0.00')}</b></div>
@@ -1169,12 +1216,27 @@
                 <div class="popup-stat">Checkpoint pendiente: <b>${getPendingCheckpointLabel(data)}</b></div>
                 <div class="popup-stat">Dist. pendiente: <b>${formatNullable(data.distancia_checkpoint_pendiente_mas_cercano_m, 2)}</b> m</div>
                 <div class="popup-stat">Estado: <b>${data.estado || '--'}</b></div>
-                <div class="popup-stat">Nivel bateria: <b>${formatNullable(data.nivel_bateria, 2)}</b>%</div>
-                ${data.motor_voltaje !== undefined && data.motor_voltaje !== null ? `
-                <div class="popup-stat" style="margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1); color: #f59e0b;"><b>Telemetría Hardware</b></div>
-                <div class="popup-stat">Voltaje/Corr: <b>${formatNullable(data.motor_voltaje, 2)}V / ${formatNullable(data.motor_corriente, 2)}A</b></div>
-                <div class="popup-stat">Potencia/Ah: <b>${formatNullable(data.motor_potencia, 1)}W / ${formatNullable(data.ah_consumidos, 2)}Ah</b></div>
-                <div class="popup-stat">RPM/Temp: <b>${data.motor_rpm ?? '--'} / ${data.motor_temp ?? '--'}°C</b></div>
+                ${hasBat ? `
+                <div class="popup-stat" style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.1);color:#6c8eff;"><b>Batería Principal</b></div>
+                <div class="popup-stat">Voltaje: <b>${formatNullable(data.voltaje, 2)} V</b></div>
+                <div class="popup-stat">Corriente: <b>${formatNullable(data.corriente, 2)} A</b></div>
+                <div class="popup-stat">Potencia: <b>${formatNullable(data.potencia, 1)} W</b></div>
+                <div class="popup-stat">SOC: <b style="color:${(data.soc ?? 0) > 60 ? '#10b981' : (data.soc ?? 0) > 25 ? '#f59e0b' : '#ef4444'}">${formatNullable(data.soc, 1)} %</b></div>
+                <div class="popup-stat">Ah consumidos: <b>${formatNullable(data.ah_consumidos, 3)} Ah</b> <span style="color:#94a3b8;font-size:11px;">(Σ I·Δt)</span></div>
+                ${data.ttg_min != null ? `<div class="popup-stat">Tiempo restante: <b>${formatNullable(data.ttg_min, 0)} min</b></div>` : ''}
+                ${es.tiempoAcum != null ? `
+                <div class="popup-stat" style="margin-top:4px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.07);">
+                  T. Acumulado: <b style="color:#a78bfa">${es.tiempoAcum}</b>
+                </div>
+                <div class="popup-stat">E muestra: <b style="color:#fbbf24">${es.eWh != null ? es.eWh.toFixed(4) : '--'} Wh</b></div>
+                <div class="popup-stat">E acumulada: <b style="color:#34d399;font-weight:700">${es.eAcum != null ? es.eAcum.toFixed(4) : '--'} Wh</b></div>
+                ` : ''}
+                ` : ''}
+                ${hasMotor ? `
+                <div class="popup-stat" style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.1);color:#f59e0b;"><b>⚙️ Motor</b></div>
+                <div class="popup-stat">Voltaje / Corriente: <b>${formatNullable(data.motor_voltaje, 2)} V / ${formatNullable(data.motor_corriente, 2)} A</b></div>
+                <div class="popup-stat">Potencia / Ah: <b>${formatNullable(data.motor_potencia, 1)} W</b></div>
+                <div class="popup-stat">RPM / Temp: <b>${data.motor_rpm ?? '--'} / ${data.motor_temp ?? '--'}°C</b></div>
                 ` : ''}
             `;
         }
@@ -1262,7 +1324,12 @@
                     elapsedMs: 0,
                     timerRunning: false,
                     timerFinished: false,
-                    localEstado: null
+                    localEstado: null,
+                    // Energía eléctrica acumulada
+                    firstDataMs: Date.now(),
+                    lastDataMs: Date.now(),
+                    energiaAcumuladaWh: 0,
+                    lastEWh: null,
                 };
                 if (state.globalTimerRunning) {
                     startRunnerTimer(id);
@@ -1281,14 +1348,14 @@
             } else {
                 const runner = state.runners[id];
                 data.estado = syncFinishedState(id, data);
-                
+
                 // Detección de nuevo checkpoint visitado
                 const visitedCount = data.checkpoints_visitados || 0;
                 const prevVisitedCount = runner.checkpoints_visitados || 0;
-                
+
                 if (visitedCount > prevVisitedCount) {
                     showToast(`<b>${id}</b> llegó a un nuevo Checkpoint!<br>Puntaje: <span style="color: #10b981; font-weight: bold;">${formatNullable(data.puntaje, 2, '0.00')}</span>`);
-                    
+
                     if (data.checkpoint_mas_cercano && data.distancia_checkpoint_mas_cercano_m < 20) {
                         const cpEl = document.getElementById(`cp-marker-${data.checkpoint_mas_cercano.id}`);
                         if (cpEl) {
@@ -1302,7 +1369,18 @@
 
                 // Animar el movimiento del marcador
                 runner.marker.setLngLat(lngLat);
-                
+
+                // Cálculo de energía eléctrica por muestra
+                const ahoraMs = Date.now();
+                const deltaMs = ahoraMs - (runner.lastDataMs || ahoraMs);
+                const potenciaW = Number(data.potencia);
+                if (Number.isFinite(potenciaW) && deltaMs > 0) {
+                    const sampleWh = potenciaW * (deltaMs / 3_600_000);
+                    runner.energiaAcumuladaWh = (runner.energiaAcumuladaWh || 0) + sampleWh;
+                    runner.lastEWh = sampleWh;
+                }
+                runner.lastDataMs = ahoraMs;
+
                 const dist_km = data.distancia_km || 0;
                 const max_spd = data.max_speed || speed;
                 const pts = Number(data.puntaje ?? data.puntos_totales ?? 0) || 0;
@@ -1315,7 +1393,7 @@
                 document.getElementById(`peso-${id}`).textContent = formatPeso(peso);
                 document.getElementById(`posicion-${id}`).textContent = data.posicion ?? '--';
                 applyPesoClass(runner.card, peso);
-                
+
                 // Actualizar max distance global
                 let liderDist = 0;
                 Object.keys(state.runners).forEach(rid => {
@@ -1339,7 +1417,12 @@
                 }
 
                 // Actualizar el HTML del popup si está abierto
-                runner.popup.setHTML(buildRunnerPopupHtml(id, runner.color, data, speed));
+                const energiaStats = {
+                    tiempoAcum: fmtDuracion(Date.now() - (runner.firstDataMs || Date.now())),
+                    eWh: runner.lastEWh,
+                    eAcum: runner.energiaAcumuladaWh,
+                };
+                runner.popup.setHTML(buildRunnerPopupHtml(id, runner.color, data, speed, energiaStats));
             }
         });
     </script>

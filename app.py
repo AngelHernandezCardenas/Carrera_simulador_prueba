@@ -823,6 +823,18 @@ def gps():
         "peso_descargado_kg": checkpoint_state["peso_descargado_kg"],
         "conteo_colores": checkpoint_state["conteo_colores"],
         "color_detectado": checkpoint_state["color_detectado"],
+        # ── Telemetría eléctrica (Raspberry / Bicicleta Relieve) ──────────────
+        "voltaje":         data.get("voltaje"),
+        "corriente":       data.get("corriente"),
+        "potencia":        data.get("potencia"),
+        "soc":             data.get("soc"),
+        "ttg_min":         data.get("ttg_min"),
+        "ah_consumidos":   data.get("ah_consumidos"),
+        "motor_voltaje":   data.get("motor_voltaje"),
+        "motor_corriente": data.get("motor_corriente"),
+        "motor_potencia":  data.get("motor_potencia"),
+        "motor_rpm":       data.get("motor_rpm"),
+        "motor_temp":      data.get("motor_temp"),
     })
 
     response = {

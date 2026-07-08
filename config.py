@@ -9,7 +9,7 @@ PARTICIPANTS_FILE = BASE_DIR / "participantes.json"
 MAX_PARTICIPANTES = 50
 
 # --- Duración de la sesión ---
-DURACION = 4 * 60 * 60  # 4 horas en segundos
+DURACION = 24 * 60 * 60  # 24 horas en segundos
 
 # --- Locks globales ---
 file_lock = threading.Lock()

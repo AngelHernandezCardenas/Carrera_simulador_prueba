@@ -6,8 +6,8 @@ from urllib.request import Request, urlopen
 import pandas as pd
 
 
-URL_CSV = "https://docs.google.com/spreadsheets/d/1qGKsNsSf92LY7IdazkQSR3xunPAjPSfe/export?format=xlsx"
-NOMBRE_HOJA = "Results_Resultados"
+URL_CSV = "https://docs.google.com/spreadsheets/d/12XWCYO1ZQnaXqPCrHneu70BThHSja_hduYWnIFZxQYw/export?format=xlsx"
+NOMBRE_HOJA = "Results"
 
 ultimo_estado = None
 puntajes_retos_cache: dict[str, float] = {}

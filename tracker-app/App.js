@@ -13,9 +13,11 @@ import { fmt, cleanServerUrl, getCheckpointLabel } from './src/utils/FormatUtils
 import MetricCard from './src/components/MetricCard';
 import ScannerCamera from './src/components/ScannerCamera';
 import GalleryModal from './src/components/GalleryModal';
+import Scoreboard from './src/components/Scoreboard';
 import ErrorBoundary from './src/ErrorBoundary';
 
 const isScannerMode = Platform.OS === 'web' && typeof window !== 'undefined' && window.location.pathname.endsWith('/scan');
+const isScoreboardMode = Platform.OS === 'web' && typeof window !== 'undefined' && window.location.pathname.endsWith('/scoreboard');
 
 // LogBox.ignoreAllLogs();
 const LOCATION_TASK_NAME = 'background-location-task';
@@ -27,6 +29,7 @@ let globalDeviceId = null;
 let globalCheckpoint = 0;
 let globalSendingGps = false;
 let globalLastGpsSentMs = 0;
+let globalCargaKg = 0;
 const GPS_SEND_INTERVAL_MS = 2000;
 
 const hydrateGlobals = async () => {
@@ -94,6 +97,7 @@ export default function App() {
   const [serverUrl, setServerUrl] = useState('');
   const [participante, setParticipante] = useState(null);
   const [activo, setActivo] = useState(false);
+  const [scanResultMessage, setScanResultMessage] = useState(null);
   const [deviceId, setDeviceId] = useState('');
   const [status, setStatus] = useState({ text: 'Waiting...', tone: 'neutral' });
   const [checkpointConfirmado, setCheckpointConfirmado] = useState(false);
@@ -110,6 +114,7 @@ export default function App() {
   });
   const [checkpointInfo, setCheckpointInfo] = useState({ label: '--', distance: null });
   const [accelData, setAccelData] = useState(SensorService.getData());
+  const [cargaKg, setCargaKg] = useState(0);
   
   const mountedRef = useRef(true);
   let globalTimer = useRef(null);
@@ -247,35 +252,35 @@ export default function App() {
 
   const startCapture = async () => {
     if (!participante && !globalParticipante) {
-      if (!isScannerMode) {
-        // Auto-register runners if they just click Start Capture
-        const assigned = await registerParticipant();
-        if (!assigned) return; // Registration failed
-      } else {
-        Alert.alert('Missing registration', 'Connect and register this device first.');
-        return;
-      }
+      const assigned = await registerParticipant();
+      if (!assigned) return; // Registration failed
     }
 
     try {
-      const hasPermissions = await LocationService.requestPermissions();
-      if (!hasPermissions) {
-        setLog('Background permission denied. Will function while app is open.', 'error');
+      if (!isScannerMode) {
+        const hasPermissions = await LocationService.requestPermissions();
+        if (!hasPermissions) {
+          setLog('Background permission denied. Will function while app is open.', 'error');
+        }
+        await activateSensors();
       }
-      await activateSensors();
 
       setActivo(true);
-      setLog('Getting location and accelerometer...', 'neutral');
+      
+      if (!isScannerMode) {
+        setLog('Getting location and accelerometer...', 'neutral');
+        await LocationService.startTracking(LOCATION_TASK_NAME, handleLocation);
 
-      await LocationService.startTracking(LOCATION_TASK_NAME, handleLocation);
-
-      if (globalTimer.current) clearInterval(globalTimer.current);
-      globalTimer.current = setInterval(() => {
-        const lastKnown = LocationService.getLastKnownLocation();
-        if (lastKnown) {
-          handleLocation(lastKnown);
-        }
-      }, 500);
+        if (globalTimer.current) clearInterval(globalTimer.current);
+        globalTimer.current = setInterval(() => {
+          const lastKnown = LocationService.getLastKnownLocation();
+          if (lastKnown) {
+            handleLocation(lastKnown);
+          }
+        }, 3000);
+      } else {
+        setLog('Scanner mode active. Camera ready.', 'neutral');
+      }
     } catch (error) {
       setActivo(false);
       setLog(error.message, 'error');
@@ -288,8 +293,10 @@ export default function App() {
       clearInterval(globalTimer.current);
       globalTimer.current = null;
     }
-    SensorService.stop();
-    await LocationService.stopTracking(LOCATION_TASK_NAME);
+    if (!isScannerMode) {
+      SensorService.stop();
+      await LocationService.stopTracking(LOCATION_TASK_NAME);
+    }
   };
 
   const stopFromButton = async () => {
@@ -327,13 +334,26 @@ export default function App() {
       setLocation(loc);
       setSpeedInfo(speed);
       setAccelData(SensorService.getData());
+      
+      if (data.carga_kg !== undefined) {
+          setCargaKg(data.carga_kg);
+          if (data.carga_kg >= 10 && globalCargaKg < 10) {
+              if (data.carga_kg === 10) {
+                  Alert.alert("Límite alcanzado", "Has llegado a 10 puntos. Ya no puedes recoger más pelotas. Dirígete a la zona de descarga.");
+              } else {
+                  Alert.alert("Límite EXCEDIDO", "Has excedido los 10 puntos. NO puedes llevar más pelotas, ve a la zona de descarga inmediatamente.");
+              }
+          }
+          globalCargaKg = data.carga_kg;
+      }
+
       setCheckpointInfo(prev => ({
         ...prev,
         label: getCheckpointLabel(checkpoint),
         distance: Number.isFinite(distance) ? distance : null,
       }));
       if (isScannerMode) {
-        setLog(`Location obtained\nJudge: ${globalParticipante.replace('Judge_', '')}`, 'ok');
+        setLog(`Location obtained\nJudge: ${globalParticipante.replace('Judge_', '')}\nCheckpoint: ${globalCheckpoint || "N/A"}`, 'ok');
       } else {
         setLog(
           `Location obtained\nParticipant: ${globalParticipante.replace(/participante_/i, '')}\nLat: ${loc.coords.latitude.toFixed(6)}\nLon: ${loc.coords.longitude.toFixed(6)}\nSpeed: ${fmt(speed.speed_kmh, 2)} km/h (${fmt(speed.speed_mps, 2)} m/s)\nAcceleration: ${fmt(speed.acceleration_mps2, 3)} m/s2\nAccelerometer: ${SensorService.getData().permission_state}\nAccuracy: +/-${fmt(loc.coords.accuracy, 0)} m\nTime: ${new Date().toLocaleTimeString()}`,
@@ -377,6 +397,8 @@ export default function App() {
           try {
             await NetworkService.saveWeight(globalServerUrl, targetScanParticipant, pts, countsRef.current, globalParticipante, globalCheckpoint);
             setLog(`Saved ${pts} kg for ${targetScanParticipant}`, 'success');
+            setScanResultMessage(`${targetScanParticipant.replace(/Participante_/i, 'Team ')} registered with ${pts} pts`);
+            setTimeout(() => setScanResultMessage(null), 5000);
           } catch (err) {
             setLog(`Error saving weight: ${err.message}`, 'error');
           }
@@ -407,6 +429,8 @@ export default function App() {
     try {
       await NetworkService.saveWeight(globalServerUrl, targetScanParticipant, pts, currentMax, globalParticipante, globalCheckpoint);
       setLog(`Saved manually: ${pts} kg for ${targetScanParticipant}`, 'success');
+      setScanResultMessage(`${targetScanParticipant.replace(/Participante_/i, 'Team ')} registered with ${pts} pts`);
+      setTimeout(() => setScanResultMessage(null), 5000);
     } catch (err) {
       setLog(`Error saving weight: ${err.message}`, 'error');
     }
@@ -434,10 +458,21 @@ export default function App() {
 
   return (
     <ErrorBoundary>
+      {isScoreboardMode ? (
+        <Scoreboard serverUrl={serverUrl} />
+      ) : (
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <StatusBar style="dark" />
       <Text style={styles.title}>Tracker & Scanner</Text>
       <Text style={styles.subtitle}>Capture location and scan balls with YOLO.</Text>
+
+      {cargaKg >= 10 && !isScannerMode && (
+          <View style={{ backgroundColor: cargaKg > 10 ? '#ef4444' : '#f59e0b', padding: 15, marginHorizontal: 20, marginBottom: 15, borderRadius: 8 }}>
+              <Text style={{ color: 'white', fontWeight: 'bold', textAlign: 'center', fontSize: 16 }}>
+                  {cargaKg > 10 ? `EXCESO DE PUNTOS (${cargaKg} pts)\nDirígete a la zona de descarga inmediatamente.` : `LÍMITE ALCANZADO (${cargaKg} pts)\nYa no puedes recoger más pelotas.`}
+              </Text>
+          </View>
+      )}
 
       {/* CAMERA AND YOLO */}
       {isScannerMode && (
@@ -462,36 +497,29 @@ export default function App() {
             onReset={reiniciarEscaneo}
             onSaveScore={handleSaveScore}
             onOpenGallery={abrirGaleria}
+            juezAsignado={participante}
+            checkpointEstablecido={checkpointInfo.id}
+            targetScanParticipant={targetScanParticipant !== "Desconocido" ? targetScanParticipant : null}
+            checkpointConfirmado={checkpointConfirmado}
+            scanResultMessage={scanResultMessage}
           />
         )
       )}
 
-      {/* METRICS */}
-      {!isScannerMode && location && (
-        <View style={styles.grid}>
-          <MetricCard label="Latitude" value={fmt(location.coords.latitude, 5)} />
-          <MetricCard label="Longitude" value={fmt(location.coords.longitude, 5)} />
-          <MetricCard label="Altitude" value={fmt(location.coords.altitude, 1)} detail="meters" />
-          <MetricCard label="Speed" value={fmt(speedInfo?.speed_kmh, 2)} detail="km/h" />
-          <MetricCard label="Accuracy" value={fmt(location.coords.accuracy, 1)} detail="meters" />
-          <MetricCard full label="Nearest weighted checkpoint" value={checkpointInfo.label} detail={`Distance: ${fmt(checkpointInfo.distance, 2)} m`} />
-        </View>
-      )}
-
       {/* SERVER AND REGISTRATION */}
       <View style={styles.connectionPanel}>
-        <Text style={styles.label}>Server URL</Text>
-        <TextInput
-          style={styles.input}
-          value={serverUrl}
-          onChangeText={setServerUrl}
-          placeholder="https://...trycloudflare.com"
-          autoCapitalize="none"
-          autoCorrect={false}
-          editable={!activo}
-        />
         {!isScannerMode ? (
           <>
+            <Text style={styles.label}>Server URL</Text>
+            <TextInput
+              style={styles.input}
+              value={serverUrl}
+              onChangeText={setServerUrl}
+              placeholder="https://...trycloudflare.com"
+              autoCapitalize="none"
+              autoCorrect={false}
+              editable={!activo}
+            />
             <Text style={styles.label}>PARTICIPANT / DEVICE NAME</Text>
             <TextInput
               style={[styles.input, { backgroundColor: '#e2e8f0', color: '#475569' }]}
@@ -500,9 +528,48 @@ export default function App() {
               placeholder="Automatic assignment..."
               editable={false}
             />
+            <TouchableOpacity style={[styles.button, !!participante && styles.disabledButton]} onPress={registerParticipant} disabled={!!participante}>
+              <Text style={styles.buttonText}>{!!participante ? 'Connected & Registered' : 'Connect & Register'}</Text>
+            </TouchableOpacity>
           </>
         ) : (
           <>
+            <Text style={styles.label}>Participant to Scan</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginTop: 10, marginBottom: 10 }}>
+              {Array.from({ length: 15 }, (_, i) => i + 1).map(num => {
+                const teamId = `Participante_${num}`;
+                const isSelected = targetScanParticipant === teamId;
+                return (
+                  <TouchableOpacity
+                    key={teamId}
+                    style={{
+                      width: 45,
+                      height: 45,
+                      borderRadius: 25,
+                      backgroundColor: isSelected ? '#007BFF' : '#E0E0E0',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      borderWidth: 2,
+                      borderColor: isSelected ? '#0056b3' : '#bbb',
+                      margin: 5
+                    }}
+                    onPress={() => {
+                      setTargetScanParticipant(teamId);
+                      reiniciarEscaneo();
+                    }}
+                  >
+                    <Text style={{ 
+                      color: isSelected ? '#FFF' : '#333', 
+                      fontWeight: 'bold',
+                      fontSize: 18
+                    }}>
+                      {num}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
             <Text style={styles.label}>Select Checkpoint (Judge)</Text>
             <select
               style={{ ...styles.input, height: 40, padding: 8 }}
@@ -524,10 +591,10 @@ export default function App() {
               disabled={checkpointConfirmado}
             >
               <option value="">-- Select Checkpoint --</option>
+              <option value="4">Home-Base (Descarga)</option>
               <option value="1">Checkpoint 1</option>
               <option value="2">Checkpoint 2</option>
               <option value="3">Checkpoint 3</option>
-              <option value="4">Checkpoint 4</option>
               <option value="5">Checkpoint 5</option>
               <option value="6">Checkpoint 6</option>
               <option value="7">Checkpoint 7</option>
@@ -544,60 +611,53 @@ export default function App() {
               <Text style={styles.buttonText}>{checkpointConfirmado ? 'Checkpoint Confirmed' : 'Confirm Checkpoint'}</Text>
             </TouchableOpacity>
 
-            <Text style={styles.label}>Participant to Scan</Text>
-            <select
-              style={{ ...styles.input, height: 40, padding: 8 }}
-              value={targetScanParticipant || "Desconocido"}
-              onChange={(e) => {
-                setTargetScanParticipant(e.target.value);
-                reiniciarEscaneo();
-              }}
-            >
-              <option value="Desconocido">-- Select Participant --</option>
-              <option value="Participante_1">Participant 1</option>
-              <option value="Participante_2">Participant 2</option>
-              <option value="Participante_3">Participant 3</option>
-              <option value="Participante_4">Participant 4</option>
-              <option value="Participante_5">Participant 5</option>
-              <option value="Participante_6">Participant 6</option>
-              <option value="Participante_7">Participant 7</option>
-              <option value="Participante_8">Participant 8</option>
-              <option value="Participante_9">Participant 9</option>
-              <option value="Participante_10">Participant 10</option>
-              <option value="Participante_11">Participant 11</option>
-              <option value="Participante_12">Participant 12</option>
-              <option value="Participante_13">Participant 13</option>
-              <option value="Participante_14">Participant 14</option>
-              <option value="Participante_15">Participant 15</option>
-            </select>
+            <Text style={styles.label}>Server URL</Text>
+            <TextInput
+              style={styles.input}
+              value={serverUrl}
+              onChangeText={setServerUrl}
+              placeholder="https://...trycloudflare.com"
+              autoCapitalize="none"
+              autoCorrect={false}
+              editable={!activo}
+            />
+
+            <TouchableOpacity style={[styles.button, !!participante && styles.disabledButton]} onPress={registerParticipant} disabled={!!participante}>
+              <Text style={styles.buttonText}>{!!participante ? 'Connected & Registered' : 'Connect & Register'}</Text>
+            </TouchableOpacity>
           </>
         )}
-
-        <TouchableOpacity
-          style={[styles.button, styles.secondaryButton, (!canRegister || activo) && styles.disabledButton]}
-          onPress={async () => {
-            const assigned = await registerParticipant();
-            if (assigned) {
-              startCapture();
-            }
-          }}
-          disabled={!canRegister || activo}
-        >
-          <Text style={styles.buttonText}>Connect and register</Text>
-        </TouchableOpacity>
       </View>
 
-      <TouchableOpacity
-        style={[styles.button, activo && styles.dangerButton]}
-        onPress={activo ? stopFromButton : startCapture}
-      >
-        <Text style={styles.buttonText}>{activo ? 'Stop capture' : 'Start capture'}</Text>
-      </TouchableOpacity>
 
-      {/* STATUS BOX */}
-      <View style={[styles.statusBox, styles[`status_${status.tone}`]]}>
-        <Text style={[styles.statusText, styles[`statusText_${status.tone}`]]}>{status.text}</Text>
-      </View>
+
+      {/* METRICS */}
+      {!isScannerMode && location && (
+        <View style={styles.grid}>
+          <MetricCard label="Latitude" value={fmt(location.coords.latitude, 5)} />
+          <MetricCard label="Longitude" value={fmt(location.coords.longitude, 5)} />
+          <MetricCard label="Altitude" value={fmt(location.coords.altitude, 1)} detail="meters" />
+          <MetricCard label="Speed" value={fmt(speedInfo?.speed_kmh, 2)} detail="km/h" />
+          <MetricCard label="Accuracy" value={fmt(location.coords.accuracy, 1)} detail="meters" />
+          <MetricCard full label="Nearest weighted checkpoint" value={checkpointInfo.label} detail={`Distance: ${fmt(checkpointInfo.distance, 2)} m`} />
+        </View>
+      )}
+
+      {!isScannerMode && (
+        <>
+          <TouchableOpacity
+            style={[styles.button, activo && styles.dangerButton]}
+            onPress={activo ? stopFromButton : startCapture}
+          >
+            <Text style={styles.buttonText}>{activo ? 'Stop capture' : 'Start capture'}</Text>
+          </TouchableOpacity>
+
+          {/* STATUS BOX */}
+          <View style={[styles.statusBox, styles[`status_${status.tone}`]]}>
+            <Text style={[styles.statusText, styles[`statusText_${status.tone}`]]}>{status.text}</Text>
+          </View>
+        </>
+      )}
 
       <GalleryModal
         visible={galeriaVisible}
@@ -607,6 +667,7 @@ export default function App() {
         serverUrl={serverUrl}
       />
     </ScrollView>
+    )}
     </ErrorBoundary>
   );
 }

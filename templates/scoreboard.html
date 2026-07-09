@@ -386,40 +386,48 @@
 <body>
 
   <div class="container">
-    <div class="header">
-      <div>
-        <h1>Live Scoreboard</h1>
-        <p style="color: var(--text-muted); margin: 5px 0 0 0;">Official real-time ranking</p>
-      </div>
-      <div style="display: flex; gap: 15px; align-items: center;">
-        <button id="themeToggle" onclick="toggleTheme()"
-          style="background: var(--surface); color: var(--text); border: 1px solid var(--border); padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: all 0.2s;">☀️
-          Light Mode</button>
-        <div class="status">
-          <div class="pulse"></div>
-          Live updating...
+    <div style="background: #1B2A47; padding: 12px; text-align: center; margin-bottom: 0;">
+      <h1 style="margin: 0; color: white; font-size: 24px; letter-spacing: 2px; text-transform: uppercase;">Live Results</h1>
+    </div>
+    
+    <div style="background: #0F8277; padding: 8px; text-align: center; margin-bottom: 0;">
+      <h2 style="margin: 0; color: white; font-size: 16px; letter-spacing: 1px;">LEADING TEAM</h2>
+    </div>
+
+    <div style="background: white; border: 1px solid #cbd5e1; border-top: none; padding: 30px; text-align: center; margin-bottom: 20px;">
+      <h1 id="leadTeamName" style="margin: 0 0 20px 0; font-size: 42px; color: #1e293b;">-</h1>
+      <div style="display: flex; justify-content: center; gap: 40px; align-items: center;">
+        <div>
+          <div style="font-weight: bold; color: #0f172a; font-size: 18px; margin-bottom: 5px;">Loading</div>
+          <div id="leadTeamLoading" style="font-size: 32px; font-weight: bold; color: #334155;">-</div>
+        </div>
+        <div style="background: #fef3c7; padding: 15px 30px; border-radius: 8px;">
+          <div style="font-weight: bold; color: #b45309; font-size: 18px; margin-bottom: 5px;">POINTS</div>
+          <div id="leadTeamPoints" style="font-size: 36px; font-weight: bold; color: #b45309;">-</div>
         </div>
       </div>
     </div>
 
-    <div class="panel">
-      <table>
+    <div style="background: #1B2A47; padding: 12px; text-align: center; margin-bottom: 0;">
+      <h1 style="margin: 0; color: white; font-size: 24px; letter-spacing: 2px; text-transform: uppercase;">Scoreboard</h1>
+    </div>
+
+    <div class="panel" style="border-radius: 0; border: 1px solid #cbd5e1; border-top: none;">
+      <table style="width: 100%; border-collapse: collapse; text-align: center; background: white;">
         <thead>
-          <tr>
-            <th style="text-align: center;">Position</th>
-            <th style="display: none;">Team ID</th>
-            <th>Competitor</th>
-            <th style="text-align: center;">Challenges</th>
-            <th style="text-align: center;">Race Time</th>
-            <th style="text-align: center;">Battery</th>
-            <th style="text-align: center;">Current load</th>
-            <th style="text-align: center;">Total load</th>
-            <th style="text-align: right;">Total Score</th>
+          <tr style="background: #e2e8f0; border-bottom: 2px solid #cbd5e1;">
+            <th style="padding: 12px; color: #1e293b; font-weight: bold; text-align: center;">Rank</th>
+            <th style="padding: 12px; color: #1e293b; font-weight: bold; text-align: center;">Team</th>
+            <th style="padding: 12px; color: #1e293b; font-weight: bold; text-align: center;">Load (%)</th>
+            <th style="padding: 12px; color: #1e293b; font-weight: bold; text-align: center;">Energy (%)</th>
+            <th style="padding: 12px; color: #1e293b; font-weight: bold; text-align: center;">Time (%)</th>
+            <th style="padding: 12px; color: #1e293b; font-weight: bold; text-align: center;">Challenges (%)</th>
+            <th style="padding: 12px; color: #1e293b; font-weight: bold; text-align: center;">Total (-/100)</th>
           </tr>
         </thead>
         <tbody id="scoreboardBody">
           <tr>
-            <td colspan="9" style="text-align: center; padding: 30px;">Loading data...</td>
+            <td colspan="7" style="text-align: center; padding: 30px; color: #475569;">Loading data...</td>
           </tr>
         </tbody>
       </table>
@@ -503,110 +511,54 @@
 
     async function fetchScoreboard() {
       try {
-        // 1. Fetch local data to get loads (kg) and timer state
-        let localData = {};
-        try {
-          const localRes = await fetch('/api/scoreboard');
-          const localJson = await localRes.json();
-
-          isGlobalRaceRunning = !!localJson.race_running;
-          globalRaceElapsedMs = localJson.race_elapsed_ms || 0;
-          lastSyncTimeMs = Date.now();
-
-          if (localJson.participantes) {
-            localJson.participantes.forEach(p => {
-              if (p.team_id) {
-                localData[p.team_id.toUpperCase()] = p;
-              }
-              localData[p.equipo || p.nombre] = p; // fallback
-            });
-          }
-        } catch (e) {
-          console.error("Error fetching local data:", e);
-        }
-
-        // 2. Fetch Google Sheets CSV
-        const sheetUrl = "https://docs.google.com/spreadsheets/d/1tmyly9tNELvQVdKPDnuv8tcL77yBGimLFpvpNAKvZZo/gviz/tq?tqx=out:csv&gid=1381314729";
-        const res = await fetch(sheetUrl);
-        const csvText = await res.text();
-
-        const rows = csvText.split('\n').map(r => {
-          let inQuotes = false;
-          let cols = [];
-          let currCol = "";
-          for (let i = 0; i < r.length; i++) {
-            let c = r[i];
-            if (c === '"') {
-              inQuotes = !inQuotes;
-            } else if (c === ',' && !inQuotes) {
-              cols.push(currCol.trim());
-              currCol = "";
-            } else {
-              currCol += c;
-            }
-          }
-          cols.push(currCol.trim());
-          return cols;
-        });
+        const WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwJQ6Kw_pLCW0uynHf_zbO4KXQqBCgu7n3xajhsMm1Oaom4SE7Nz1g-teCMnSOUer8a/exec";
+        const res = await fetch(`${WEBHOOK_URL}?action=getScoreboard&t=${Date.now()}`);
+        const data = await res.json();
 
         const tbody = document.getElementById('scoreboardBody');
         tbody.innerHTML = '';
 
-        let renderedRows = 0;
-        rows.forEach((cols, idx) => {
-          const rankRaw = (cols[1] || '').replace(/"/g, '');
-          if (!rankRaw || isNaN(parseInt(rankRaw))) return;
+        if (data && data.length > 0) {
+           const lead = data[0];
+           document.getElementById('leadTeamName').textContent = lead["Team"] || "-";
+           document.getElementById('leadTeamLoading').textContent = lead["Load (%)"] || "-";
+           document.getElementById('leadTeamPoints').textContent = lead["Total (-/100)"] || "-";
+        }
 
-          const rank = parseInt(rankRaw);
-          const teamId = (cols[2] || '').replace(/"/g, '');
-          const teamName = (cols[3] || '').replace(/"/g, '');
-          const points = (cols[4] || '').replace(/"/g, '');
+        let renderedRows = 0;
+        data.forEach((row, idx) => {
+          const rank = row["Rank"];
+          if (!rank) return;
+
+          const teamName = row["Team"] || "Unknown";
+          const loadingPct = row["Load (%)"] || "0%";
+          const energyPct = row["Energy (%)"] || "0%";
+          const timeVal = row["Time (%)"] || "0%";
+          const challengesPct = row["Challenges (%)"] || "0%";
+          const totalScore = row["Total (-/100)"] || "0";
 
           renderedRows++;
-          let rankClass = '';
-          if (rank === 1) rankClass = 'rank-1';
-          else if (rank === 2) rankClass = 'rank-2';
-          else if (rank === 3) rankClass = 'rank-3';
-
-          // Retrieve load data from local map using teamId
-          const localP = localData[teamId.toUpperCase()] || localData[teamName] || {};
-          const cargaActualKg = typeof localP.peso_kg === 'number' ? localP.peso_kg.toFixed(2) : '0.00';
-          const totalLoadPercentage = typeof localP.peso_entregado_kg === 'number' ? ((localP.peso_entregado_kg / 300) * 100).toFixed(2) : '0.00';
-
-          const challengePoints = typeof localP.activity_points === 'number' ? localP.activity_points.toFixed(2) : '0.00';
-
-          // Extract fallback time from Excel
-          const fallbackTimeS = typeof localP.time_s === 'number' ? localP.time_s : 0;
+          const isEven = renderedRows % 2 === 0;
+          const bg = isEven ? '#f8fafc' : '#ffffff';
 
           const tr = document.createElement('tr');
+          tr.style.background = bg;
+          tr.style.borderBottom = '1px solid #e2e8f0';
+
           tr.innerHTML = `
-          <td class="rank ${rankClass}">${rank}</td>
-          <td class="team-name" style="color: var(--text-muted); display: none;">${teamId}</td>
-          <td class="team-name" style="font-size: 18px;">${teamName}</td>
-          <td style="text-align: center;">
-            <span style="font-weight: bold; color: #8b5cf6;">${challengePoints} pts</span>
-          </td>
-          <td style="text-align: center;">
-            <span class="race-timer" data-fallback-time="${fallbackTimeS}" style="font-weight: bold; color: #06b6d4;">00:00:00</span>
-          </td>
-          <td style="text-align: center;">
-            <span style="font-weight: bold; color: #f43f5e;"></span>
-          </td>
-          <td style="text-align: center;">
-            <span style="font-weight: bold; color: #10b981;">${cargaActualKg} kg</span>
-          </td>
-          <td style="text-align: center;">
-            <span style="font-weight: bold; color: #f59e0b;">${totalLoadPercentage}%</span>
-          </td>
-          <td style="text-align: right;">
-            <div class="score-badge">${points} pts</div>
-          </td>
-        `;
+          <td style="padding: 12px; font-weight: bold; color: #1e293b;">${rank}</td>
+          <td style="padding: 12px; font-weight: bold; color: #334155;">${teamName}</td>
+          <td style="padding: 12px; color: #475569;">${loadingPct}</td>
+          <td style="padding: 12px; color: #475569;">${energyPct}</td>
+          <td style="padding: 12px; color: #475569;">${timeVal}</td>
+          <td style="padding: 12px; color: #475569;">${challengesPct}</td>
+          <td style="padding: 12px; font-weight: bold; color: #0f172a; font-size: 1.1em;">${totalScore}</td>
+          `;
           tbody.appendChild(tr);
         });
 
         if (renderedRows === 0) {
-          tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 30px;">No data found in Google Sheets.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 30px;">No data found in Google Sheets.</td></tr>';
         }
       } catch (err) {
         console.error(err);

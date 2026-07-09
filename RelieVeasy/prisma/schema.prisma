@@ -1,0 +1,65 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Participant {
+  id                String   @id @default(cuid())
+  deviceId          String   @unique
+  name              String
+  team              String?
+  estado            String   @default("Activo")
+  pesoKg            Float    @default(0.0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  telemetryLogs     TelemetryLog[]
+  scanLogs          ScanLog[]
+  challengeScores   ChallengeScore[]
+}
+
+model TelemetryLog {
+  id                String   @id @default(cuid())
+  deviceId          String
+  participant       Participant @relation(fields: [deviceId], references: [deviceId])
+  lat               Float?
+  lon               Float?
+  speedKmh          Float?
+  battery           Float?
+  timestamp         DateTime @default(now())
+}
+
+model ScanLog {
+  id                String   @id @default(cuid())
+  deviceId          String
+  participant       Participant @relation(fields: [deviceId], references: [deviceId])
+  pesoDetectadoKg   Float
+  rojoCount         Int      @default(0)
+  blancoCount       Int      @default(0)
+  negroCount        Int      @default(0)
+  checkpointId      Int?
+  juez              String?
+  timestamp         DateTime @default(now())
+}
+
+model ChallengeScore {
+  id                String   @id @default(cuid())
+  deviceId          String
+  participant       Participant @relation(fields: [deviceId], references: [deviceId])
+  challengeName     String
+  score             Float
+  juez              String?
+  timestamp         DateTime @default(now())
+}
+
+model PhotoRecord {
+  id                String   @id @default(cuid())
+  participante      String
+  checkpointId      Int?
+  filename          String
+  timestamp         DateTime @default(now())
+}

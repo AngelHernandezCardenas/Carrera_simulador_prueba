@@ -7,7 +7,7 @@ import base64
 import json
 from pathlib import Path
 
-from flask import Flask, jsonify, render_template, request, send_from_directory, make_response
+from flask import Flask, jsonify, render_template, request, send_from_directory, make_response, send_file
 from flask_socketio import SocketIO
 import cv2
 import numpy as np
@@ -58,7 +58,8 @@ _gps_dedupe_lock = threading.Lock()
 device_trackers: dict[str, dict] = {}
 MIN_GPS_SAVE_INTERVAL_SECONDS = 1.5
 PESO_RESET_CHECKPOINT_ID = 4
-PESO_RESET_DISTANCE_METERS = 4.0
+PESO_RESET_DISTANCE_METERS = 15.0
+# Pesos asignados por la detección de pelotas
 COLOR_WEIGHTS_KG = {"Rojo": 3.0, "Blanco": 1.0, "Negro": 5.0}
 PESO_ALERTA_KG = 10.0
 BASE_DIR = Path(__file__).resolve().parent
@@ -91,40 +92,59 @@ VISION_CONFIG = {
 # ---------------------------------------------------------------------------
 # Race Timer State
 # ---------------------------------------------------------------------------
-RACE_START_TIME_MS = None
-RACE_ELAPSED_TIME_MS = 0
+RACE_TIMES_STATE = {} # { "participante_01": {"start_time_ms": int | None, "elapsed_ms": int} }
 _race_timer_lock = threading.Lock()
 
-def get_current_race_time_ms():
-    global RACE_START_TIME_MS, RACE_ELAPSED_TIME_MS
+def get_current_race_time_ms(participante: str) -> int:
     with _race_timer_lock:
-        if RACE_START_TIME_MS is not None:
-            return RACE_ELAPSED_TIME_MS + int(time.time() * 1000) - RACE_START_TIME_MS
-        return RACE_ELAPSED_TIME_MS
+        state = RACE_TIMES_STATE.get(participante, {"start_time_ms": None, "elapsed_ms": 0})
+        if state["start_time_ms"] is not None:
+            return state["elapsed_ms"] + int(time.time() * 1000) - state["start_time_ms"]
+        return state["elapsed_ms"]
 
 @app.route("/api/race/start", methods=["POST"])
 def start_race():
-    global RACE_START_TIME_MS, RACE_ELAPSED_TIME_MS
+    data = request.json or {}
+    participante = data.get("participante")
+    if not participante:
+        return jsonify({"status": "error", "msg": "Missing participante"}), 400
+        
     with _race_timer_lock:
-        if RACE_START_TIME_MS is None:
-            RACE_START_TIME_MS = int(time.time() * 1000)
-    return jsonify({"status": "started", "start_time": RACE_START_TIME_MS})
+        state = RACE_TIMES_STATE.setdefault(participante, {"start_time_ms": None, "elapsed_ms": 0})
+        if state["start_time_ms"] is None:
+            state["start_time_ms"] = int(time.time() * 1000)
+    return jsonify({"status": "started", "start_time": state["start_time_ms"], "participante": participante})
 
 @app.route("/api/race/stop", methods=["POST"])
 def stop_race():
-    global RACE_START_TIME_MS, RACE_ELAPSED_TIME_MS
+    data = request.json or {}
+    participante = data.get("participante")
+    if not participante:
+        return jsonify({"status": "error", "msg": "Missing participante"}), 400
+        
     with _race_timer_lock:
-        if RACE_START_TIME_MS is not None:
-            RACE_ELAPSED_TIME_MS += int(time.time() * 1000) - RACE_START_TIME_MS
-            RACE_START_TIME_MS = None
-    return jsonify({"status": "stopped", "elapsed": RACE_ELAPSED_TIME_MS})
+        state = RACE_TIMES_STATE.get(participante)
+        if state and state["start_time_ms"] is not None:
+            state["elapsed_ms"] += int(time.time() * 1000) - state["start_time_ms"]
+            state["start_time_ms"] = None
+            elapsed = state["elapsed_ms"]
+        else:
+            elapsed = state["elapsed_ms"] if state else 0
+    return jsonify({"status": "stopped", "elapsed": elapsed, "participante": participante})
 
 @app.route("/api/race/state", methods=["GET"])
 def race_state():
-    return jsonify({
-        "running": RACE_START_TIME_MS is not None,
-        "elapsed_ms": get_current_race_time_ms()
-    })
+    states = {}
+    with _race_timer_lock:
+        for part, state in RACE_TIMES_STATE.items():
+            elapsed = state["elapsed_ms"]
+            if state["start_time_ms"] is not None:
+                elapsed += int(time.time() * 1000) - state["start_time_ms"]
+            states[part] = {
+                "running": state["start_time_ms"] is not None,
+                "elapsed_ms": elapsed
+            }
+    return jsonify(states)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -316,6 +336,7 @@ def get_scoreboard_data() -> list[dict]:
             "puntaje_sheets": round(puntaje_sheets, 2),
             "activity_points": round(activity_points, 2),
             "time_s": round(time_s, 2),
+            "race_elapsed_ms": get_current_race_time_ms(nombre),
             "ultima_foto": ultima_foto,
             "todas_fotos": fotos_lista,
             "peso_kg": round(safe_float(entry.get("peso_kg"), 0.0), 2),
@@ -637,36 +658,82 @@ def registrar_peso():
         import threading
         
         if GOOGLE_APPS_SCRIPT_WEBHOOK_URL:
+            # Obtener datos detallados
             counts = data.get("counts", {})
-            juez = data.get("juez", "Desconocido")
+            juez = data.get("juez", "Desconocido").replace("Judge_", "").replace("juez_", "")
             checkpoint_slug = data.get("checkpoint", "")
             
-            # Extraer número de equipo del nombre del participante
-            import re
-            match = re.search(r'\d+', participante)
-            equipo_num = int(match.group()) if match else participante
-            
+            # Formatear datos para el webhook
             payload = {
                 "hora": datetime.now().strftime("%H:%M:%S"),
                 "juez": juez,
                 "checkpoint": checkpoint_slug,
-                "equipo": equipo_num,
+                "equipo": participante.replace("Participante_", "") if participante else "",
                 "blanca": counts.get("Blanco", 0),
                 "roja": counts.get("Rojo", 0),
                 "negra": counts.get("Negro", 0)
             }
             
-            def send_to_webhook(url, payload_data):
+            # Función para enviar en segundo plano a Google Sheets
+            def send_webhook(url, payload_data):
                 try:
-                    req = urllib.request.Request(url, method="POST")
-                    req.add_header('Content-Type', 'application/json')
-                    urllib.request.urlopen(req, data=json.dumps(payload_data).encode('utf-8'), timeout=5)
+                    try:
+                        import requests
+                        requests.post(url, json=payload_data, timeout=5, allow_redirects=True)
+                    except ImportError:
+                        import urllib.request
+                        import json
+                        req = urllib.request.Request(
+                            url, 
+                            data=json.dumps(payload_data).encode('utf-8'),
+                            headers={'Content-Type': 'application/json'},
+                            method='POST'
+                        )
+                        try:
+                            urllib.request.urlopen(req, timeout=5)
+                        except Exception as e:
+                            # 302 is normal for google apps script
+                            if hasattr(e, 'code') and e.code in [302, 303, 307, 308]:
+                                pass
+                            else:
+                                print(f"Error HTTP urllib: {e}")
                 except Exception as e:
                     print(f"Error enviando webhook a Google Sheets: {e}")
-                    
-            threading.Thread(target=send_to_webhook, args=(GOOGLE_APPS_SCRIPT_WEBHOOK_URL, payload), daemon=True).start()
+            
+            # Iniciar hilo para no bloquear la respuesta
+            threading.Thread(target=send_webhook, args=(GOOGLE_APPS_SCRIPT_WEBHOOK_URL, payload), daemon=True).start()
+            
+        # GUARDAR LOCALMENTE EN CSV SIEMPRE (Por si fallan las extensiones de Google)
+        import csv
+        import os
+        csv_file = BASE_DIR / "registros_loading.csv"
+        file_exists = os.path.isfile(csv_file)
+        
+        try:
+            with open(csv_file, mode='a', newline='', encoding='utf-8') as f:
+                counts = data.get("counts", {})
+                juez = data.get("juez", "Desconocido").replace("Judge_", "").replace("juez_", "")
+                equipo_nom = participante.replace("Participante_", "") if participante else ""
+                
+                writer = csv.writer(f)
+                if not file_exists:
+                    writer.writerow(["Fecha", "Hora", "Juez", "Checkpoint", "Equipo", "Blanca", "Roja", "Negra", "Carga_Kg"])
+                writer.writerow([
+                    datetime.now().strftime("%Y-%m-%d"),
+                    datetime.now().strftime("%H:%M:%S"),
+                    juez,
+                    data.get("checkpoint", ""),
+                    equipo_nom,
+                    counts.get("Blanco", 0),
+                    counts.get("Rojo", 0),
+                    counts.get("Negro", 0),
+                    peso_kg
+                ])
+        except Exception as e:
+            print(f"Error guardando CSV local: {e}")
+            
     except Exception as e:
-        print(f"Error al procesar webhook: {e}")
+        print(f"Error procesando webhook/CSV local: {e}")
     # ---------------------------------------------
 
     target_device = None
@@ -708,10 +775,17 @@ def estado_mapa():
     runners_snapshot = {}
     with participants_lock:
         runners_snapshot = {
-            get_participant_name_for_device(dev_id): state
-            for dev_id, state in device_trackers.items()
-            if "latitude" in state and "longitude" in state
+            get_participant_name_for_device(dev_id): {**state, "device_id": dev_id}
+            for dev_id, state in participants_cache.items()
+            if isinstance(state, dict) and "last_coord" in state
         }
+        
+        # Add latitude and longitude to match expected structure
+        for state in runners_snapshot.values():
+            if "last_coord" in state:
+                state["latitude"] = state["last_coord"][0]
+                state["longitude"] = state["last_coord"][1]
+                state["carga_kg"] = state.get("peso_kg", 0)
         
     judges_list = []
     from judges import judges_cache
@@ -733,12 +807,8 @@ def estado_mapa():
 
 @app.route("/api/scoreboard", methods=["GET"])
 def api_scoreboard():
-    global RACE_START_TIME_MS, RACE_ELAPSED_TIME_MS
     return jsonify({
-        "participantes": get_scoreboard_data(),
-        "race_running": RACE_START_TIME_MS is not None,
-        "race_elapsed_ms": get_current_race_time_ms(),
-        "race_start_time_ms": RACE_START_TIME_MS
+        "participantes": get_scoreboard_data()
     })
 
 
@@ -775,8 +845,6 @@ def api_scoreboard_csv():
         mimetype="text/csv",
         headers={"Content-disposition": "attachment; filename=scoreboard.csv"}
     )
-
-
 @app.route("/sw.js")
 def service_worker():
     return send_from_directory("static", "sw.js")
@@ -816,8 +884,9 @@ def set_judge_checkpoint():
             if j_id != device_id and j_data.get("checkpoint_id") == checkpoint_id:
                 jueces_en_cp += 1
                 
-        if jueces_en_cp >= MAX_JUECES_POR_CHECKPOINT:
-            return jsonify({"status": "error", "msg": f"El Checkpoint {checkpoint_id} ya tiene el máximo de {MAX_JUECES_POR_CHECKPOINT} jueces asignados."}), 403
+        limite = 3 if checkpoint_id == 4 else MAX_JUECES_POR_CHECKPOINT
+        if jueces_en_cp >= limite:
+            return jsonify({"status": "error", "msg": f"El Checkpoint {checkpoint_id} ya tiene el máximo de {limite} jueces asignados."}), 403
             
         judges_cache[device_id]["checkpoint_id"] = checkpoint_id
         save_judges(judges_cache)
@@ -1164,6 +1233,36 @@ def gps():
         "color_detectado": checkpoint_state["color_detectado"],
         "scores_dict": checkpoint_state["scores_dict"],
     }
+    
+    # Send telemetry to RelieVeasy Web App
+    try:
+        import urllib.request
+        import json
+        import threading
+        
+        telemetry_payload = {
+            "device_id": device_id,
+            "participante": participante,
+            "latitude": latitude,
+            "longitude": longitude,
+            "speed_kmh": data.get("speed_kmh", 0),
+            "nivel_bateria": nivel_bateria
+        }
+        def send_telemetry():
+            try:
+                req = urllib.request.Request(
+                    "http://localhost:3000/api/webhook/telemetry", 
+                    data=json.dumps(telemetry_payload).encode('utf-8'),
+                    headers={'Content-Type': 'application/json'},
+                    method='POST'
+                )
+                urllib.request.urlopen(req, timeout=3)
+            except Exception as e:
+                pass
+        
+        threading.Thread(target=send_telemetry, daemon=True).start()
+    except Exception:
+        pass
 
     return jsonify(response)
 
@@ -1442,6 +1541,43 @@ def static_proxy(path):
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
+
+# ==========================================
+# SERVIDOR WEB DE LA CÁMARA (SIMPLIFICACIÓN)
+# ==========================================
+TRACKER_DIST = BASE_DIR / "tracker-app" / "dist"
+
+@app.route('/scan')
+@app.route('/scan/')
+def serve_scanner_app():
+    """Sirve la aplicación de la cámara compilada en la web"""
+    index_path = TRACKER_DIST / "index.html"
+    if index_path.exists():
+        return send_file(str(index_path))
+    return "La cámara web aún no ha sido compilada. Por favor, ejecuta 'npx expo export:web' dentro de la carpeta tracker-app.", 404
+
+@app.route('/mapa')
+@app.route('/mapa/')
+def serve_mapa():
+    """Muestra el mapa de seguimiento GPS"""
+    return render_template('mapa.html')
+
+import requests
+from flask import Response
+
+@app.route('/scoreboard')
+@app.route('/scoreboard/')
+def serve_scoreboard_html():
+    """Restaura el scoreboard clásico de Python, sin tocar RelieVeasy"""
+    return render_template('scoreboard.html')
+
+@app.route('/<path:filename>')
+def serve_static_files(filename):
+    """Sirve los archivos JS/CSS/Imágenes de la aplicación de la cámara"""
+    file_path = TRACKER_DIST / filename
+    if file_path.exists():
+        return send_file(str(file_path))
+    return "Not Found", 404
 
 if __name__ == "__main__":
     import threading

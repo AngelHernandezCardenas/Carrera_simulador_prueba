@@ -508,6 +508,56 @@
             animation: checkpoint-pulse 1.5s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
+        .marker-alert-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #1e293b;
+            box-shadow: 0 0 8px rgba(0,0,0,0.5);
+            animation: pulse-badge 1.5s infinite;
+        }
+        .badge-red {
+            background-color: #ef4444;
+            box-shadow: 0 0 10px #ef4444;
+        }
+        .badge-yellow {
+            background-color: #f59e0b;
+            box-shadow: 0 0 10px #f59e0b;
+        }
+        @keyframes pulse-badge {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        .judge-badge {
+            position: absolute;
+            top: -12px;
+            right: -12px;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background-color: #3b82f6;
+            color: white;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #1e293b;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.8);
+            z-index: 20;
+            animation: pulse-badge 2s infinite;
+        }
+
         #toast-container {
             position: fixed;
             top: 20px;
@@ -686,9 +736,6 @@
                     <div class="status-dot"></div> Telemetry
                 </h1>
                 <div style="display: flex; gap: 8px;" id="header-buttons">
-                    <button id="btn-timer-start" class="btn-3d" onclick="startGlobalTimer(event)">Start</button>
-                    <button id="btn-timer-stop" class="btn-3d" onclick="stopGlobalTimer(event)" disabled>Stop</button>
-                    <button id="btn-theme" class="btn-3d" onclick="event.stopPropagation(); toggleTheme()">Night</button>
                     <button id="btn-3d" class="btn-3d active" onclick="event.stopPropagation(); toggle3D()">3D: ON</button>
                 </div>
             </div>
@@ -832,7 +879,22 @@
                 photoGallery = payload.galeria || [];
                 participantList = sortParticipants(payload.participantes || participantList);
                 judgesList = payload.judges || [];
+                
+                if (payload.scoreboard) {
+                    payload.scoreboard.forEach(participant => {
+                        const id = participant.nombre;
+                        const runner = state.runners[id];
+                        if (runner) {
+                            runner.elapsedMs = participant.race_elapsed_ms || runner.elapsedMs;
+                            if (payload.race_running && !runner.timerRunning && !runner.timerFinished) {
+                                // Fallback if server indicates race is running but JS doesn't know
+                            }
+                        }
+                    });
+                }
+                
                 renderPhotoPanel();
+                updateCheckpointJudges();
             } catch (error) {
                 console.warn('No se pudo cargar la galeria', error);
             }
@@ -972,6 +1034,27 @@
                 }
             });
         }
+
+        function updateCheckpointJudges() {
+            CHECKPOINTS.forEach((checkpoint) => {
+                const el = document.getElementById(`cp-marker-${checkpoint.id}`);
+                if (!el) return;
+                const judgesEnCheckpoint = judgesList.filter(j => j.checkpoint_id === Number(checkpoint.id));
+                const existingBadge = el.querySelector('.judge-badge');
+                
+                if (judgesEnCheckpoint.length > 0) {
+                    if (!existingBadge) {
+                        const badge = document.createElement('div');
+                        badge.className = 'judge-badge';
+                        badge.innerHTML = '⚖️';
+                        badge.title = 'Jueces aquí';
+                        el.appendChild(badge);
+                    }
+                } else if (existingBadge) {
+                    existingBadge.remove();
+                }
+            });
+        }
         function addCheckpointMarkers() {
             CHECKPOINTS.forEach((checkpoint) => {
                 const isNonScoring = NON_SCORING_CHECKPOINT_IDS.has(Number(checkpoint.id));
@@ -995,6 +1078,7 @@
                     .setPopup(popup)
                     .addTo(map);
             });
+            updateCheckpointJudges();
         }
 
         // 1. Inicializacion de MapLibre GL JS
@@ -1115,8 +1199,26 @@
         });
 
         socket.on('connect', () => console.log('Conectado al servidor de telemetria.'));
-        renderPhotoPanel();
+        refreshPhotoGallery();
         setInterval(refreshPhotoGallery, 5000);
+
+        fetch('/api/race/state')
+            .then(res => res.json())
+            .then(states => {
+                Object.entries(states).forEach(([id, raceState]) => {
+                    if (raceState.running) {
+                        const startTimeMs = Date.now() - raceState.elapsed_ms;
+                        if (!window.state.runners) window.state.runners = {}; 
+                        if (!window.state.runners[id]) window.state.runners[id] = { elapsedMs: 0, timerRunning: false, timerFinished: false };
+                        startRunnerTimer(id, startTimeMs);
+                    } else if (raceState.elapsed_ms > 0) {
+                        if (!window.state.runners[id]) window.state.runners[id] = { elapsedMs: raceState.elapsed_ms, timerRunning: false, timerFinished: true };
+                        else window.state.runners[id].elapsedMs = raceState.elapsed_ms;
+                        updateRunnerTimerDisplay(id);
+                    }
+                });
+            })
+            .catch(err => console.error("Error fetching initial race state:", err));
 
         function formatNullable(value, decimals = 2, fallback = '--') {
             const number = Number(value);
@@ -1199,6 +1301,18 @@
             runner.markerEl.style.backgroundColor = cargaColor;
             runner.markerEl.style.borderColor = cargaColor;
             runner.markerEl.style.boxShadow = `0 4px 10px rgba(0,0,0,0.5), 0 0 15px ${cargaColor}80`;
+
+            const existingBadge = runner.markerEl.querySelector('.marker-alert-badge');
+            if (existingBadge) existingBadge.remove();
+
+            if (peso >= 10) {
+                const alertBadge = document.createElement('div');
+                alertBadge.className = 'marker-alert-badge';
+                alertBadge.innerHTML = '!';
+                if (peso > 10) alertBadge.classList.add('badge-red');
+                else alertBadge.classList.add('badge-yellow');
+                runner.markerEl.appendChild(alertBadge);
+            }
         }
 
         function showToast(message) {
@@ -1248,7 +1362,6 @@
 
         function updateAllTimers() {
             Object.keys(state.runners).forEach(updateRunnerTimerDisplay);
-            updateGlobalTimerButtons();
         }
 
         function ensureTimerTick() {
@@ -1257,29 +1370,20 @@
             }
         }
 
-        function updateGlobalTimerButtons() {
-            const startBtn = document.getElementById('btn-timer-start');
-            const stopBtn = document.getElementById('btn-timer-stop');
-            if (!startBtn || !stopBtn) return;
-
-            startBtn.disabled = state.globalTimerRunning || state.globalTimerFinished;
-            stopBtn.disabled = state.globalTimerFinished || (!state.globalTimerRunning && state.globalElapsedMs === 0);
-        }
-
-        function startRunnerTimer(id) {
+        function startRunnerTimer(id, startTimeMs) {
             const runner = state.runners[id];
             if (!runner || runner.timerFinished || runner.timerRunning) return;
-            runner.timerStartMs = state.globalStartMs || Date.now();
+            runner.timerStartMs = startTimeMs || Date.now();
             runner.timerRunning = true;
             ensureTimerTick();
             updateRunnerTimerDisplay(id);
         }
 
-        function stopRunnerTimer(id) {
+        function stopRunnerTimer(id, elapsedMs) {
             const runner = state.runners[id];
             if (!runner || runner.timerFinished) return;
 
-            runner.elapsedMs = getRunnerElapsed(runner);
+            runner.elapsedMs = elapsedMs !== undefined ? elapsedMs : getRunnerElapsed(runner);
             runner.timerStartMs = null;
             runner.timerRunning = false;
             runner.timerFinished = true;
@@ -1287,47 +1391,49 @@
             updateRunnerTimerDisplay(id);
         }
 
-        function startGlobalTimer(event) {
+        function startRunnerTimerAPI(event, id) {
             if (event) event.stopPropagation();
-            if (state.globalTimerRunning || state.globalTimerFinished) return;
+            const runner = state.runners[id];
+            if (runner && (runner.timerRunning || runner.timerFinished)) return;
 
-            fetch('/api/race/start', { method: 'POST' })
+            fetch('/api/race/start', { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ participante: id })
+            })
                 .then(res => res.json())
                 .then(data => {
-                    state.globalStartMs = Date.now();
-                    state.globalTimerRunning = true;
-                    state.globalElapsedMs = 0;
-                    Object.keys(state.runners).forEach(startRunnerTimer);
-                    ensureTimerTick();
-                    updateGlobalTimerButtons();
-                    showToast('Timer started for all participants.');
+                    if (data.status === 'started') {
+                        startRunnerTimer(id, data.start_time);
+                        showToast(`Timer started for ${id}.`);
+                    }
                 })
                 .catch(err => {
-                    console.error("Failed to start global timer on server:", err);
-                    showToast('Error starting timer globally.', true);
+                    console.error("Failed to start timer on server:", err);
+                    showToast('Error starting timer.', true);
                 });
         }
 
-        function stopGlobalTimer(event) {
+        function stopRunnerTimerAPI(event, id) {
             if (event) event.stopPropagation();
-            if (state.globalTimerFinished) return;
+            const runner = state.runners[id];
+            if (!runner || runner.timerFinished) return;
 
-            fetch('/api/race/stop', { method: 'POST' })
+            fetch('/api/race/stop', { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ participante: id })
+            })
                 .then(res => res.json())
                 .then(data => {
-                    state.globalElapsedMs = state.globalTimerRunning && state.globalStartMs !== null
-                        ? Date.now() - state.globalStartMs
-                        : state.globalElapsedMs;
-                    state.globalTimerRunning = false;
-                    state.globalTimerFinished = true;
-                    state.globalStartMs = null;
-                    Object.keys(state.runners).forEach(stopRunnerTimer);
-                    updateGlobalTimerButtons();
-                    showToast(`Estatus finished para todos<br>Final time: <span style="color: #10b981; font-weight: bold;">${formatElapsed(state.globalElapsedMs)}</span>`);
+                    if (data.status === 'stopped') {
+                        stopRunnerTimer(id, data.elapsed);
+                        showToast(`Final time for ${id}: <span style="color: #10b981; font-weight: bold;">${formatElapsed(data.elapsed)}</span>`);
+                    }
                 })
                 .catch(err => {
-                    console.error("Failed to stop global timer on server:", err);
-                    showToast('Error stopping timer globally.', true);
+                    console.error("Failed to stop timer on server:", err);
+                    showToast('Error stopping timer.', true);
                 });
         }
 
@@ -1420,6 +1526,15 @@
                 el.style.boxShadow = `0 4px 10px rgba(0,0,0,0.5), 0 0 15px ${initialCargaColor}80`;
                 el.innerHTML = initials;
 
+                if (initialWeight >= 10) {
+                    const alertBadge = document.createElement('div');
+                    alertBadge.className = 'marker-alert-badge';
+                    alertBadge.innerHTML = '!';
+                    if (initialWeight > 10) alertBadge.classList.add('badge-red');
+                    else alertBadge.classList.add('badge-yellow');
+                    el.appendChild(alertBadge);
+                }
+
                 // Crear Popup
                 const popup = new maplibregl.Popup({ offset: 25 }).setHTML(
                     buildRunnerPopupHtml(id, assignedColor, data, speed)
@@ -1456,9 +1571,10 @@
                         <div class="runner-avatar" id="posicion-${id}" style="background: linear-gradient(135deg, ${assignedColor}, #000); box-shadow: 0 4px 12px ${assignedColor}60;">${posicion}</div>
                         <div class="runner-details">
                             <div class="runner-name">${id}</div>
-                            <div class="runner-stat-col timer-cell">
+                            <div class="runner-stat-col timer-cell" style="display:flex; align-items:center; gap:8px;">
                                 <span id="timer-${id}">00:00:00</span>
-                                <div class="timer-status" id="timer-status-${id}">running</div>
+                                <button class="btn-3d" onclick="startRunnerTimerAPI(event, '${id}')" style="padding: 2px 6px; font-size: 10px; background: #2563eb; border-color: #3b82f6;">Start</button>
+                                <button class="btn-3d" onclick="stopRunnerTimerAPI(event, '${id}')" style="padding: 2px 6px; font-size: 10px; background: #dc2626; border-color: #ef4444;">Stop</button>
                             </div>
                             <div class="runner-stat-col">Visited: <span id="visitados-${id}" class="checkpoint-list">${visitedInfo.label}</span></div>
                             <div class="runner-stat-col">Checkpoint: <div id="checkpoint-state-${id}">${getCheckpointStatusHtml(data, initialCheckpointRunner)}</div></div>

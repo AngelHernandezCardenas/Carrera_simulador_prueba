@@ -11,11 +11,29 @@ export default function ScannerCamera({
   onScanOnce,
   onReset,
   onSaveScore,
-  onOpenGallery
+  onOpenGallery,
+  juezAsignado,
+  checkpointEstablecido,
+  targetScanParticipant,
+  checkpointConfirmado,
+  scanResultMessage
 }) {
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [cameraLayout, setCameraLayout] = useState(null);
   const [visibleColors, setVisibleColors] = useState(['Rojo', 'Blanco', 'Negro']);
+  const [showCheckpointConfirmMessage, setShowCheckpointConfirmMessage] = useState(false);
+  
+  useEffect(() => {
+    if (checkpointConfirmado) {
+      setShowCheckpointConfirmMessage(true);
+      const timer = setTimeout(() => {
+        setShowCheckpointConfirmMessage(false);
+      }, 5000);
+      return () => clearTimeout(timer);
+    } else {
+      setShowCheckpointConfirmMessage(false);
+    }
+  }, [checkpointConfirmado]);
 
   useEffect(() => {
     if (detectedBalls && detectedBalls.length > 0) {
@@ -57,9 +75,47 @@ export default function ScannerCamera({
 
   const totalPts = (maxCounts.Rojo * 3) + (maxCounts.Blanco * 1) + (maxCounts.Negro * 5);
 
+  let statusText = "Waiting connection...";
+  if (showCheckpointConfirmMessage) {
+    statusText = `Checkpoint ${checkpointEstablecido} confirmed!`;
+  } else if (juezAsignado) {
+    let cleanJudge = juezAsignado.replace(/Judge_Checkpoint_/i, '').replace(/Judge_/i, '');
+    statusText = `Judge: ${cleanJudge}`;
+    if (checkpointConfirmado && checkpointEstablecido) {
+      let cpName = (checkpointEstablecido === "4" || checkpointEstablecido === 4) ? "Home-Base" : checkpointEstablecido;
+      statusText += `, Checkpoint: ${cpName}`;
+      if (targetScanParticipant) {
+        let cleanTeam = targetScanParticipant.replace(/Participante_/i, 'Team ');
+        statusText += `, Team: ${cleanTeam}`;
+      }
+    }
+  }
+
   return (
     <View style={styles.connectionPanel}>
       <Text style={styles.label}>CAMERA AND YOLO SCANNER</Text>
+
+      <View style={{ marginBottom: 15, padding: 10, backgroundColor: '#f0fdf4', borderRadius: 8, borderWidth: 1, borderColor: '#bbf7d0', alignItems: 'center' }}>
+        <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#166534', marginBottom: 2 }}>{statusText}</Text>
+      </View>
+
+      {scanResultMessage && (
+        <View style={{ marginBottom: 15, padding: 10, backgroundColor: '#dbeafe', borderRadius: 8, borderWidth: 1, borderColor: '#bfdbfe', alignItems: 'center' }}>
+          <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1e40af' }}>{scanResultMessage}</Text>
+        </View>
+      )}
+
+      {totalPts === 10 && (
+         <View style={{ marginBottom: 15, padding: 10, backgroundColor: '#fef3c7', borderRadius: 8, borderWidth: 1, borderColor: '#fde68a', alignItems: 'center' }}>
+           <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#d97706' }}>Limit reached ({totalPts} pts)</Text>
+         </View>
+      )}
+
+      {totalPts > 10 && (
+         <View style={{ marginBottom: 15, padding: 10, backgroundColor: '#fee2e2', borderRadius: 8, borderWidth: 1, borderColor: '#fecaca', alignItems: 'center' }}>
+           <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#dc2626' }}>Limit exceeded ({totalPts} pts)</Text>
+         </View>
+      )}
 
       <View
         style={styles.cameraContainer}

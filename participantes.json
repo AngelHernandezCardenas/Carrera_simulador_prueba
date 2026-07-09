@@ -1,35 +1,30 @@
 {
-  "app-mqecv8xtgt17uq": {
+  "app-mrblvrim-bbm15e9e": {
     "nombre": "participante_01",
-    "device_id": "app-mqecv8xtgt17uq",
+    "device_id": "app-mrblvrim-bbm15e9e",
     "last_coord": [
-      25.7425679,
-      -100.3548936
+      25.831703692351482,
+      -97.49415824026534
     ],
     "checkpoints_visitados": [],
     "cantidad_checkpoints_visitados": 0,
-    "cantidad_checkpoints_ponderados_visitados": 0,
     "checkpoint_descarga_visitado": false,
+    "blocked_by_challenge": false,
     "checkpoint_pendiente_mas_cercano": {
-      "id": 3,
-      "nombre": "Checkpoint 3"
+      "id": 1,
+      "nombre": "Biotecnologia-Centrales"
     },
-    "checkpoint_pendiente_mas_cercano_id": 3,
-    "distancia_checkpoint_pendiente_mas_cercano_m": 12026.85,
+    "checkpoint_pendiente_mas_cercano_id": 1,
+    "distancia_checkpoint_pendiente_mas_cercano_m": 280581.22,
     "checkpoint_mas_cercano": {
-      "id": 3,
-      "nombre": "Checkpoint 3"
+      "id": 1,
+      "nombre": "Biotecnologia-Centrales"
     },
-    "checkpoint_mas_cercano_id": 3,
-    "distancia_checkpoint_mas_cercano_m": 12026.85,
-    "puntuacion_checkpoints": -12026.85,
-    "puntaje_checkpoints": 0.0,
-    "checkpoints_puntos_entregados": [],
-    "puntos_totales": 0,
-    "peso": 0,
-    "puntaje_equipo": 0.0,
+    "checkpoint_mas_cercano_id": 1,
+    "distancia_checkpoint_mas_cercano_m": 280581.22,
     "estado": "corriendo",
-    "puntaje_retos": 40.0,
+    "scores": {},
+    "puntaje_retos": 96.0,
     "conteo_colores": {
       "Rojo": 0,
       "Blanco": 0,
@@ -40,81 +35,34 @@
     "peso_entregado_kg": 0.0,
     "peso_descargado_kg": 0.0,
     "en_checkpoint_descarga_peso": false,
-    "nivel_bateria": 54.528239680231074
+    "nivel_bateria": 9.227249032775049
   },
-  "dev-mr0tgwmt-4sllcxar": {
-    "nombre": "participante_02"
-  },
-  "dev-mr0tkd32-t711kx1a": {
-    "nombre": "participante_03"
-  },
-  "dev-mr0tm0kv-pejyjfhm": {
-    "nombre": "participante_04"
-  },
-  "dev-mr0tm1be-ijf27p6y": {
-    "nombre": "participante_05"
-  },
-  "dev-mr14as51-h3sxe4of": {
-    "nombre": "participante_06"
-  },
-  "dev-mr14dq1z-o43uy16p": {
-    "nombre": "participante_07"
-  },
-  "dev-mr14duaq-nxxsx1hd": {
-    "nombre": "participante_08"
-  },
-  "dev-mr14dv65-8ishnoyh": {
-    "nombre": "participante_09"
-  },
-  "dev-mr14g2qw-nvech0da": {
-    "nombre": "participante_10"
-  },
-  "dev-mr24vj5j-0izvgs6i": {
-    "nombre": "participante_11"
-  },
-  "dev-mr2a8epv-wwpydbob": {
-    "nombre": "participante_12"
-  },
-  "dev-mr2a9oir-h86n707l": {
-    "nombre": "participante_13"
-  },
-  "dev-mr2aagas-20jw24ds": {
-    "nombre": "participante_14"
-  },
-  "dev-mr2bychh-g5ndug0v": {
-    "nombre": "participante_15"
-  },
-  "Raspberry_Relieve1": {
-    "nombre": "participante_16",
-    "device_id": "Raspberry_Relieve1",
+  "app-mrbozb7a-m29wbiei": {
+    "nombre": "participante_02",
+    "device_id": "app-mrbozb7a-m29wbiei",
     "last_coord": [
-      25.65176,
-      -100.29093
+      25.831703430878537,
+      -97.49415967091971
     ],
     "checkpoints_visitados": [],
     "cantidad_checkpoints_visitados": 0,
-    "cantidad_checkpoints_ponderados_visitados": 0,
     "checkpoint_descarga_visitado": false,
+    "blocked_by_challenge": false,
     "checkpoint_pendiente_mas_cercano": {
-      "id": 3,
-      "nombre": "Checkpoint 3"
+      "id": 1,
+      "nombre": "Biotecnologia-Centrales"
     },
-    "checkpoint_pendiente_mas_cercano_id": 3,
-    "distancia_checkpoint_pendiente_mas_cercano_m": 78.12,
+    "checkpoint_pendiente_mas_cercano_id": 1,
+    "distancia_checkpoint_pendiente_mas_cercano_m": 280581.07,
     "checkpoint_mas_cercano": {
-      "id": 3,
-      "nombre": "Checkpoint 3"
+      "id": 1,
+      "nombre": "Biotecnologia-Centrales"
     },
-    "checkpoint_mas_cercano_id": 3,
-    "distancia_checkpoint_mas_cercano_m": 78.12,
-    "puntuacion_checkpoints": -78.12,
-    "puntaje_checkpoints": 6.9,
-    "checkpoints_puntos_entregados": [],
-    "puntos_totales": 0,
-    "peso": 0,
-    "puntaje_equipo": 0.0,
+    "checkpoint_mas_cercano_id": 1,
+    "distancia_checkpoint_mas_cercano_m": 280581.07,
     "estado": "corriendo",
-    "puntaje_retos": 0.0,
+    "scores": {},
+    "puntaje_retos": 93.18,
     "conteo_colores": {
       "Rojo": 0,
       "Blanco": 0,
@@ -125,54 +73,6 @@
     "peso_entregado_kg": 0.0,
     "peso_descargado_kg": 0.0,
     "en_checkpoint_descarga_peso": false,
-    "nivel_bateria": 100.0
-  },
-  "dev-mr54kncf-jtigj1qj": {
-    "nombre": "participante_17"
-  },
-  "dev-mr54w5yi-1ydqg8mo": {
-    "nombre": "participante_18"
-  },
-  "dev-mr54wb5r-y5rm6qse": {
-    "nombre": "participante_19"
-  },
-  "dev-mr54wh13-o9ah5vys": {
-    "nombre": "participante_20"
-  },
-  "dev-mr9ffoym-33r5o3i7": {
-    "nombre": "participante_21"
-  },
-  "dev-mr9fhnvw-fw577vea": {
-    "nombre": "participante_22"
-  },
-  "dev-mr9fjkmk-8mqsqbnt": {
-    "nombre": "participante_23"
-  },
-  "dev-mr9ftkz6-3tnbj428": {
-    "nombre": "participante_24"
-  },
-  "dev-mr9k637f-r9d2zfds": {
-    "nombre": "participante_25"
-  },
-  "dev-mrawjqi6-3obo72p6": {
-    "nombre": "participante_26"
-  },
-  "dev-mrawmv06-hpjkryug": {
-    "nombre": "participante_27"
-  },
-  "dev-mrawmwzi-ay4ctauv": {
-    "nombre": "participante_28"
-  },
-  "dev-mrax8ndr-2czkbdzk": {
-    "nombre": "participante_29"
-  },
-  "dev-mrayoori-mg7lo9c6": {
-    "nombre": "participante_30"
-  },
-  "dev-mrcpqaaa-5umqvvhi": {
-    "nombre": "participante_31"
-  },
-  "dev-mrcpwbq3-rldn94ol": {
-    "nombre": "participante_32"
+    "nivel_bateria": 56.51040303795183
   }
 }

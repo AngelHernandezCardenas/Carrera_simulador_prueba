@@ -1,0 +1,5 @@
+path: C:\Users\jrhe0\OneDrive\Documentos\Interfaz prueba\Interfaz de prueba\prueba-casi-funcional\ROBOFLOW\dataset_mejorado
+train: train/images
+val: valid/images
+nc: 3
+names: ['Pelota roja', 'Pelota blanca', 'Pelota negra']

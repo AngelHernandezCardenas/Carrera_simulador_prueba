@@ -727,6 +727,7 @@
         }
 
         function getPendingCheckpointLabel(data) {
+            if (data.blocked_by_challenge) return 'Unavailable checkpoint';
             const pending = data.checkpoint_pendiente_mas_cercano;
             if (!pending) return 'Ninguno';
             return pending.nombre || `Checkpoint ${pending.id}`;

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, Modal, FlatList, TouchableOpacity, Image } from 'react-native';
-import ImageViewer from 'react-native-image-zoom-viewer';
+import { View, Text, Modal, FlatList, TouchableOpacity, Image, ScrollView, Dimensions } from 'react-native';
 
 export default function GalleryModal({ visible, onClose, onClear, galeriaImagenes, serverUrl }) {
   const [imagenExpandida, setImagenExpandida] = useState(null);
@@ -75,28 +74,24 @@ export default function GalleryModal({ visible, onClose, onClear, galeriaImagene
 
       <Modal visible={!!imagenExpandida} transparent={true} animationType="fade" onRequestClose={() => setImagenExpandida(null)}>
         {imagenExpandida && (
-          <ImageViewer
-            imageUrls={[
-              { url: mostrarContorno 
-                ? `${serverUrl}/capturas/${imagenExpandida.filename}` 
-                : `${serverUrl}/capturas/${imagenExpandida.filename.replace('.jpg', '_clean.jpg')}` }
-            ]}
-            index={0}
-            enableSwipeDown={true}
-            onSwipeDown={() => setImagenExpandida(null)}
-            renderIndicator={() => null}
-            saveToLocalByLongPress={false}
-            renderHeader={() => (
-              <View style={{ position: 'absolute', top: 40, left: 0, right: 0, zIndex: 10, paddingHorizontal: 20, flexDirection: 'row', justifyContent: 'space-between' }}>
-                <TouchableOpacity onPress={() => setMostrarContorno(!mostrarContorno)} style={{ backgroundColor: '#2563eb', padding: 10, borderRadius: 8 }}>
-                  <Text style={{ color: 'white', fontWeight: 'bold' }}>{mostrarContorno ? 'Hide Contours' : 'Show Contours'}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => setImagenExpandida(null)} style={{ backgroundColor: '#ef4444', padding: 10, borderRadius: 8 }}>
-                  <Text style={{ color: 'white', fontWeight: 'bold' }}>Close</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          />
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)' }}>
+            <View style={{ position: 'absolute', top: 40, left: 0, right: 0, zIndex: 10, paddingHorizontal: 20, flexDirection: 'row', justifyContent: 'space-between' }}>
+              <TouchableOpacity onPress={() => setMostrarContorno(!mostrarContorno)} style={{ backgroundColor: '#2563eb', padding: 10, borderRadius: 8 }}>
+                <Text style={{ color: 'white', fontWeight: 'bold' }}>{mostrarContorno ? 'Hide Contours' : 'Show Contours'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setImagenExpandida(null)} style={{ backgroundColor: '#ef4444', padding: 10, borderRadius: 8 }}>
+                <Text style={{ color: 'white', fontWeight: 'bold' }}>Close</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView maximumZoomScale={3} minimumZoomScale={1} contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}>
+              <Image
+                source={{ uri: mostrarContorno 
+                  ? `${serverUrl}/capturas/${imagenExpandida.filename}` 
+                  : `${serverUrl}/capturas/${imagenExpandida.filename.replace('.jpg', '_clean.jpg')}` }}
+                style={{ width: Dimensions.get('window').width, height: Dimensions.get('window').height * 0.8, resizeMode: 'contain' }}
+              />
+            </ScrollView>
+          </View>
         )}
       </Modal>
     </>

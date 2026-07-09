@@ -16,6 +16,7 @@ from checkpoints import CHECKPOINTS, actualizar_estado_corredor, clasificar_corr
 from config import DURACION, MAX_PARTICIPANTES, participants_lock
 from geojson_store import append_feature
 from participants import get_or_create_participant, participants_cache, reset_participants, save_participants
+from judges import get_or_create_judge, judges_cache, save_judges, judges_lock
 from Puntaje import get_puntaje_retos_detalle, refrescar_puntajes_retos, sincronizar_puntajes
 from colores.vision_backend import procesar_frame_yolo_api
 from ultralytics import YOLO
@@ -31,6 +32,14 @@ else:
 
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
+
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Device-Id')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    return response
+
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 reset_participants()
@@ -47,11 +56,10 @@ _battery_lock = threading.Lock()
 _last_gps_saved_by_device: dict[str, float] = {}
 _gps_dedupe_lock = threading.Lock()
 device_trackers: dict[str, dict] = {}
-MAX_BATTERY_SCORE = 30.0
 MIN_GPS_SAVE_INTERVAL_SECONDS = 1.5
 PESO_RESET_CHECKPOINT_ID = 4
 PESO_RESET_DISTANCE_METERS = 4.0
-COLOR_WEIGHTS_KG = {"Rojo": 1.0, "Blanco": 3.0, "Negro": 5.0}
+COLOR_WEIGHTS_KG = {"Rojo": 3.0, "Blanco": 1.0, "Negro": 5.0}
 PESO_ALERTA_KG = 10.0
 BASE_DIR = Path(__file__).resolve().parent
 VISION_CONFIG = {
@@ -79,6 +87,44 @@ VISION_CONFIG = {
     "color_weights_kg": COLOR_WEIGHTS_KG,
 }
 
+
+# ---------------------------------------------------------------------------
+# Race Timer State
+# ---------------------------------------------------------------------------
+RACE_START_TIME_MS = None
+RACE_ELAPSED_TIME_MS = 0
+_race_timer_lock = threading.Lock()
+
+def get_current_race_time_ms():
+    global RACE_START_TIME_MS, RACE_ELAPSED_TIME_MS
+    with _race_timer_lock:
+        if RACE_START_TIME_MS is not None:
+            return RACE_ELAPSED_TIME_MS + int(time.time() * 1000) - RACE_START_TIME_MS
+        return RACE_ELAPSED_TIME_MS
+
+@app.route("/api/race/start", methods=["POST"])
+def start_race():
+    global RACE_START_TIME_MS, RACE_ELAPSED_TIME_MS
+    with _race_timer_lock:
+        if RACE_START_TIME_MS is None:
+            RACE_START_TIME_MS = int(time.time() * 1000)
+    return jsonify({"status": "started", "start_time": RACE_START_TIME_MS})
+
+@app.route("/api/race/stop", methods=["POST"])
+def stop_race():
+    global RACE_START_TIME_MS, RACE_ELAPSED_TIME_MS
+    with _race_timer_lock:
+        if RACE_START_TIME_MS is not None:
+            RACE_ELAPSED_TIME_MS += int(time.time() * 1000) - RACE_START_TIME_MS
+            RACE_START_TIME_MS = None
+    return jsonify({"status": "stopped", "elapsed": RACE_ELAPSED_TIME_MS})
+
+@app.route("/api/race/state", methods=["GET"])
+def race_state():
+    return jsonify({
+        "running": RACE_START_TIME_MS is not None,
+        "elapsed_ms": get_current_race_time_ms()
+    })
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -146,73 +192,21 @@ def get_participant_position(participante: str) -> int | None:
         return None
 
 
-def get_battery_score(nivel_bateria: float) -> float:
-    with _battery_lock:
-        highest_battery = max(_battery_levels_by_device.values(), default=0.0)
-    if highest_battery > 0:
-        return round((nivel_bateria / highest_battery) * MAX_BATTERY_SCORE, 2)
-    return 0.0
-
-
-def competition_rank(sorted_items: list, target_item, rank_value_fn) -> int | None:
-    previous_value = None
-    current_rank = 0
-
-    for index, item in enumerate(sorted_items, start=1):
-        item_value = rank_value_fn(item)
-        if item_value != previous_value:
-            current_rank = index
-            previous_value = item_value
-
-        if item == target_item:
-            return current_rank
-
-    return None
-
-
-def get_battery_rank(device_id: str) -> int | None:
-    with _battery_lock:
-        battery_levels = dict(_battery_levels_by_device)
-
-    highest_battery = max(battery_levels.values(), default=0.0)
-
-    def score_from_snapshot(level: float) -> float:
-        if highest_battery <= 0:
-            return 0.0
-        return clamp((level / highest_battery) * MAX_BATTERY_SCORE, 0.0, MAX_BATTERY_SCORE)
-
-    with participants_lock:
-        participant_names = {
-            participant_device_id: entry.get("nombre") if isinstance(entry, dict) else entry
-            for participant_device_id, entry in participants_cache.items()
-        }
-
-    ranked_devices = sorted(
-        battery_levels,
-        key=lambda participant_device_id: (
-            -score_from_snapshot(battery_levels[participant_device_id]),
-            get_participant_position(participant_names.get(participant_device_id, "")) or 999999,
-            participant_device_id,
-        ),
-    )
-
-    return competition_rank(
-        ranked_devices,
-        device_id,
-        lambda participant_device_id: -round(score_from_snapshot(battery_levels[participant_device_id]), 6),
-    )
-
-
 def get_checkpoint_rank_value(runner: dict) -> tuple:
     return (
         runner.get("estado") != "terminado",
-        -int(runner.get(
-            "cantidad_checkpoints_ponderados_visitados",
-            runner.get("cantidad_checkpoints_visitados", 0),
-        )),
+        -int(runner.get("cantidad_checkpoints_visitados", 0)),
         round(float(runner.get("distancia_checkpoint_pendiente_mas_cercano_m", float("inf"))), 2),
     )
 
+
+def competition_rank(ranked_items, target_item, get_value_func) -> int:
+    target_val = get_value_func(target_item)
+    rank = 1
+    for item in ranked_items:
+        if get_value_func(item) < target_val:
+            rank += 1
+    return rank
 
 def get_checkpoint_rank_from_snapshot(device_id: str, runners_snapshot: dict) -> int | None:
     ranked_runners = clasificar_corredores(runners_snapshot)
@@ -262,6 +256,73 @@ def get_participants_for_view() -> list[str]:
         (name for name in participant_names if name),
         key=lambda name: (get_participant_position(name) or 999999, name),
     )
+
+def get_scoreboard_data() -> list[dict]:
+    from Puntaje import get_puntaje_retos, get_activity_points, get_time_s, get_team_name, get_team_id, nombres_equipos_cache, puntajes_retos_lock
+    scoreboard_list = []
+    
+    galeria = load_gallery_items()
+    latest_images = {}
+    todas_fotos_dict = {}
+    for item in galeria:
+        part = item.get("participante")
+        if part:
+            if part not in todas_fotos_dict:
+                todas_fotos_dict[part] = []
+            if item.get("filename"):
+                todas_fotos_dict[part].append({
+                    "filename": item.get("filename"),
+                    "timestamp": item.get("timestamp")
+                })
+
+            if part not in latest_images or item.get("timestamp", 0) > latest_images[part].get("timestamp", 0):
+                latest_images[part] = item
+
+    with participants_lock:
+        registered_entries = {
+            entry.get("nombre"): entry 
+            for entry in participants_cache.values() 
+            if isinstance(entry, dict) and entry.get("nombre")
+        }
+        
+    with puntajes_retos_lock:
+        all_sheets_participants = set(nombres_equipos_cache.keys())
+        
+    all_participants = set(registered_entries.keys()).union(all_sheets_participants)
+
+    for nombre in all_participants:
+        entry = registered_entries.get(nombre, {})
+        scores = entry.get("scores", {})
+        
+        total_local = sum(scores.values())
+        puntaje_sheets = get_puntaje_retos(nombre)
+        total_score = total_local + puntaje_sheets
+        
+        activity_points = get_activity_points(nombre)
+        time_s = get_time_s(nombre)
+        
+        equipo_nombre = get_team_name(nombre)
+        team_id = get_team_id(nombre)
+        
+        ultima_foto = latest_images[nombre].get("filename") if nombre in latest_images else None
+        fotos_lista = todas_fotos_dict.get(nombre, [])
+        
+        scoreboard_list.append({
+            "nombre": nombre,
+            "equipo": equipo_nombre,
+            "team_id": team_id,
+            "scores": scores,
+            "total_score": round(total_score, 2),
+            "puntaje_sheets": round(puntaje_sheets, 2),
+            "activity_points": round(activity_points, 2),
+            "time_s": round(time_s, 2),
+            "ultima_foto": ultima_foto,
+            "todas_fotos": fotos_lista,
+            "peso_kg": round(safe_float(entry.get("peso_kg"), 0.0), 2),
+            "peso_entregado_kg": round(safe_float(entry.get("peso_entregado_kg"), 0.0), 2),
+        })
+                
+    return sorted(scoreboard_list, key=lambda x: x["total_score"], reverse=True)
 
 
 def safe_filename_part(value) -> str:
@@ -464,8 +525,10 @@ def update_runner_stats(participante: str, latitude: float, longitude: float, sp
 # ---------------------------------------------------------------------------
 
 @app.route("/")
+@app.route("/scan")
 def index():
-    resp = make_response(render_template("index.html"))
+    dist_dir = os.path.join(os.path.dirname(__file__), "tracker-app", "dist")
+    resp = make_response(send_from_directory(dist_dir, "index.html"))
     resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     resp.headers["Pragma"] = "no-cache"
     resp.headers["Expires"] = "0"
@@ -483,9 +546,150 @@ def mapa():
     )
 
 
+@app.route("/scoreboard")
+def scoreboard():
+    return render_template(
+        "scoreboard.html",
+        checkpoints=[{**checkpoint, "nombre": get_checkpoint_name(checkpoint)} for checkpoint in CHECKPOINTS],
+        participantes=get_participants_for_view(),
+    )
+
+@app.route("/tracker")
+def tracker():
+    return render_template("tracker.html")
+
+
+@app.route("/api/score", methods=["POST"])
+def api_score():
+    data = request.json or {}
+    checkpoint_id = data.get("checkpoint_id")
+    equipo = data.get("equipo")
+    puntaje = data.get("puntaje")
+    
+    if not checkpoint_id or not equipo or puntaje is None:
+        return jsonify({"status": "error", "msg": "Faltan datos"}), 400
+        
+    try:
+        puntaje = float(puntaje)
+        checkpoint_id_str = str(checkpoint_id)
+    except ValueError:
+        return jsonify({"status": "error", "msg": "Datos inválidos"}), 400
+
+    target_device = None
+    with participants_lock:
+        for dev_id, entry in participants_cache.items():
+            if isinstance(entry, dict) and entry.get("nombre") == equipo:
+                target_device = dev_id
+                break
+                
+        if target_device:
+            participant_entry = participants_cache[target_device]
+            participant_entry.setdefault("scores", {})[checkpoint_id_str] = puntaje
+            save_participants(participants_cache)
+            
+            puntaje_retos_detalle = get_puntaje_retos_detalle(equipo)
+            puntaje_retos_actual = puntaje_retos_detalle["puntaje_retos"]
+            puntaje_retos_local = sum(participant_entry["scores"].values())
+            total_puntaje = puntaje_retos_actual + puntaje_retos_local
+            
+            participant_entry["puntaje_retos"] = total_puntaje
+            
+            socketio.emit("update_puntaje", {
+                "participante": equipo,
+                "puntaje_retos": total_puntaje,
+                "scores_dict": participant_entry["scores"]
+            })
+            return jsonify({"status": "ok"})
+            
+    return jsonify({"status": "error", "msg": "Team not found"}), 404
+
+
 @app.route("/jurados")
 def jurados():
     return render_template("jurados.html")
+
+
+@app.route("/var")
+def var_page():
+    return render_template("var.html")
+
+
+@app.route("/api/registrar_peso", methods=["POST"])
+def registrar_peso():
+    data = request.json or {}
+    participante = data.get("participante")
+    peso_kg = data.get("peso_kg")
+    
+    if not participante or peso_kg is None:
+        return jsonify({"status": "error", "msg": "Participante y peso son requeridos"}), 400
+        
+    try:
+        peso_kg = float(peso_kg)
+    except ValueError:
+        return jsonify({"status": "error", "msg": "Peso inválido"}), 400
+
+    # --- Integración con Google Sheets Webhook ---
+    try:
+        from config import GOOGLE_APPS_SCRIPT_WEBHOOK_URL
+        import urllib.request
+        import json
+        from datetime import datetime
+        import threading
+        
+        if GOOGLE_APPS_SCRIPT_WEBHOOK_URL:
+            counts = data.get("counts", {})
+            juez = data.get("juez", "Desconocido")
+            checkpoint_slug = data.get("checkpoint", "")
+            
+            # Extraer número de equipo del nombre del participante
+            import re
+            match = re.search(r'\d+', participante)
+            equipo_num = int(match.group()) if match else participante
+            
+            payload = {
+                "hora": datetime.now().strftime("%H:%M:%S"),
+                "juez": juez,
+                "checkpoint": checkpoint_slug,
+                "equipo": equipo_num,
+                "blanca": counts.get("Blanco", 0),
+                "roja": counts.get("Rojo", 0),
+                "negra": counts.get("Negro", 0)
+            }
+            
+            def send_to_webhook(url, payload_data):
+                try:
+                    req = urllib.request.Request(url, method="POST")
+                    req.add_header('Content-Type', 'application/json')
+                    urllib.request.urlopen(req, data=json.dumps(payload_data).encode('utf-8'), timeout=5)
+                except Exception as e:
+                    print(f"Error enviando webhook a Google Sheets: {e}")
+                    
+            threading.Thread(target=send_to_webhook, args=(GOOGLE_APPS_SCRIPT_WEBHOOK_URL, payload), daemon=True).start()
+    except Exception as e:
+        print(f"Error al procesar webhook: {e}")
+    # ---------------------------------------------
+
+    target_device = None
+    with participants_lock:
+        # Buscar participante por nombre o equipo
+        for dev_id, entry in participants_cache.items():
+            if isinstance(entry, dict) and entry.get("nombre") == participante:
+                target_device = dev_id
+                break
+                
+        if target_device:
+            participant_entry = participants_cache[target_device]
+            participant_entry["peso_kg"] = peso_kg
+            participant_entry["carga_kg"] = peso_kg
+            save_participants(participants_cache)
+            
+            socketio.emit("update_peso", {
+                "participante": participante,
+                "peso_kg": peso_kg
+            })
+            
+    # Siempre retornamos OK para simular que se guardó exitosamente y se envió al excel
+    return jsonify({"status": "ok"})
 
 
 @app.route("/fotos_checkpoints")
@@ -500,12 +704,77 @@ def fotos_checkpoints():
 
 @app.route("/estado_mapa", methods=["GET"])
 def estado_mapa():
+    scoreboard_data = get_scoreboard_data()
+    runners_snapshot = {}
+    with participants_lock:
+        runners_snapshot = {
+            get_participant_name_for_device(dev_id): state
+            for dev_id, state in device_trackers.items()
+            if "latitude" in state and "longitude" in state
+        }
+        
+    judges_list = []
+    from judges import judges_cache
+    for j_id, j_data in judges_cache.items():
+        judges_list.append({
+            "nombre": j_data.get("nombre", "Juez"),
+            "checkpoint_id": j_data.get("checkpoint_id")
+        })
+
     return jsonify({
         "checkpoints": [{**checkpoint, "nombre": get_checkpoint_name(checkpoint)} for checkpoint in CHECKPOINTS],
         "non_scoring_checkpoint_ids": [PESO_RESET_CHECKPOINT_ID],
         "participantes": get_participants_for_view(),
         "galeria": load_gallery_items(),
+        "runners": runners_snapshot,
+        "scoreboard": scoreboard_data,
+        "judges": judges_list
     })
+
+@app.route("/api/scoreboard", methods=["GET"])
+def api_scoreboard():
+    global RACE_START_TIME_MS, RACE_ELAPSED_TIME_MS
+    return jsonify({
+        "participantes": get_scoreboard_data(),
+        "race_running": RACE_START_TIME_MS is not None,
+        "race_elapsed_ms": get_current_race_time_ms(),
+        "race_start_time_ms": RACE_START_TIME_MS
+    })
+
+
+@app.route("/api/scoreboard/csv", methods=["GET"])
+def api_scoreboard_csv():
+    import io
+    import csv
+    
+    data = get_scoreboard_data()
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Escribir encabezados
+    writer.writerow([
+        "Posicion", "Participante", "Equipo", 
+        "Carga Actual (kg)", "Carga Total Entregada (kg)", 
+        "Puntos Retos", "Puntaje Total"
+    ])
+    
+    # Escribir filas
+    for idx, row in enumerate(data):
+        writer.writerow([
+            idx + 1,
+            row.get("nombre", ""),
+            row.get("equipo", ""),
+            row.get("peso_kg", 0.0),
+            row.get("peso_entregado_kg", 0.0),
+            row.get("puntaje_sheets", 0.0),
+            row.get("total_score", 0.0)
+        ])
+        
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-disposition": "attachment; filename=scoreboard.csv"}
+    )
 
 
 @app.route("/sw.js")
@@ -518,33 +787,76 @@ def manifest():
     return send_from_directory("static", "manifest.json")
 
 
+@app.route("/set_judge_checkpoint", methods=["POST"])
+def set_judge_checkpoint():
+    data = request.json or {}
+    device_id, _, _ = get_device_info(data)
+    checkpoint_id = data.get("checkpoint_id")
+    
+    if not device_id or not checkpoint_id:
+        return jsonify({"status": "error", "msg": "Datos incompletos"}), 400
+        
+    try:
+        checkpoint_id = int(checkpoint_id)
+    except ValueError:
+        return jsonify({"status": "error", "msg": "Checkpoint ID inválido"}), 400
+
+    from config import judges_lock, MAX_JUECES_POR_CHECKPOINT
+    from judges import judges_cache, save_judges, get_or_create_judge
+
+    with judges_lock:
+        # Primero aseguramos que el juez existe
+        nombre_juez = get_or_create_judge(device_id)
+        if not nombre_juez:
+            return jsonify({"status": "error", "msg": "No se pudo registrar como juez"}), 403
+
+        # Contar cuántos jueces ya están en este checkpoint
+        jueces_en_cp = 0
+        for j_id, j_data in judges_cache.items():
+            if j_id != device_id and j_data.get("checkpoint_id") == checkpoint_id:
+                jueces_en_cp += 1
+                
+        if jueces_en_cp >= MAX_JUECES_POR_CHECKPOINT:
+            return jsonify({"status": "error", "msg": f"El Checkpoint {checkpoint_id} ya tiene el máximo de {MAX_JUECES_POR_CHECKPOINT} jueces asignados."}), 403
+            
+        judges_cache[device_id]["checkpoint_id"] = checkpoint_id
+        save_judges(judges_cache)
+        
+    return jsonify({"status": "ok", "msg": "Checkpoint confirmado correctamente."})
+
 @app.route("/registrar", methods=["POST"])
 def registrar():
     print("Recibida petición POST en /registrar")
     data = request.json or {}
     device_id, device_ip, user_agent = get_device_info(data)
 
-    with participants_lock:
-        if "custom_name" in data:
-            custom = data["custom_name"]
-            if device_id not in participants_cache:
-                if len(participants_cache) < MAX_PARTICIPANTES:
-                    participants_cache[device_id] = {"nombre": custom}
+    if "custom_name" in data:
+        from config import participants_lock
+        with participants_lock:
+            custom = data["custom_name"].strip() if data["custom_name"] else ""
+            if not custom:
+                participante = get_or_create_participant(device_id)
+            else:
+                if device_id not in participants_cache:
+                    if len(participants_cache) < MAX_PARTICIPANTES:
+                        participants_cache[device_id] = {"nombre": custom, "lat": None, "lon": None}
+                        save_participants(participants_cache)
+                        participante = custom
+                    else:
+                        participante = None
+                else:
+                    participants_cache[device_id]["nombre"] = custom
                     save_participants(participants_cache)
                     participante = custom
-                else:
-                    participante = None
-            else:
-                participants_cache[device_id]["nombre"] = custom
-                save_participants(participants_cache)
-                participante = custom
-        else:
-            participante = get_or_create_participant(device_id)
+    else:
+        from config import judges_lock
+        with judges_lock:
+            participante = get_or_create_judge(device_id)
 
     if not participante:
         return jsonify({
             "status": "limite_participantes",
-            "msg": f"Ya se alcanzÃ³ el lÃ­mite de {MAX_PARTICIPANTES} participantes.",
+            "msg": f"Ya se alcanzó el límite de participantes o jueces.",
         }), 403
 
     return jsonify({
@@ -568,9 +880,22 @@ def gps():
         return jsonify({"status": "error", "msg": "Datos incompletos"}), 400
 
     device_id, device_ip, user_agent = get_device_info(data)
+    client_participante = data.get("participante")
 
     with participants_lock:
-        participante = get_or_create_participant(device_id) 
+        if client_participante and ("Judge" in client_participante or "Juez" in client_participante):
+            from judges import judges_cache, save_judges
+            if device_id not in judges_cache:
+                judges_cache[device_id] = {"nombre": client_participante}
+                save_judges(judges_cache)
+            # NO lo agregamos al participants_cache y retornamos temprano
+            return jsonify({
+                "status": "ok", 
+                "participante": client_participante, 
+                "msg": "GPS ignorado para jueces"
+            })
+        else:
+            participante = get_or_create_participant(device_id) 
 
     if not participante:
         return jsonify({
@@ -600,8 +925,10 @@ def gps():
 
         estado_anterior = participant_entry.get("estado", "corriendo")
         actualizar_estado_corredor(participant_entry, latitude, longitude, corredores=participants_cache)
-        participant_entry["puntaje_retos"] = puntaje_retos_actual
-        participant_entry["peso"] = participant_entry.get("puntos_totales", 0)
+        
+        participant_entry.setdefault("scores", {})
+        puntaje_retos_local = sum(participant_entry["scores"].values())
+        participant_entry["puntaje_retos"] = puntaje_retos_actual + puntaje_retos_local
 
         color_counts = normalize_color_counts(data.get("conteo_colores") or data.get("color_counts"))
         detected_colors = expand_detected_colors(color_counts)
@@ -658,26 +985,22 @@ def gps():
         checkpoint_state = {
             "checkpoints_visitados": participant_entry.get("checkpoints_visitados", []),
             "cantidad_checkpoints_visitados": participant_entry.get("cantidad_checkpoints_visitados", 0),
-            "cantidad_checkpoints_ponderados_visitados": participant_entry.get("cantidad_checkpoints_ponderados_visitados", 0),
             "checkpoint_descarga_visitado": participant_entry.get("checkpoint_descarga_visitado", False),
+            "blocked_by_challenge": participant_entry.get("blocked_by_challenge", False),
             "checkpoint_pendiente_mas_cercano": participant_entry.get("checkpoint_pendiente_mas_cercano"),
             "checkpoint_pendiente_mas_cercano_id": participant_entry.get("checkpoint_pendiente_mas_cercano_id"),
             "distancia_checkpoint_pendiente_mas_cercano_m": participant_entry.get("distancia_checkpoint_pendiente_mas_cercano_m"),
             "checkpoint_mas_cercano": participant_entry.get("checkpoint_mas_cercano"),
             "checkpoint_mas_cercano_id": participant_entry.get("checkpoint_mas_cercano_id"),
             "distancia_checkpoint_mas_cercano_m": participant_entry.get("distancia_checkpoint_mas_cercano_m"),
-            "puntuacion_checkpoints": participant_entry.get("puntuacion_checkpoints", 0.0),
-            "puntaje_checkpoints": participant_entry.get("puntaje_checkpoints", 0.0),
             "puntaje_retos": participant_entry.get("puntaje_retos", 0.0),
             "estado": estado_actual,
-            "puntos_totales": participant_entry.get("puntos_totales", 0),
-            "puntaje_equipo": participant_entry.get("puntaje_equipo", 0),
-            "peso": participant_entry.get("puntos_totales", 0),
             "peso_kg": participant_entry.get("peso_kg", 0.0),
             "peso_entregado_kg": participant_entry.get("peso_entregado_kg", 0.0),
             "peso_descargado_kg": participant_entry.get("peso_descargado_kg", 0.0),
             "conteo_colores": participant_entry.get("conteo_colores", {color: 0 for color in COLOR_WEIGHTS_KG}),
             "color_detectado": participant_entry.get("color_detectado", []),
+            "scores_dict": participant_entry.get("scores", {}),
         }
         runners_snapshot = {
             runner_device_id: {
@@ -689,11 +1012,7 @@ def gps():
         }
 
     posicion_checkpoints = get_checkpoint_rank_from_snapshot(device_id, runners_snapshot)
-    puntaje_bateria = get_battery_score(nivel_bateria)
-    posicion_bateria = get_battery_rank(device_id)
-    puntaje_checkpoints = checkpoint_state["puntaje_checkpoints"]
     puntaje_retos = safe_float(checkpoint_state["puntaje_retos"])
-    puntaje = round(puntaje_bateria + puntaje_checkpoints + puntaje_retos, 2)
     posicion = posicion_checkpoints
     runner_stats = update_runner_stats(participante, latitude, longitude, data.get("speed_kmh"))
 
@@ -712,30 +1031,22 @@ def gps():
             "nivel_bateria": nivel_bateria,
             "posicion_inicial": posicion_inicial,
             "posicion": posicion,
-            "posicion_bateria": posicion_bateria,
             "posicion_checkpoints": posicion_checkpoints,
-            "puntaje_bateria": puntaje_bateria,
-            "puntaje_checkpoints": puntaje_checkpoints,
             "puntaje_retos": puntaje_retos,
             "puntaje_retos_total": puntaje_retos_detalle["puntaje_retos_total"],
             "puntaje_retos_equipo": puntaje_retos_detalle["puntaje_retos_equipo"],
             "puntaje_retos_origen": puntaje_retos_detalle["puntaje_retos_origen"],
             "puntaje_retos_lectura_ts": puntaje_retos_detalle["puntaje_retos_lectura_ts"],
-            "puntaje": puntaje,
-            "puntos_totales": checkpoint_state["puntos_totales"],
-            "peso": checkpoint_state["peso"],
             "peso_kg": checkpoint_state["peso_kg"],
             "peso_entregado_kg": checkpoint_state["peso_entregado_kg"],
             "peso_descargado_kg": checkpoint_state["peso_descargado_kg"],
-            "puntaje_equipo": checkpoint_state["puntaje_equipo"],
-            "puntuacion_checkpoints": checkpoint_state["puntuacion_checkpoints"],
             "checkpoints_visitados": checkpoint_state["checkpoints_visitados"],
             "checkpoints_visitados_txt": ",".join(
                 str(checkpoint_id) for checkpoint_id in checkpoint_state["checkpoints_visitados"]
             ),
             "cantidad_checkpoints_visitados": checkpoint_state["cantidad_checkpoints_visitados"],
-            "cantidad_checkpoints_ponderados_visitados": checkpoint_state["cantidad_checkpoints_ponderados_visitados"],
             "checkpoint_descarga_visitado": checkpoint_state["checkpoint_descarga_visitado"],
+            "blocked_by_challenge": checkpoint_state.get("blocked_by_challenge", False),
             "checkpoint_pendiente_mas_cercano": checkpoint_state["checkpoint_pendiente_mas_cercano"],
             "checkpoint_pendiente_mas_cercano_id": checkpoint_state["checkpoint_pendiente_mas_cercano_id"],
             "distancia_checkpoint_pendiente_mas_cercano_m": checkpoint_state["distancia_checkpoint_pendiente_mas_cercano_m"],
@@ -743,6 +1054,7 @@ def gps():
             "checkpoint_mas_cercano_id": checkpoint_state["checkpoint_mas_cercano_id"],
             "distancia_checkpoint_mas_cercano_m": checkpoint_state["distancia_checkpoint_mas_cercano_m"],
             "estado": checkpoint_state["estado"],
+            "scores_dict": checkpoint_state["scores_dict"],
             "distancia_km": runner_stats["distancia_km"],
             "max_speed": runner_stats["max_speed"],
             "speed_mps": data.get("speed_mps"),
@@ -784,12 +1096,8 @@ def gps():
         f"bateria={nivel_bateria:.2f}% "
         f"estado={checkpoint_state['estado']} "
         f"checkpoints={checkpoint_state['cantidad_checkpoints_visitados']} "
-        f"ponderados={checkpoint_state['cantidad_checkpoints_ponderados_visitados']} "
-        f"puntos={checkpoint_state['puntos_totales']} "
-        f"equipo={checkpoint_state['puntaje_equipo']} "
-        f"peso={float(checkpoint_state['peso']):.2f} "
         f"retos={puntaje_retos:.2f} "
-        f"puntaje={puntaje:.2f}"
+        f"puntaje_retos={puntaje_retos:.2f}"
     )
 
     socketio.emit("nueva_posicion", {
@@ -801,18 +1109,18 @@ def gps():
         "max_speed": runner_stats["max_speed"],
         "nivel_bateria": nivel_bateria,
         "posicion": posicion,
-        "puntaje": puntaje,
         "puntaje_retos": puntaje_retos,
         "estado": checkpoint_state["estado"],
-        "puntos_totales": checkpoint_state["puntos_totales"],
-        "peso": checkpoint_state["peso"],
         "peso_kg": checkpoint_state["peso_kg"],
         "peso_entregado_kg": checkpoint_state["peso_entregado_kg"],
         "peso_descargado_kg": checkpoint_state["peso_descargado_kg"],
-        "puntaje_equipo": checkpoint_state["puntaje_equipo"],
         "checkpoints_visitados": checkpoint_state["cantidad_checkpoints_visitados"],
-        "checkpoints_ponderados_visitados": checkpoint_state["cantidad_checkpoints_ponderados_visitados"],
+        "checkpoints_visitados_lista": checkpoint_state["checkpoints_visitados"],
+        "checkpoints_visitados_txt": ",".join(
+            str(checkpoint_id) for checkpoint_id in checkpoint_state["checkpoints_visitados"]
+        ),
         "checkpoint_descarga_visitado": checkpoint_state["checkpoint_descarga_visitado"],
+        "blocked_by_challenge": checkpoint_state.get("blocked_by_challenge", False),
         "checkpoint_pendiente_mas_cercano": checkpoint_state["checkpoint_pendiente_mas_cercano"],
         "distancia_checkpoint_pendiente_mas_cercano_m": checkpoint_state["distancia_checkpoint_pendiente_mas_cercano_m"],
         "checkpoint_mas_cercano": checkpoint_state["checkpoint_mas_cercano"],
@@ -823,6 +1131,7 @@ def gps():
         "peso_descargado_kg": checkpoint_state["peso_descargado_kg"],
         "conteo_colores": checkpoint_state["conteo_colores"],
         "color_detectado": checkpoint_state["color_detectado"],
+        "scores_dict": checkpoint_state["scores_dict"],
         # ── Telemetría eléctrica (Raspberry / Bicicleta Relieve) ──────────────
         "voltaje":         data.get("voltaje"),
         "corriente":       data.get("corriente"),
@@ -843,23 +1152,15 @@ def gps():
         "nivel_bateria": nivel_bateria,
         "posicion_inicial": posicion_inicial,
         "posicion": posicion,
-        "posicion_bateria": posicion_bateria,
         "posicion_checkpoints": posicion_checkpoints,
-        "puntaje_bateria": puntaje_bateria,
-        "puntaje_checkpoints": puntaje_checkpoints,
         "puntaje_retos": puntaje_retos,
-        "puntaje": puntaje,
-        "puntos_totales": checkpoint_state["puntos_totales"],
-        "peso": checkpoint_state["peso"],
         "peso_kg": checkpoint_state["peso_kg"],
         "peso_entregado_kg": checkpoint_state["peso_entregado_kg"],
         "peso_descargado_kg": checkpoint_state["peso_descargado_kg"],
-        "puntaje_equipo": checkpoint_state["puntaje_equipo"],
-        "puntuacion_checkpoints": checkpoint_state["puntuacion_checkpoints"],
         "checkpoints_visitados": checkpoint_state["checkpoints_visitados"],
         "cantidad_checkpoints_visitados": checkpoint_state["cantidad_checkpoints_visitados"],
-        "cantidad_checkpoints_ponderados_visitados": checkpoint_state["cantidad_checkpoints_ponderados_visitados"],
         "checkpoint_descarga_visitado": checkpoint_state["checkpoint_descarga_visitado"],
+        "blocked_by_challenge": checkpoint_state.get("blocked_by_challenge", False),
         "checkpoint_pendiente_mas_cercano": checkpoint_state["checkpoint_pendiente_mas_cercano"],
         "distancia_checkpoint_pendiente_mas_cercano_m": checkpoint_state["distancia_checkpoint_pendiente_mas_cercano_m"],
         "checkpoint_mas_cercano": checkpoint_state["checkpoint_mas_cercano"],
@@ -873,6 +1174,7 @@ def gps():
         "peso_descargado_kg": checkpoint_state["peso_descargado_kg"],
         "conteo_colores": checkpoint_state["conteo_colores"],
         "color_detectado": checkpoint_state["color_detectado"],
+        "scores_dict": checkpoint_state["scores_dict"],
     }
 
     return jsonify(response)
@@ -903,7 +1205,7 @@ def vision():
 
         estado = device_trackers[device_id]
 
-        gp_max_w = 320
+        gp_max_w = 1280
         h_orig, w_orig = frame.shape[:2]
         if w_orig > gp_max_w:
             scale = gp_max_w / w_orig
@@ -920,11 +1222,24 @@ def vision():
 
         # Agregar marca de agua
         from datetime import datetime
-        participante_nombre = get_participant_name_for_device(device_id)
+        import judges
+        
+        participante_nombre = data.get("participante")
+        if not participante_nombre or participante_nombre == "Desconocido":
+            participante_nombre = get_participant_name_for_device(device_id)
 
         dt_now = datetime.now()
         fecha_hora = dt_now.strftime("%Y-%m-%d %H:%M:%S")
-        # No imprimimos la marca de agua en la imagen directamente según lo solicitado
+        
+        # Obtener el nombre del juez asignado a este dispositivo
+        nombre_juez = judges.get_or_create_judge(device_id) or "Desconocido"
+        checkpoint_nombre = data.get("checkpoint_nombre", "")
+        
+        # Imprimir la marca de agua (Juez, Checkpoint y Timestamp) en la imagen
+        cp_str = f" | {checkpoint_nombre}" if checkpoint_nombre else ""
+        watermark_text = f"Juez: {nombre_juez}{cp_str} | {fecha_hora}"
+        cv2.putText(frame_annotated, watermark_text, (20, frame_annotated.shape[0] - 20), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2, cv2.LINE_AA)
 
         jpeg_q = 35
         encode_params = [cv2.IMWRITE_JPEG_QUALITY, jpeg_q]
@@ -932,7 +1247,23 @@ def vision():
         annotated_b64 = base64.b64encode(buffer).decode("utf-8")
 
         if detectado and "color" in detectado:
-            checkpoint_context = get_gallery_checkpoint_context(device_id)
+            checkpoint_id_req = data.get("checkpoint_id", 0)
+            checkpoint_context = None
+
+            if checkpoint_id_req > 0:
+                for checkpoint in CHECKPOINTS:
+                    if int(checkpoint["id"]) == checkpoint_id_req:
+                        checkpoint_context = {
+                            "checkpoint_id": checkpoint_id_req,
+                            "checkpoint_nombre": get_checkpoint_name(checkpoint),
+                            "checkpoint_slug": f"checkpoint_{checkpoint_id_req}",
+                            "distancia_checkpoint_m": 0.0
+                        }
+                        break
+            
+            if not checkpoint_context:
+                checkpoint_context = get_gallery_checkpoint_context(device_id)
+
             if not checkpoint_context:
                 # Si no está en un checkpoint, asignar uno manual para que siempre se guarde la foto
                 checkpoint_context = {
@@ -971,6 +1302,7 @@ def vision():
                 "device_id": device_id,
                 "participante": participante_nombre,
                 "fecha_hora": fecha_hora,
+                "juez": nombre_juez,
                 "detections": detectado["counts"]
             }
             gallery_item.update(checkpoint_context)
@@ -1016,7 +1348,11 @@ def vision():
 @app.route("/galeria", methods=["GET"])
 def galeria():
     """Endpoint para listar las imagenes guardadas con participante y checkpoint."""
-    return jsonify(load_gallery_items())
+    participante = request.args.get("participante")
+    items = load_gallery_items()
+    if participante:
+        items = [item for item in items if item.get("participante") == participante]
+    return jsonify(items)
 
 @app.route("/limpiar_galeria", methods=["POST", "DELETE"])
 def limpiar_galeria():
@@ -1068,7 +1404,7 @@ def vision_fast():
 
         estado = device_trackers[device_id]
 
-        gp_max_w = 640  # Aumentado para mejor resolución
+        gp_max_w = 1280  # Aumentado para mejor resolución (720p)
         h_orig, w_orig = frame.shape[:2]
         if w_orig > gp_max_w:
             scale = gp_max_w / w_orig
@@ -1108,9 +1444,22 @@ def vision_fast():
         traceback.print_exc()
         return jsonify({"status": "error", "msg": str(e)}), 500
 
+@app.route("/<path:path>")
+def static_proxy(path):
+    dist_dir = os.path.join(os.path.dirname(__file__), "tracker-app", "dist")
+    if os.path.exists(os.path.join(dist_dir, path)):
+        return send_from_directory(dist_dir, path)
+    return "Not Found", 404
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
+    import threading
+    from Puntaje import sincronizar_puntajes
+    
+    # Iniciar la sincronización de puntajes en segundo plano para reflejar los cambios del excel
+    threading.Thread(target=sincronizar_puntajes, daemon=True).start()
+    
     socketio.run(app, host="0.0.0.0", port=5000, debug=False, allow_unsafe_werkzeug=True)

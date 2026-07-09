@@ -1,18 +1,32 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated, Easing } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Animated, Easing } from 'react-native';
 import { CameraView } from 'expo-camera';
 
 export default function ScannerCamera({
   cameraRef,
   contandoActivo,
   maxCounts,
+  setMaxCounts,
   detectedBalls,
   onScanOnce,
   onReset,
+  onSaveScore,
   onOpenGallery
 }) {
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [cameraLayout, setCameraLayout] = useState(null);
+  const [visibleColors, setVisibleColors] = useState(['Rojo', 'Blanco', 'Negro']);
+
+  useEffect(() => {
+    if (detectedBalls && detectedBalls.length > 0) {
+      setVisibleColors(['Negro']);
+      const t1 = setTimeout(() => setVisibleColors(['Negro', 'Blanco']), 300);
+      const t2 = setTimeout(() => setVisibleColors(['Negro', 'Blanco', 'Rojo']), 600);
+      return () => { clearTimeout(t1); clearTimeout(t2); };
+    } else {
+      setVisibleColors(['Rojo', 'Blanco', 'Negro']);
+    }
+  }, [detectedBalls]);
 
   const spinValue = useRef(new Animated.Value(0)).current;
   const loopRef = useRef(null);
@@ -41,12 +55,11 @@ export default function ScannerCamera({
     outputRange: ['0deg', '360deg']
   });
 
-  const totalPts = (maxCounts.Rojo * 1) + (maxCounts.Blanco * 3) + (maxCounts.Negro * 5);
-  const limitReached = totalPts >= 10;
+  const totalPts = (maxCounts.Rojo * 3) + (maxCounts.Blanco * 1) + (maxCounts.Negro * 5);
 
   return (
     <View style={styles.connectionPanel}>
-      <Text style={styles.label}>Cámara y Escáner YOLO</Text>
+      <Text style={styles.label}>CAMERA AND YOLO SCANNER</Text>
 
       <View
         style={styles.cameraContainer}
@@ -81,7 +94,7 @@ export default function ScannerCamera({
         {/* Contorno de las pelotas detectadas */}
         {cameraLayout && (() => {
           const colorCounts = { Rojo: 0, Blanco: 0, Negro: 0 };
-          return detectedBalls.map((b, i) => {
+          return detectedBalls.filter(b => visibleColors.includes(b.color)).map((b, i) => {
             const colorMap = { 'Rojo': '#ef4444', 'Blanco': '#ffffff', 'Negro': '#111111' };
             colorCounts[b.color] = (colorCounts[b.color] || 0) + 1;
             const currentCount = colorCounts[b.color];
@@ -144,10 +157,10 @@ export default function ScannerCamera({
           <TouchableOpacity
             style={[styles.button, styles.secondaryButton, { flex: 1, backgroundColor: contandoActivo ? '#7f8c8d' : '#2563eb' }]}
             onPress={onScanOnce}
-            disabled={contandoActivo || limitReached || !isCameraReady}
+            disabled={contandoActivo || !isCameraReady}
           >
             <Text style={styles.buttonText}>
-              {limitReached ? 'Limit Reached' : (contandoActivo ? 'Processing...' : 'Scan Balls')}
+              {contandoActivo ? 'Processing...' : 'Scan Balls'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -155,31 +168,79 @@ export default function ScannerCamera({
           <TouchableOpacity style={[styles.button, styles.dangerButton, { flex: 1, marginRight: 5 }]} onPress={onReset}>
             <Text style={styles.buttonText}>Reset</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={[styles.button, { flex: 1, backgroundColor: '#059669', marginHorizontal: 5, alignItems: 'center' }]} onPress={onSaveScore}>
+            <Text style={styles.buttonText}>Save Score</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={[styles.button, { flex: 1, backgroundColor: '#8e44ad', marginLeft: 5, alignItems: 'center' }]} onPress={onOpenGallery}>
             <Text style={styles.buttonText}>Gallery</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Contadores */}
+      {/* Contadores Manuales */}
       <View style={styles.countersContainer}>
-        <View style={[styles.counterCircle, { backgroundColor: 'red' }]}>
-          <Text style={styles.counterTextWhite}>{maxCounts.Rojo}</Text>
+        <View style={styles.counterPanel}>
+          <View style={[styles.counterCircle, { backgroundColor: '#ef4444' }]}>
+            <Text style={styles.counterTextWhite}>Red</Text>
+          </View>
+          <View style={styles.stepperContainer}>
+            <TextInput
+              style={styles.manualInputStepper}
+              keyboardType="numeric"
+              placeholder="0"
+              value={maxCounts.Rojo === 0 ? "" : maxCounts.Rojo.toString()}
+              onChangeText={(val) => {
+                const num = parseInt(val) || 0;
+                if (setMaxCounts) setMaxCounts(prev => ({ ...prev, Rojo: num }));
+              }}
+            />
+          </View>
         </View>
-        <View style={[styles.counterCircle, { backgroundColor: 'white', borderWidth: 1, borderColor: '#ccc' }]}>
-          <Text style={styles.counterTextBlack}>{maxCounts.Blanco}</Text>
+
+        <View style={styles.counterPanel}>
+          <View style={[styles.counterCircle, { backgroundColor: 'white', borderWidth: 1, borderColor: '#ccc' }]}>
+            <Text style={styles.counterTextBlack}>White</Text>
+          </View>
+          <View style={styles.stepperContainer}>
+            <TextInput
+              style={styles.manualInputStepper}
+              keyboardType="numeric"
+              placeholder="0"
+              value={maxCounts.Blanco === 0 ? "" : maxCounts.Blanco.toString()}
+              onChangeText={(val) => {
+                const num = parseInt(val) || 0;
+                if (setMaxCounts) setMaxCounts(prev => ({ ...prev, Blanco: num }));
+              }}
+            />
+          </View>
         </View>
-        <View style={[styles.counterCircle, { backgroundColor: 'black' }]}>
-          <Text style={styles.counterTextWhite}>{maxCounts.Negro}</Text>
+
+        <View style={styles.counterPanel}>
+          <View style={[styles.counterCircle, { backgroundColor: '#111111' }]}>
+            <Text style={styles.counterTextWhite}>Black</Text>
+          </View>
+          <View style={styles.stepperContainer}>
+            <TextInput
+              style={styles.manualInputStepper}
+              keyboardType="numeric"
+              placeholder="0"
+              value={maxCounts.Negro === 0 ? "" : maxCounts.Negro.toString()}
+              onChangeText={(val) => {
+                const num = parseInt(val) || 0;
+                if (setMaxCounts) setMaxCounts(prev => ({ ...prev, Negro: num }));
+              }}
+            />
+          </View>
         </View>
       </View>
 
       {/* Escaner de carga visual */}
       <View style={styles.scoreContainer}>
         <Text style={styles.scoreLabel}>Visual load scanner</Text>
-        <Text style={styles.scoreValue}>
-          {totalPts} pts
-        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+          <Text style={styles.scoreValue}>{totalPts}</Text>
+          <Text style={[styles.scoreValue, { marginLeft: 4 }]}>pts</Text>
+        </View>
       </View>
     </View>
   );
@@ -189,10 +250,15 @@ const styles = StyleSheet.create({
   connectionPanel: {
     backgroundColor: '#ffffff',
     borderColor: '#e2e8f0',
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
-    marginBottom: 12,
-    padding: 14,
+    marginBottom: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   label: {
     color: '#64748b',
@@ -232,13 +298,24 @@ const styles = StyleSheet.create({
   countersContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    alignItems: 'center',
-    backgroundColor: 'white',
+    marginBottom: 20,
+    backgroundColor: '#f8fafc',
     padding: 10,
-    borderRadius: 12,
+    borderRadius: 8,
+  },
+  counterPanel: {
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    padding: 10,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    marginBottom: 10,
+    width: '30%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   counterCircle: {
     width: 50,
@@ -246,9 +323,48 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 10,
   },
-  counterTextWhite: { color: 'white', fontWeight: 'bold', fontSize: 20 },
-  counterTextBlack: { color: 'black', fontWeight: 'bold', fontSize: 20 },
+  counterTextWhite: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  counterTextBlack: {
+    color: 'black',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  stepperContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  stepperButton: {
+    backgroundColor: '#e2e8f0',
+    borderRadius: 4,
+    padding: 5,
+    width: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepperText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#334155',
+  },
+  manualInputStepper: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 5,
+    padding: 5,
+    width: 40,
+    textAlign: 'center',
+    marginHorizontal: 5,
+    fontSize: 16,
+    backgroundColor: '#fff',
+  },
   scoreContainer: {
     backgroundColor: 'white',
     padding: 14,

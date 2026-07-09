@@ -1,64 +1,158 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jury Panel</title>
+    <title>Judge Panel</title>
     <style>
-        body { font-family: system-ui, sans-serif; max-width: 520px; margin: 30px auto; padding: 20px; background: #f8fafc; color: #0f172a; }
-        .sub { color: #475569; margin-bottom: 18px; }
-        button { width: 100%; padding: 14px; margin-bottom: 10px; border: 0; border-radius: 10px; background: #2563eb; color: white; font-size: 16px; font-weight: 700; cursor: pointer; }
-        button.secondary { background: #0f766e; }
-        button.danger { background: #dc2626; }
-        button:disabled { background: #94a3b8 !important; cursor: not-allowed; }
-        .camera-container {
-            position: relative; width: 100%; border-radius: 8px; overflow: hidden; margin-bottom: 10px; background: black;
+        * { box-sizing: border-box; }
+        body { font-family: system-ui, sans-serif; max-width: 540px; margin: 24px auto; padding: 16px; background: #f1f5f9; color: #0f172a; }
+
+        h2 { margin: 0 0 4px; font-size: 24px; }
+        .sub { color: #475569; margin-bottom: 20px; font-size: 14px; }
+
+        /* PANELES */
+        .panel {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 16px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
         }
-        #video { width: 100%; height: 300px; object-fit: cover; display: block; }
-        #canvas, #photo { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; object-fit: cover; }
+        .panel-title {
+            font-size: 11px; color: #64748b; text-transform: uppercase;
+            font-weight: 800; letter-spacing: .5px; margin-bottom: 12px;
+        }
+
+        /* BOTONES */
+        button {
+            width: 100%; padding: 13px; border: 0; border-radius: 10px;
+            background: #2563eb; color: white; font-size: 15px;
+            font-weight: 700; cursor: pointer; margin-bottom: 8px;
+            transition: opacity .15s, background .2s;
+        }
+        button:active { opacity: .85; }
+        button.secondary { background: #0f766e; }
+        button.danger    { background: #dc2626; }
+        button.purple    { background: #7c3aed; }
+        button.gray      { background: #64748b; }
+        button.success   { background: #16a34a; }
+        button:disabled  { background: #94a3b8 !important; cursor: not-allowed; opacity: .7; }
+        .btn-row { display: flex; gap: 8px; margin-bottom: 8px; }
+        .btn-row button { margin-bottom: 0; }
+        .sm { padding: 8px 14px; font-size: 13px; width: auto; margin: 0; }
+
+        /* SELECT */
+        select {
+            width: 100%; padding: 12px; border-radius: 8px;
+            border: 1.5px solid #e2e8f0; font-size: 16px;
+            background: white; margin-bottom: 10px; color: #0f172a;
+        }
+        select:disabled { background: #f1f5f9; color: #94a3b8; }
+
+        /* CHECKPOINT STATUS */
+        #cpStatus {
+            font-size: 13px; padding: 9px 12px; border-radius: 8px;
+            margin-bottom: 10px; display: none;
+        }
+        #cpStatus.pending { background: #fef3c7; border: 1px solid #fbbf24; color: #92400e; }
+        #cpStatus.locked  { background: #dcfce7; border: 1px solid #86efac; color: #166534; }
+
+        /* CAMARA */
+        .camera-container {
+            position: relative; width: 100%; border-radius: 10px;
+            overflow: hidden; margin-bottom: 10px; background: black;
+        }
+        #video { width: 100%; height: 280px; object-fit: cover; display: block; }
+        #canvas, #photo {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none; object-fit: cover;
+        }
         .dashed-circle {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 76%; padding-bottom: 76%; border-radius: 50%;
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 72%; padding-bottom: 72%; border-radius: 50%;
             border: 2px dashed rgba(255,255,255,0.6); pointer-events: none;
         }
         @keyframes spin { 100% { transform: translate(-50%, -50%) rotate(360deg); } }
         .spin-anim { animation: spin 2s linear infinite; }
-        
-        .score-panel {
-            display: flex; justify-content: space-around; align-items: center; background: white;
-            padding: 10px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 10px;
+
+        /* CONTADORES DE PELOTAS */
+        .ball-grid {
+            display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 4px;
         }
-        .circle-score { width: 50px; height: 50px; border-radius: 25px; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 20px; }
-        .circle-red { background: red; color: white; }
-        .circle-white { background: white; color: black; border: 1px solid #ccc; }
-        .circle-black { background: black; color: white; }
-        
-        .card { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); margin-bottom: 10px; }
-        .card.full { grid-column: 1 / -1; }
-        .label { font-size: 12px; color: #64748b; margin-bottom: 4px; text-transform: uppercase; font-weight: bold; }
-        .value { font-size: 20px; font-weight: 900; color: #0f172a; }
-        .small { font-size: 13px; color: #475569; white-space: pre-line; line-height: 1.4; }
-        
-        /* Modal Gallery */
+        .ball-cell {
+            border-radius: 12px; padding: 10px 8px; text-align: center;
+        }
+        .ball-cell.red   { background: #fff1f2; border: 1.5px solid #fca5a5; }
+        .ball-cell.white { background: #f8fafc; border: 1.5px solid #cbd5e1; }
+        .ball-cell.black { background: #1e293b; border: 1.5px solid #334155; }
+
+        .ball-label { font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 6px; }
+        .ball-cell.red   .ball-label { color: #dc2626; }
+        .ball-cell.white .ball-label { color: #475569; }
+        .ball-cell.black .ball-label { color: #94a3b8; }
+
+        .ball-circle {
+            width: 52px; height: 52px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 22px; font-weight: 900; margin: 0 auto 8px;
+        }
+        .ball-cell.red   .ball-circle { background: #ef4444; color: white; }
+        .ball-cell.white .ball-circle { background: white; color: #0f172a; border: 2px solid #94a3b8; }
+        .ball-cell.black .ball-circle { background: #111; color: white; }
+
+        /* Input numérico directo bajo cada bola */
+        .ball-input {
+            width: 100%; padding: 7px 6px; border-radius: 8px;
+            border: 1.5px solid #94a3b8; font-size: 18px; font-weight: 900;
+            text-align: center; background: white; color: #0f172a;
+            margin-bottom: 6px;
+        }
+        .ball-cell.black .ball-input { background: #334155; color: white; border-color: #475569; }
+
+        .pm-row { display: flex; gap: 6px; justify-content: center; }
+        .pm-btn {
+            width: 34px; height: 34px; padding: 0; font-size: 20px;
+            font-weight: 900; border-radius: 8px; margin: 0; color: white; line-height: 1;
+        }
+        .ball-cell.red   .pm-btn { background: #dc2626; }
+        .ball-cell.white .pm-btn { background: #475569; }
+        .ball-cell.black .pm-btn { background: #0f172a; border: 1px solid #475569; }
+        .kg-hint { font-size: 10px; color: #6b7280; margin-top: 4px; }
+        .ball-cell.black .kg-hint { color: #94a3b8; }
+
+        /* RESUMEN */
+        .summary-box {
+            background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 12px;
+            padding: 14px; margin-top: 14px;
+        }
+        .summary-title { font-size: 12px; color: #166534; font-weight: 700; text-transform: uppercase; margin-bottom: 6px; }
+        .summary-weight { font-size: 28px; font-weight: 900; color: #16a34a; }
+        .summary-detail { font-size: 13px; color: #475569; margin-top: 4px; }
+
+        /* GUARDAR PESO */
+        #saveWeightResult {
+            font-size: 13px; padding: 9px 12px; border-radius: 8px;
+            margin-top: 8px; display: none;
+        }
+        #saveWeightResult.ok  { background: #dcfce7; border: 1px solid #86efac; color: #166534; }
+        #saveWeightResult.err { background: #fee2e2; border: 1px solid #fca5a5; color: #991b1b; }
+
+        /* GALERIA MODAL */
         .modal-overlay {
             display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0,0,0,0.8); z-index: 1000; padding: 20px; overflow-y: auto;
         }
-        .modal-content {
-            background: white; border-radius: 12px; padding: 20px;
-            max-width: 440px; margin: 20px auto; color: #0f172a;
-        }
-        .modal-header {
-            display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;
-        }
-        .gallery-item {
-            margin-bottom: 20px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        .gallery-item img { width: 100%; display: block; max-height: 300px; object-fit: contain; background: black; }
-        .gallery-info { padding: 10px; font-size: 14px; background: #f8fafc; }
+        .modal-content { background: white; border-radius: 12px; padding: 20px; max-width: 440px; margin: 20px auto; color: #0f172a; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .gallery-item { margin-bottom: 20px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
+        .gallery-item img { width: 100%; display: block; max-height: 280px; object-fit: contain; background: black; }
+        .gallery-info { padding: 10px; font-size: 13px; background: #f8fafc; }
 
-        /* Image Viewer Modal */
+        /* VISOR */
         .image-viewer-overlay {
             display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
             background: #000; z-index: 2000; flex-direction: column;
@@ -71,23 +165,26 @@
             flex: 1; display: flex; align-items: center; justify-content: center;
             overflow: auto; width: 100%; height: 100%;
         }
-        .image-viewer-content img {
-            max-width: 100%; max-height: 100%; object-fit: contain;
-            transition: transform 0.2s; transform-origin: center center;
-        }
+        .image-viewer-content img { max-width: 100%; max-height: 100%; object-fit: contain; }
+
+        /* ESTADO */
+        #status { font-size: 13px; padding: 10px; border-radius: 8px; background: #f8fafc; border: 1px solid #e2e8f0; }
     </style>
 </head>
 <body>
-    <h2>Jury Panel</h2>
-    <div class="sub">Visual capture and load analysis.</div>
+    <h2>🏁 Judge Panel</h2>
+    <div class="sub">Visual and manual ball registration per checkpoint.</div>
 
-    <div class="panel" id="registerPanel" style="margin-bottom: 15px; opacity: 0.6;">
-        <div style="font-size: 12px; color: #64748b; margin-bottom: 4px; text-transform: uppercase; font-weight: bold;">Checkpoint Judge Registration (Disabled)</div>
-        <select id="checkpointSelect" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 10px; font-size: 16px; background: #f1f5f9;" disabled>
+    <!-- PANEL 1: CHECKPOINT (2 PASOS) -->
+    <div class="panel" id="registerPanel">
+        <div class="panel-title">📍 Judge's Checkpoint</div>
+
+        <select id="checkpointSelect">
+            <option value="">— Select your checkpoint —</option>
             <option value="1">Checkpoint 1</option>
             <option value="2">Checkpoint 2</option>
             <option value="3">Checkpoint 3</option>
-            <option value="4">Checkpoint 4</option>
+            <option value="4">Checkpoint 4 (Descarga)</option>
             <option value="5">Checkpoint 5</option>
             <option value="6">Checkpoint 6</option>
             <option value="7">Checkpoint 7</option>
@@ -100,383 +197,439 @@
             <option value="14">Checkpoint 14</option>
             <option value="15">Checkpoint 15</option>
         </select>
-        <button class="secondary" onclick="registrarJurado()" disabled>Connect and register</button>
-    </div>
-    
-    <div id="judgeInfo" style="display:none; font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #0f766e;"></div>
 
-    <button id="cameraButton" class="secondary">Turn on camera</button>
-    <section id="camera" hidden>
-        <div class="camera-container" id="cameraContainer">
-            <video id="video" autoplay playsinline muted></video>
-            <img id="photo" alt="Analyzed photo" hidden>
-            <canvas id="canvas" hidden></canvas>
-            <div id="dashedCircle" class="dashed-circle"></div>
-        </div>
-        <div class="grid" style="grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-top: 0; margin-bottom: 0;">
-            <button id="scanButton" style="margin-bottom: 0;">Scan</button>
-            <button id="resetButton" class="danger" style="margin-bottom: 0;">Reset</button>
-            <button id="galleryButton" style="background: #8e44ad; color: white; margin-bottom: 0;">Gallery</button>
-        </div>
-        <div class="score-panel" style="margin-top: 10px;">
-            <div class="circle-score circle-red"><span id="red">0</span></div>
-            <div class="circle-score circle-white"><span id="white">0</span></div>
-            <div class="circle-score circle-black"><span id="black">0</span></div>
-        </div>
-    </section>
-    
-    <div class="card full" style="margin-top: 10px; text-transform: none;">
-        <div class="label" style="text-transform: none;">Visual load scanner</div>
-        <div class="value" id="load">0 pts</div>
-        <div class="small" id="colors">Color: </div>
-    </div>
-    
-    <div id="status" class="card full">Waiting...</div>
+        <div id="cpStatus"></div>
 
-    <!-- Modal de Galería -->
+        <button id="cpBtn" onclick="handleCheckpointStep()" disabled>
+            Select checkpoint
+        </button>
+    </div>
+
+    <!-- BADGE JUEZ REGISTRADO -->
+    <div id="judgeInfo" style="display:none; margin-bottom: 20px;">
+        <div class="panel" style="margin-bottom:0; background:#0f766e; color:white; border-color:#0f766e;">
+            <div style="font-size:11px;opacity:.7;margin-bottom:4px;text-transform:uppercase;font-weight:800;">✅ Registered Judge</div>
+            <div id="judgeNameDisplay" style="font-size:17px;font-weight:900;"></div>
+            <div id="checkpointNameDisplay" style="font-size:14px;opacity:.85;margin-top:2px;"></div>
+        </div>
+    </div>
+
+    <!-- PANEL 2: CAMARA Y ESCANER -->
+    <div class="panel">
+        <div class="panel-title">📷 Camera and YOLO Scanner</div>
+
+        <button id="cameraButton" class="secondary" onclick="toggleCamera()">Turn on camera</button>
+
+        <section id="camera" hidden>
+            <div class="camera-container">
+                <video id="video" autoplay playsinline muted></video>
+                <img id="photo" alt="Foto analizada" hidden>
+                <canvas id="canvas" hidden></canvas>
+                <div id="dashedCircle" class="dashed-circle"></div>
+            </div>
+            <div class="btn-row">
+                <button id="scanButton" onclick="toggleScan()" style="margin:0;">Scan</button>
+                <button class="danger" onclick="reset()" style="margin:0;">Reset</button>
+                <button class="purple" onclick="abrirGaleria()" style="margin:0;">Gallery</button>
+            </div>
+        </section>
+    </div>
+
+    <!-- PANEL 3: CONTEO DE PELOTAS -->
+    <div class="panel">
+        <div class="panel-title">⚽ Ball count</div>
+        <div class="ball-grid">
+            <!-- ROJA -->
+            <div class="ball-cell red">
+                <div class="ball-label">🔴 Red</div>
+                <div class="ball-circle" id="red">0</div>
+                <input class="ball-input" id="red-input" type="number" min="0" value="0"
+                       oninput="setCount('Rojo', this.value)">
+                <div class="pm-row">
+                    <button class="pm-btn" onclick="adjustCount('Rojo',-1)">−</button>
+                    <button class="pm-btn" onclick="adjustCount('Rojo', 1)">+</button>
+                </div>
+                <div class="kg-hint">1 kg / ball</div>
+            </div>
+            <!-- BLANCA -->
+            <div class="ball-cell white">
+                <div class="ball-label">⚪ White</div>
+                <div class="ball-circle" id="white">0</div>
+                <input class="ball-input" id="white-input" type="number" min="0" value="0"
+                       oninput="setCount('Blanco', this.value)">
+                <div class="pm-row">
+                    <button class="pm-btn" onclick="adjustCount('Blanco',-1)">−</button>
+                    <button class="pm-btn" onclick="adjustCount('Blanco', 1)">+</button>
+                </div>
+                <div class="kg-hint">5 kg / ball</div>
+            </div>
+            <!-- NEGRA -->
+            <div class="ball-cell black">
+                <div class="ball-label">⚫ Black</div>
+                <div class="ball-circle" id="black">0</div>
+                <input class="ball-input" id="black-input" type="number" min="0" value="0"
+                       oninput="setCount('Negro', this.value)">
+                <div class="pm-row">
+                    <button class="pm-btn" onclick="adjustCount('Negro',-1)">−</button>
+                    <button class="pm-btn" onclick="adjustCount('Negro', 1)">+</button>
+                </div>
+                <div class="kg-hint">3 kg / ball</div>
+            </div>
+        </div>
+
+        <div class="summary-box">
+            <div class="summary-title">⚖️ Total calculated weight</div>
+            <div class="summary-weight" id="summaryWeight">0.00 kg</div>
+            <div class="summary-detail" id="summaryDetail">No balls registered</div>
+        </div>
+    </div>
+
+    <!-- PANEL 4: GUARDAR PESO AL PARTICIPANTE -->
+    <div class="panel">
+        <div class="panel-title">💾 Assign load to cyclist</div>
+        <div style="font-size:12px;color:#64748b;margin-bottom:6px;">Select the cyclist who registered the load:</div>
+        <select id="participantSelect">
+            <option value="">— Loading participants... —</option>
+        </select>
+        <button class="success" onclick="guardarPeso()" id="saveWeightBtn">
+            💾 Save weight to participant
+        </button>
+        <a href="/var" target="_blank" style="text-decoration:none;">
+            <button class="gray" style="margin-top:0;">🔍 Open VAR — Verify photos</button>
+        </a>
+        <div id="saveWeightResult"></div>
+    </div>
+
+    <!-- PANEL 5: ESTADO -->
+    <div class="panel" style="margin-bottom:32px;">
+        <div class="panel-title">📡 Status</div>
+        <div id="status">Waiting...</div>
+    </div>
+
+    <!-- MODAL GALERIA -->
     <div class="modal-overlay" id="galleryModal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 style="margin: 0;">Capture Gallery</h3>
-                <div style="display: flex; gap: 5px;">
-                    <button class="danger" style="padding: 6px 12px; width: auto; font-size: 12px; margin-bottom: 0;" onclick="limpiarGaleria()">Clear</button>
-                    <button class="secondary" style="padding: 6px 12px; width: auto; font-size: 12px; margin-bottom: 0;" onclick="cerrarGaleria()">Close</button>
+                <h3 style="margin:0;">Gallery de capturas</h3>
+                <div style="display:flex;gap:5px;">
+                    <button class="danger sm" onclick="limpiarGaleria()">Clear</button>
+                    <button class="secondary sm" onclick="cerrarGaleria()">Close</button>
                 </div>
             </div>
             <div id="galleryContent">Loading...</div>
         </div>
     </div>
 
-    <!-- Visor de Imagen a Pantalla Completa -->
+    <!-- VISOR IMAGEN -->
     <div class="image-viewer-overlay" id="imageViewer">
         <div class="image-viewer-header">
-            <div style="display: flex; gap: 10px;">
-                <button class="secondary" style="width: auto; padding: 6px 12px; margin: 0; font-size: 18px; line-height: 1;" onclick="zoomVisor(0.5)">+</button>
-                <button class="secondary" style="width: auto; padding: 6px 12px; margin: 0; font-size: 18px; line-height: 1;" onclick="zoomVisor(-0.5)">-</button>
-                <button style="width: auto; padding: 6px 12px; margin: 0; background: #2563eb;" onclick="toggleContorno()">Toggle Contour</button>
+            <div style="display:flex;gap:8px;">
+                <button class="secondary sm" onclick="zoomVisor(0.5)">＋</button>
+                <button class="secondary sm" onclick="zoomVisor(-0.5)">－</button>
+                <button class="sm" onclick="toggleContorno()">Outline</button>
             </div>
-            <button class="danger" style="width: auto; padding: 6px 12px; margin: 0;" onclick="cerrarVisor()">Close</button>
+            <button class="danger sm" onclick="cerrarVisor()">Close</button>
         </div>
         <div class="image-viewer-content" id="imageViewerContent">
-            <img id="visorImg" src="" alt="Zoomable Image" ondblclick="zoomVisorReset()">
+            <img id="visorImg" src="" alt="Imagen" ondblclick="zoomVisorReset()">
         </div>
     </div>
 
 <script>
-const elements = Object.fromEntries(["cameraButton","camera","video","photo","canvas","scanButton","resetButton","galleryButton","red","white","black","load","colors","status"].map(id => [id, document.getElementById(id)]));
-let stream = null, scanning = false, busy = false, maxWidth = 640;
-let clearCanvasTimeout = null;
+// ── ESTADO GLOBAL ─────────────────────────────────────
+const el = id => document.getElementById(id);
+let stream = null, busy = false, clearCanvasTimeout = null;
 let counts = { Rojo: 0, Blanco: 0, Negro: 0 };
+const WEIGHTS = { Rojo: 3, Blanco: 1, Negro: 5 };
+let cpStep = 0, cpSelectedId = null, cpSelectedName = null;
+
+// ── DEVICE ID ─────────────────────────────────────────
 function deviceId() {
     const key = "gps_tracker_device_id";
-    let value = localStorage.getItem(key);
-    if (!value) {
-        value = crypto.randomUUID ? crypto.randomUUID() : "dev-" + Date.now().toString(36);
-        localStorage.setItem(key, value);
-    }
-    return value;
+    let v = localStorage.getItem(key);
+    if (!v) { v = (crypto.randomUUID?.() ?? "dev-" + Date.now().toString(36)); localStorage.setItem(key, v); }
+    return v;
 }
 
-async function registrarJurado() {
-    const cp = document.getElementById("checkpointSelect").value;
-    const customName = "Checkpoint Judge " + cp;
+// ── CHECKPOINT 2 PASOS ────────────────────────────────
+el("checkpointSelect").addEventListener("change", () => {
+    if (cpStep === 2) return;
+    cpStep = 0;
+    const hasVal = !!el("checkpointSelect").value;
+    el("cpBtn").disabled = !hasVal;
+    el("cpBtn").textContent = "Select checkpoint";
+    el("cpBtn").className = "";
+    const st = el("cpStatus");
+    st.style.display = "none";
+    st.className = "";
+});
+
+function handleCheckpointStep() {
+    const sel = el("checkpointSelect"), btn = el("cpBtn"), st = el("cpStatus");
+    if (cpStep === 0) {
+        if (!sel.value) return;
+        cpSelectedId   = sel.value;
+        cpSelectedName = sel.options[sel.selectedIndex].text;
+        cpStep = 1;
+        st.style.display = "block";
+        st.className = "pending";
+        st.innerHTML = `⚠️ <b>Confirm this checkpoint?</b><br>${cpSelectedName}`;
+        btn.textContent = `✅ Confirm: ${cpSelectedName}`;
+        btn.className = "success";
+    } else if (cpStep === 1) {
+        cpStep = 2;
+        sel.disabled = true;
+        btn.disabled = true;
+        btn.className = "gray";
+        btn.textContent = `🔒 ${cpSelectedName} — LOCKED`;
+        st.className = "locked";
+        st.innerHTML = `✅ Checkpoint confirmed and locked: <b>${cpSelectedName}</b>`;
+        registrarJurado(cpSelectedId, cpSelectedName);
+    }
+}
+
+async function registrarJurado(cpId, cpName) {
+    const customName = "Judge_CP" + cpId;
     try {
         const resp = await fetch("/registrar", {
-            method: "POST", headers: { "Content-Type": "application/json" },
+            method: "POST", headers: {"Content-Type":"application/json"},
             body: JSON.stringify({ device_id: deviceId(), custom_name: customName })
         });
         const data = await resp.json();
         if (resp.ok) {
-            document.getElementById("registerPanel").style.display = "none";
-            const info = document.getElementById("judgeInfo");
-            info.textContent = "Current Checkpoint: " + customName;
-            info.style.display = "block";
-            document.getElementById("cameraButton").style.display = "block";
+            el("registerPanel").style.display = "none";
+            el("judgeInfo").style.display = "block";
+            el("judgeNameDisplay").textContent = "Judge: " + (data.nombre || customName);
+            el("checkpointNameDisplay").textContent = "📍 " + cpName;
+            el("status").textContent = "✅ Registered at " + cpName;
         } else {
-            alert("Registration failed: " + data.msg);
+            el("status").textContent = "Registration error: " + data.msg;
         }
-    } catch (e) {
-        alert("Connection error: " + e.message);
-    }
+    } catch(e) { el("status").textContent = "Connection error: " + e.message; }
 }
 
-function showResults() {
-    elements.red.textContent = counts.Rojo;
-    elements.white.textContent = counts.Blanco;
-    elements.black.textContent = counts.Negro;
-    const points = counts.Rojo + counts.Blanco * 3 + counts.Negro * 5;
-    const colorNames = { 'Rojo': 'Red', 'Blanco': 'White', 'Negro': 'Black' };
-    const names = Object.entries(counts).filter(([, value]) => value).map(([name]) => colorNames[name] || name);
-    elements.load.textContent = `${points} pts`;
-    elements.colors.textContent = `Color: ${names.join(", ") || "--"}`;
-    return points;
+// ── CONTEOS ───────────────────────────────────────────
+function setCount(color, rawVal) {
+    counts[color] = Math.max(0, parseInt(rawVal) || 0);
+    showResults();
 }
+function adjustCount(color, delta) {
+    counts[color] = Math.max(0, (counts[color] || 0) + delta);
+    showResults();
+}
+function showResults() {
+    el("red").textContent   = counts.Rojo;
+    el("white").textContent = counts.Blanco;
+    el("black").textContent = counts.Negro;
+    syncInput("red-input",   counts.Rojo);
+    syncInput("white-input", counts.Blanco);
+    syncInput("black-input", counts.Negro);
+    const kg = counts.Rojo*WEIGHTS.Rojo + counts.Blanco*WEIGHTS.Blanco + counts.Negro*WEIGHTS.Negro;
+    el("summaryWeight").textContent = kg.toFixed(2) + " kg";
+    const parts = [];
+    if (counts.Rojo)   parts.push(counts.Rojo   + " red×3kg");
+    if (counts.Blanco) parts.push(counts.Blanco + " white×1kg");
+    if (counts.Negro)  parts.push(counts.Negro  + " black×5kg");
+    el("summaryDetail").textContent = parts.length ? parts.join(" + ") : "No balls registered";
+    return kg;
+}
+function syncInput(id, value) {
+    const inp = el(id);
+    if (inp && parseInt(inp.value) !== value) inp.value = value;
+}
+
+// ── CAMARA ────────────────────────────────────────────
 async function toggleCamera() {
     if (stream) {
-        scanning = false;
-        const dc = document.getElementById("dashedCircle");
-        if(dc) dc.classList.remove("spin-anim");
-        stream.getTracks().forEach(track => track.stop());
+        stream.getTracks().forEach(t => t.stop());
         stream = null;
-        elements.camera.hidden = true;
-        elements.cameraButton.textContent = "Turn on camera";
-        elements.status.textContent = "Camera off.";
+        el("camera").hidden = true;
+        el("cameraButton").textContent = "Turn on camera";
+        el("status").textContent = "Cámara apagada.";
         return;
     }
     try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } } });
-        elements.video.srcObject = stream;
-        elements.camera.hidden = false;
-        elements.video.hidden = false;
-        elements.photo.hidden = true;
-        elements.cameraButton.textContent = "Turn off camera";
-        elements.status.textContent = "Camera ready.";
-    } catch (error) {
-        elements.status.textContent = "Could not open camera: " + error.message;
-    }
+        stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:"environment", width:{ideal:1280} }});
+        el("video").srcObject = stream;
+        el("camera").hidden = false;
+        el("cameraButton").textContent = "Turn off camera";
+        el("status").textContent = "Camera ready.";
+    } catch(e) { el("status").textContent = "Could not open camera: " + e.message; }
 }
+
+// ── ESCANEO YOLO ──────────────────────────────────────
 async function toggleScan() {
-    if (busy || showResults() >= 10 || !stream) return;
+    if (busy || !stream) return;
     busy = true;
-    const dc = document.getElementById("dashedCircle");
-    if(dc) dc.classList.add("spin-anim");
-    elements.scanButton.textContent = "Processing...";
-    
-    const hiddenCanvas = document.createElement("canvas");
-    hiddenCanvas.width = elements.video.videoWidth * 0.5;
-    hiddenCanvas.height = elements.video.videoHeight * 0.5;
-    const ctx = hiddenCanvas.getContext("2d");
-    ctx.drawImage(elements.video, 0, 0, hiddenCanvas.width, hiddenCanvas.height);
-    const base64Data = hiddenCanvas.toDataURL("image/jpeg", 0.35).split(",")[1];
-    
+    el("dashedCircle")?.classList.add("spin-anim");
+    el("scanButton").textContent = "Processing...";
+    const vid = el("video");
+    const hc = document.createElement("canvas");
+    hc.width = vid.videoWidth * 0.5; hc.height = vid.videoHeight * 0.5;
+    hc.getContext("2d").drawImage(vid, 0, 0, hc.width, hc.height);
+    const b64 = hc.toDataURL("image/jpeg", 0.35).split(",")[1];
     try {
-        const customName = document.getElementById("judgeInfo").textContent.replace("Current Checkpoint: ", "") || "Judge";
         const resp = await fetch("/vision", {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ device_id: deviceId(), participante: customName, image: base64Data, mobile: true })
+            method: "POST", headers: {"Content-Type":"application/json"},
+            body: JSON.stringify({
+                device_id: deviceId(),
+                participante: cpSelectedName || "Judge",
+                checkpoint_id: parseInt(cpSelectedId) || 0,
+                checkpoint_nombre: cpSelectedName || "",
+                image: b64, mobile: true
+            })
         });
         const data = await resp.json();
         if (data.status === "ok") {
             if (data.counts) {
-                for (const color of ["Rojo", "Blanco", "Negro"]) {
-                    counts[color] = Math.max(counts[color], data.counts[color] || 0);
-                }
-                const totalPoints = showResults();
-                elements.status.textContent = `Scan ready: ${totalPoints} points.`;
-                if (totalPoints >= 10) {
-                    elements.scanButton.textContent = "Limit reached";
-                    elements.scanButton.disabled = true;
-                    elements.status.textContent = "Basket full. Scanning stopped.";
-                }
+                for (const c of ["Rojo","Blanco","Negro"])
+                    counts[c] = Math.max(counts[c], data.counts[c] || 0);
+                showResults();
+                el("status").textContent = "Scan ready: " + showResults().toFixed(2) + " kg";
             }
-            if (data.balls && data.balls.length > 0) {
+            if (data.balls?.length) {
                 dibujarPelotas(data.balls);
                 if (clearCanvasTimeout) clearTimeout(clearCanvasTimeout);
-                clearCanvasTimeout = setTimeout(() => {
-                    const ctx = elements.canvas.getContext("2d");
-                    ctx.clearRect(0, 0, elements.canvas.width, elements.canvas.height);
-                }, 4000);
+                clearCanvasTimeout = setTimeout(() => el("canvas").getContext("2d").clearRect(0,0,99999,99999), 4000);
             }
-        } else {
-            elements.status.textContent = "Vision error: " + data.msg;
-        }
-    } catch (e) {
-        elements.status.textContent = "Error connecting to /vision: " + e.message;
-    }
-    
+        } else { el("status").textContent = "Vision error: " + data.msg; }
+    } catch(e) { el("status").textContent = "Error /vision: " + e.message; }
     busy = false;
-    if(dc) dc.classList.remove("spin-anim");
-    if (showResults() < 10) elements.scanButton.textContent = "Scan";
+    el("dashedCircle")?.classList.remove("spin-anim");
+    el("scanButton").textContent = "Scan";
 }
 
+// ── DIBUJAR PELOTAS ───────────────────────────────────
 function dibujarPelotas(balls) {
-    const canvas = elements.canvas;
-    const video = elements.video;
-    if(video.clientWidth > 0 && video.clientHeight > 0) {
-        canvas.width = video.clientWidth;
-        canvas.height = video.clientHeight;
-    }
+    const canvas = el("canvas"), video = el("video");
+    if (video.clientWidth > 0) { canvas.width = video.clientWidth; canvas.height = video.clientHeight; }
     canvas.hidden = false;
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    const countMap = { Rojo: 0, Blanco: 0, Negro: 0 };
-    const colorMap = { 'Rojo': '#ef4444', 'Blanco': '#ffffff', 'Negro': '#111111' };
-    
+    const cmap = { Rojo:"#ef4444", Blanco:"#ffffff", Negro:"#111111" };
+    const cnt = {};
     balls.forEach(b => {
-        countMap[b.color] = (countMap[b.color] || 0) + 1;
-        const currentCount = countMap[b.color];
-        
-        const cx = b.x_norm * canvas.width;
-        const cy = b.y_norm * canvas.height;
-        const r = b.r_norm * canvas.width;
-        const ballColor = colorMap[b.color] || '#00ff00';
-        
-        // Círculo principal
-        ctx.beginPath();
-        ctx.arc(cx, cy, r, 0, 2 * Math.PI);
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = ballColor;
-        ctx.stroke();
-        
-        // Punto central
-        ctx.beginPath();
-        ctx.arc(cx, cy, 4, 0, 2 * Math.PI);
-        ctx.fillStyle = ballColor;
-        ctx.fill();
-        
-        // Etiqueta tipo OpenCV Mejorada (Text con stroke)
-        const textX = cx - r;
-        const textY = Math.max(18, cy - r - 15);
-        ctx.font = "900 16px sans-serif";
-        ctx.textAlign = "left";
-        ctx.textBaseline = "middle";
-        
-        const strokeColor = b.color === 'Negro' ? 'white' : 'black';
-        ctx.fillStyle = strokeColor;
-        ctx.fillText(currentCount, textX - 1, textY - 1);
-        ctx.fillText(currentCount, textX + 1, textY - 1);
-        ctx.fillText(currentCount, textX - 1, textY + 1);
-        ctx.fillText(currentCount, textX + 1, textY + 1);
-        
-        ctx.fillStyle = b.color === 'Blanco' ? 'white' : (b.color === 'Negro' ? 'black' : 'red');
-        ctx.fillText(currentCount, textX, textY);
+        cnt[b.color] = (cnt[b.color]||0) + 1;
+        const cx=b.x_norm*canvas.width, cy=b.y_norm*canvas.height, r=b.r_norm*canvas.width;
+        ctx.beginPath(); ctx.arc(cx,cy,r,0,2*Math.PI);
+        ctx.strokeStyle=cmap[b.color]||"#0f0"; ctx.lineWidth=3; ctx.stroke();
+        ctx.beginPath(); ctx.arc(cx,cy,4,0,2*Math.PI); ctx.fillStyle=cmap[b.color]; ctx.fill();
+        const tx=cx-r, ty=Math.max(18,cy-r-15);
+        ctx.font="900 16px sans-serif"; ctx.textAlign="left"; ctx.textBaseline="middle";
+        const sc=b.color==="Negro"?"white":"black";
+        [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([dx,dy])=>{ctx.fillStyle=sc;ctx.fillText(cnt[b.color],tx+dx,ty+dy);});
+        ctx.fillStyle=cmap[b.color]; ctx.fillText(cnt[b.color],tx,ty);
     });
 }
 
+// ── RESET ─────────────────────────────────────────────
 function reset() {
-    counts = { Rojo: 0, Blanco: 0, Negro: 0 };
-    elements.scanButton.disabled = false;
-    elements.scanButton.textContent = "Scan";
-    elements.scanButton.classList.replace("danger", "primary");
-    const dc = document.getElementById("dashedCircle");
-    if(dc) dc.classList.remove("spin-anim");
-    elements.video.hidden = false;
-    elements.photo.hidden = true;
+    counts = { Rojo:0, Blanco:0, Negro:0 };
+    el("scanButton").disabled = false;
+    el("scanButton").textContent = "Scan";
+    el("dashedCircle")?.classList.remove("spin-anim");
+    el("video").hidden = false; el("photo").hidden = true;
     if (clearCanvasTimeout) clearTimeout(clearCanvasTimeout);
-    const ctx = elements.canvas.getContext("2d");
-    ctx.clearRect(0, 0, elements.canvas.width, elements.canvas.height);
+    el("canvas").getContext("2d").clearRect(0,0,99999,99999);
     showResults();
 }
 
-elements.cameraButton.addEventListener("click", toggleCamera);
-elements.scanButton.addEventListener("click", toggleScan);
-elements.resetButton.addEventListener("click", reset);
-elements.galleryButton.addEventListener("click", abrirGaleria);
+// ── GUARDAR PESO AL PARTICIPANTE ──────────────────────
+async function cargarParticipantes() {
+    try {
+        const resp = await fetch("/api/scoreboard");
+        const data = await resp.json();
+        const sel = el("participantSelect");
+        sel.innerHTML = '<option value="">— Select the cyclist —</option>';
+        (data||[]).forEach(p => {
+            const opt = document.createElement("option");
+            opt.value = p.nombre;
+            opt.textContent = (p.equipo && p.equipo !== p.nombre) ? `${p.equipo} (${p.nombre})` : p.nombre;
+            sel.appendChild(opt);
+        });
+    } catch(e) { console.warn("No se pudieron cargar participantes:", e); }
+}
 
-// Gallery Logic
+async function guardarPeso() {
+    const participante = el("participantSelect").value;
+    const resultEl = el("saveWeightResult");
+    if (!participante) {
+        resultEl.style.display="block"; resultEl.className="err";
+        resultEl.textContent="⚠️ Select a cyclist before saving."; return;
+    }
+    const totalKg = counts.Rojo*WEIGHTS.Rojo + counts.Blanco*WEIGHTS.Blanco + counts.Negro*WEIGHTS.Negro;
+    if (totalKg===0) {
+        resultEl.style.display="block"; resultEl.className="err";
+        resultEl.textContent="⚠️ No balls registered (weight = 0 kg)."; return;
+    }
+    el("saveWeightBtn").disabled=true; el("saveWeightBtn").textContent="Saving...";
+    try {
+        const resp = await fetch("/api/registrar_peso", {
+            method:"POST", headers:{"Content-Type":"application/json"},
+            body: JSON.stringify({
+                participante, peso_kg: totalKg, counts:{...counts},
+                checkpoint_id: parseInt(cpSelectedId)||0,
+                checkpoint_nombre: cpSelectedName||"",
+                device_id: deviceId()
+            })
+        });
+        const data = await resp.json();
+        if (resp.ok && data.status==="ok") {
+            resultEl.style.display="block"; resultEl.className="ok";
+            resultEl.innerHTML=`✅ <b>${totalKg.toFixed(2)} kg</b> saved for <b>${participante}</b>`;
+            el("status").textContent=`✅ Weight registered: ${totalKg.toFixed(2)} kg → ${participante}`;
+        } else {
+            resultEl.style.display="block"; resultEl.className="err";
+            resultEl.textContent="❌ Error: " + (data.msg||"respuesta inválida");
+        }
+    } catch(e) {
+        resultEl.style.display="block"; resultEl.className="err";
+        resultEl.textContent="❌ Error de conexión: " + e.message;
+    }
+    el("saveWeightBtn").disabled=false; el("saveWeightBtn").textContent="💾 Save weight to participant";
+}
+
+// ── GALERIA ───────────────────────────────────────────
 async function abrirGaleria() {
-    const modal = document.getElementById("galleryModal");
-    const content = document.getElementById("galleryContent");
-    modal.style.display = "block";
-    content.innerHTML = "Loading...";
-
+    el("galleryModal").style.display="block";
+    el("galleryContent").innerHTML="Loading...";
     try {
-        const resp = await fetch("/galeria");
-        if (resp.ok) {
-            const data = await resp.json();
-            if (data.length === 0) {
-                content.innerHTML = "<p>No photos in the gallery.</p>";
-                return;
-            }
-            
-            content.innerHTML = data.reverse().map(item => {
-                let detHtml = "";
-                if (item.detections) {
-                    detHtml = Object.entries(item.detections)
-                        .filter(([c, v]) => v > 0)
-                        .map(([c, v]) => `<strong>${c}:</strong> ${v}`)
-                        .join(" | ");
-                }
-                const participantStr = item.participante || item.device_id;
-                const nameDisplay = String(participantStr).replace(/participante[_ ]?/i, 'Participant ');
-
-                return `
-                <div class="gallery-item">
-                    <img src="/capturas/${item.filename}" alt="Capture" onclick="abrirVisor('${item.filename}')" style="cursor: pointer;">
-                    <div class="gallery-info">
-                        <strong>${nameDisplay}</strong><br>
-                        <span style="color: gray; font-size: 12px;">${new Date(item.timestamp * 1000).toLocaleString()}</span>
-                        ${detHtml ? `<div style="margin-top: 5px; padding-top: 5px; border-top: 1px solid #e2e8f0;">${detHtml}</div>` : ""}
-                    </div>
-                </div>`;
-            }).join("");
-        } else {
-            content.innerHTML = "<p style='color:red;'>Error loading gallery.</p>";
-        }
-    } catch (e) {
-        content.innerHTML = "<p style='color:red;'>Connection error.</p>";
-    }
+        const data = await (await fetch("/galeria")).json();
+        if (!data.length) { el("galleryContent").innerHTML="<p>No photos.</p>"; return; }
+        el("galleryContent").innerHTML=[...data].reverse().map(item=>{
+            let det="";
+            if(item.detections) det=Object.entries(item.detections).filter(([,v])=>v>0).map(([c,v])=>`<b>${c}:</b> ${v}`).join(" | ");
+            const name=String(item.participante||item.device_id).replace(/participante_?/i,"Participante ");
+            const cp=item.checkpoint_nombre||(item.checkpoint_id?`Checkpoint ${item.checkpoint_id}`:"No checkpoint");
+            return `<div class="gallery-item">
+                <img src="/capturas/${item.filename}" onclick="abrirVisor('${item.filename}')" style="cursor:pointer">
+                <div class="gallery-info">
+                    <strong>${name}</strong> · <span style="color:#0f766e;">${cp}</span><br>
+                    <span style="color:gray;font-size:12px;">${new Date(item.timestamp*1000).toLocaleString()}</span>
+                    ${det?`<div style="margin-top:5px;border-top:1px solid #e2e8f0;padding-top:5px;">${det}</div>`:""}
+                </div>
+            </div>`;
+        }).join("");
+    } catch(e) { el("galleryContent").innerHTML="<p style='color:red;'>Error de conexión.</p>"; }
 }
-
-function cerrarGaleria() {
-    document.getElementById("galleryModal").style.display = "none";
-}
-
+function cerrarGaleria() { el("galleryModal").style.display="none"; }
 async function limpiarGaleria() {
-    if (!confirm("Are you sure you want to empty the gallery?")) return;
-    try {
-        const resp = await fetch("/limpiar_galeria", { method: 'POST' });
-        if (resp.ok) {
-            abrirGaleria();
-        } else {
-            alert("Could not clear the gallery");
-        }
-    } catch (e) {
-        alert("Connection error");
-    }
+    if(!confirm("¿Vaciar la galería completa?")) return;
+    await fetch("/limpiar_galeria",{method:"POST"}); abrirGaleria();
 }
 
-// Image Viewer Logic
-let currentImageVisor = "";
-let showContourVisor = true;
-let currentScaleVisor = 1;
+// ── VISOR ─────────────────────────────────────────────
+let currentFile="", showContour=true, currentScale=1;
+function abrirVisor(f){currentFile=f;showContour=true;zoomVisorReset();actualizarVisor();el("imageViewer").style.display="flex";}
+function cerrarVisor(){el("imageViewer").style.display="none";}
+function toggleContorno(){showContour=!showContour;actualizarVisor();}
+function actualizarVisor(){el("visorImg").src="/capturas/"+(showContour?currentFile:currentFile.replace(".jpg","_clean.jpg"));}
+function zoomVisor(d){currentScale=Math.max(1,Math.min(5,currentScale+d));el("visorImg").style.transform=`scale(${currentScale})`;el("imageViewerContent").style.overflow=currentScale>1?"auto":"hidden";}
+function zoomVisorReset(){currentScale=1;el("visorImg").style.transform="scale(1)";el("imageViewerContent").style.overflow="hidden";}
 
-function abrirVisor(filename) {
-    currentImageVisor = filename;
-    showContourVisor = true;
-    zoomVisorReset();
-    actualizarVisor();
-    document.getElementById("imageViewer").style.display = "flex";
-}
-
-function cerrarVisor() {
-    document.getElementById("imageViewer").style.display = "none";
-}
-
-function toggleContorno() {
-    showContourVisor = !showContourVisor;
-    actualizarVisor();
-}
-
-function actualizarVisor() {
-    const img = document.getElementById("visorImg");
-    if (showContourVisor) {
-        img.src = "/capturas/" + currentImageVisor;
-    } else {
-        img.src = "/capturas/" + currentImageVisor.replace('.jpg', '_clean.jpg');
-    }
-}
-
-function zoomVisor(delta) {
-    currentScaleVisor += delta;
-    if (currentScaleVisor < 1) currentScaleVisor = 1;
-    if (currentScaleVisor > 5) currentScaleVisor = 5;
-    document.getElementById("visorImg").style.transform = `scale(${currentScaleVisor})`;
-    
-    const content = document.getElementById("imageViewerContent");
-    if (currentScaleVisor > 1) {
-        content.style.overflow = "auto";
-    } else {
-        content.style.overflow = "hidden";
-    }
-}
-
-function zoomVisorReset() {
-    currentScaleVisor = 1;
-    document.getElementById("visorImg").style.transform = `scale(1)`;
-    document.getElementById("imageViewerContent").style.overflow = "hidden";
-}
+// ── INIT ──────────────────────────────────────────────
+showResults();
+cargarParticipantes();
 </script>
 </body>
 </html>

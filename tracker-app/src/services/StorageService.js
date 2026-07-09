@@ -4,6 +4,7 @@ class StorageService {
   DEVICE_ID_KEY = 'gps_tracker_device_id';
   SERVER_URL_KEY = 'gps_tracker_server_url';
   PARTICIPANTE_KEY = 'gps_tracker_participante';
+  CHECKPOINT_KEY = '@tracker_checkpoint';
 
   async getDeviceId() {
     return await AsyncStorage.getItem(this.DEVICE_ID_KEY);
@@ -27,6 +28,14 @@ class StorageService {
 
   async setParticipante(participante) {
     await AsyncStorage.setItem(this.PARTICIPANTE_KEY, participante);
+  }
+
+  async getCheckpoint() {
+    return await AsyncStorage.getItem(this.CHECKPOINT_KEY);
+  }
+
+  async setCheckpoint(cp) {
+    await AsyncStorage.setItem(this.CHECKPOINT_KEY, cp);
   }
 
   async multiSet(data) {

@@ -13,15 +13,18 @@ import { fmt, cleanServerUrl, getCheckpointLabel } from './src/utils/FormatUtils
 import MetricCard from './src/components/MetricCard';
 import ScannerCamera from './src/components/ScannerCamera';
 import GalleryModal from './src/components/GalleryModal';
+import ErrorBoundary from './src/ErrorBoundary';
 
-LogBox.ignoreAllLogs();
+const isScannerMode = Platform.OS === 'web' && typeof window !== 'undefined' && window.location.pathname.endsWith('/scan');
 
+// LogBox.ignoreAllLogs();
 const LOCATION_TASK_NAME = 'background-location-task';
 
 // Globals for Background Task (since TaskManager is out of React context)
 let globalServerUrl = '';
 let globalParticipante = null;
 let globalDeviceId = null;
+let globalCheckpoint = 0;
 let globalSendingGps = false;
 let globalLastGpsSentMs = 0;
 const GPS_SEND_INTERVAL_MS = 2000;
@@ -66,6 +69,7 @@ const sendGps = async (loc) => {
       sensor_timestamp_ms: accelData.sensor_timestamp_ms,
       client_timestamp_ms: nowMs,
       device_id: globalDeviceId,
+      participante: globalParticipante,
     };
 
     const data = await NetworkService.sendGpsData(globalServerUrl, payload);
@@ -91,7 +95,8 @@ export default function App() {
   const [participante, setParticipante] = useState(null);
   const [activo, setActivo] = useState(false);
   const [deviceId, setDeviceId] = useState('');
-  const [status, setStatus] = useState({ text: 'Esperando...', tone: 'neutral' });
+  const [status, setStatus] = useState({ text: 'Waiting...', tone: 'neutral' });
+  const [checkpointConfirmado, setCheckpointConfirmado] = useState(false);
   
   const [galeriaVisible, setGaleriaVisible] = useState(false);
   const [galeriaImagenes, setGaleriaImagenes] = useState([]);
@@ -100,7 +105,7 @@ export default function App() {
   const [speedInfo, setSpeedInfo] = useState({
     speed_kmh: null,
     speed_mps: null,
-    speed_source: 'esperando GPS',
+    speed_source: 'waiting GPS',
     acceleration_mps2: null,
   });
   const [checkpointInfo, setCheckpointInfo] = useState({ label: '--', distance: null });
@@ -114,6 +119,7 @@ export default function App() {
   const [contandoActivo, setContandoActivo] = useState(false);
   const [maxCounts, setMaxCounts] = useState({ Rojo: 0, Blanco: 0, Negro: 0 });
   const [detectedBalls, setDetectedBalls] = useState([]);
+  const [targetScanParticipant, setTargetScanParticipant] = useState("Desconocido");
   
   const cameraRef = useRef(null);
   const scanningRef = useRef(false);
@@ -142,20 +148,31 @@ export default function App() {
     }
 
     let savedUrl = await StorageService.getServerUrl();
-    const savedParticipant = await StorageService.getParticipante();
+    if (!savedUrl && Platform.OS === 'web') {
+      savedUrl = window.location.origin;
+    }
+    let savedParticipant = await StorageService.getParticipante();
+    if (isScannerMode && savedParticipant && savedParticipant.toLowerCase().includes('participante')) {
+      savedParticipant = null; // Do not load previous participant in scanner mode so backend assigns Judge
+    } else if (!isScannerMode && savedParticipant && (savedParticipant.toLowerCase().includes('judge') || savedParticipant.toLowerCase().includes('juez'))) {
+      savedParticipant = null; // Do not load previous judge in participant mode so backend assigns Participant
+    }
+    const savedCheckpoint = await StorageService.getCheckpoint();
 
     globalDeviceId = id;
     globalServerUrl = cleanServerUrl(savedUrl);
     globalParticipante = savedParticipant;
+    if (savedCheckpoint) globalCheckpoint = parseInt(savedCheckpoint, 10);
 
     if (!mountedRef.current) return;
     setDeviceId(id);
     setServerUrl(savedUrl);
     setParticipante(savedParticipant);
+    if (savedCheckpoint) setCheckpointInfo(prev => ({ ...prev, id: parseInt(savedCheckpoint, 10) }));
     setLog(
       savedParticipant
-        ? `${savedParticipant} listo. Inicia captura cuando quieras.`
-        : 'Ingresa la URL del servidor y registra este celular.',
+        ? `${savedParticipant} ready. Start capture when ready.`
+        : 'Enter Server URL and register device.',
       savedParticipant ? 'ok' : 'neutral'
     );
   };
@@ -163,11 +180,11 @@ export default function App() {
   const activateSensors = async () => {
     try {
       await SensorService.activate((data) => setAccelData(data));
-      setLog('Acelerometro activado. Ahora puedes iniciar la captura.', 'ok');
+      setLog('Accelerometer active. You can now start capture.', 'ok');
       return true;
     } catch (error) {
       setAccelData(SensorService.getData());
-      setLog(`No se pudo activar el acelerometro:\n${error.message}`, 'error');
+      setLog(`Could not activate accelerometer:\n${error.message}`, 'error');
       return false;
     }
   };
@@ -175,48 +192,80 @@ export default function App() {
   const registerParticipant = async () => {
     const url = cleanServerUrl(serverUrl);
     if (!url.startsWith('http')) {
-      Alert.alert('URL invalida', 'Ingresa una URL http/https del servidor.');
+      Alert.alert('Invalid URL', 'Enter a valid http/https server URL.');
       return;
     }
     if (!deviceId) {
-      setLog('Preparando ID del dispositivo, intenta de nuevo en un momento.', 'error');
+      setLog('Preparing device ID, try again in a moment.', 'error');
       return;
     }
 
     try {
-      setLog('Registrando participante...', 'neutral');
-      const data = await NetworkService.registerDevice(url, deviceId);
-
+      setLog('Registering participant...', 'neutral');
+      
+      const customName = !isScannerMode ? (participante || "") : undefined;
+      
+      const respData = await NetworkService.registerDevice(serverUrl, deviceId, customName);
+      
+      const assigned = respData.participante || participante || 'Unknown Participant';
+      setParticipante(assigned);
+      globalParticipante = assigned;
       await StorageService.multiSet([
         [StorageService.SERVER_URL_KEY, url],
-        [StorageService.PARTICIPANTE_KEY, data.participante],
+        [StorageService.PARTICIPANTE_KEY, assigned],
       ]);
-
+      
       globalServerUrl = url;
-      globalParticipante = data.participante;
       setServerUrl(url);
-      setParticipante(data.participante);
-      setLog(`${data.participante} asignado.\nActiva captura para mandar GPS y acelerometro.`, 'ok');
+      setLog(`Registered correctly: ${assigned}`, 'ok');
+      setActivo(true);
+      setCheckpointConfirmado(false); // Reset checkpoint confirmation
+      return assigned;
     } catch (error) {
-      setLog(`Error al registrar:\n${error.message}`, 'error');
+      console.warn('Error registering device:', error);
+      setLog(`Registration error: ${error.message}`, 'error');
+      return null;
+    }
+  };
+
+  const confirmarCheckpoint = async () => {
+    if (!checkpointInfo.id) {
+      Alert.alert("Error", "Select a checkpoint first.");
+      return;
+    }
+    try {
+      setLog('Confirming checkpoint...', 'neutral');
+      await NetworkService.confirmJudgeCheckpoint(serverUrl, deviceId, checkpointInfo.id);
+      setCheckpointConfirmado(true);
+      setLog(`Checkpoint ${checkpointInfo.id} confirmed.`, 'ok');
+    } catch (error) {
+      console.warn('Error confirming checkpoint:', error);
+      Alert.alert("Error", error.message);
+      setLog(error.message, 'error');
     }
   };
 
   const startCapture = async () => {
-    if (!participante) {
-      Alert.alert('Falta registro', 'Primero conecta y registra este celular.');
-      return;
+    if (!participante && !globalParticipante) {
+      if (!isScannerMode) {
+        // Auto-register runners if they just click Start Capture
+        const assigned = await registerParticipant();
+        if (!assigned) return; // Registration failed
+      } else {
+        Alert.alert('Missing registration', 'Connect and register this device first.');
+        return;
+      }
     }
 
     try {
       const hasPermissions = await LocationService.requestPermissions();
       if (!hasPermissions) {
-        setLog('Permiso de fondo denegado. Funcionara mientras la app este abierta.', 'error');
+        setLog('Background permission denied. Will function while app is open.', 'error');
       }
       await activateSensors();
 
       setActivo(true);
-      setLog('Obteniendo ubicacion y acelerometro...', 'neutral');
+      setLog('Getting location and accelerometer...', 'neutral');
 
       await LocationService.startTracking(LOCATION_TASK_NAME, handleLocation);
 
@@ -245,7 +294,7 @@ export default function App() {
 
   const stopFromButton = async () => {
     await stopCapture();
-    setLog('Captura detenida.', 'neutral');
+    setLog('Capture stopped.', 'neutral');
   };
 
   const handleLocation = async (loc) => {
@@ -259,13 +308,13 @@ export default function App() {
 
       if (data.status === 'cerrado') {
         await stopCapture();
-        setLog('Sesion terminada por el servidor (limite de tiempo alcanzado).', 'error');
+        setLog('Session terminated by server (time limit reached).', 'error');
         return;
       }
 
       if (data.status === 'limite_participantes') {
         await stopCapture();
-        setLog(data.msg || 'Limite de participantes alcanzado.', 'error');
+        setLog(data.msg || 'Participant limit reached.', 'error');
         return;
       }
 
@@ -278,17 +327,22 @@ export default function App() {
       setLocation(loc);
       setSpeedInfo(speed);
       setAccelData(SensorService.getData());
-      setCheckpointInfo({
+      setCheckpointInfo(prev => ({
+        ...prev,
         label: getCheckpointLabel(checkpoint),
         distance: Number.isFinite(distance) ? distance : null,
-      });
-      setLog(
-        `Ubicacion obtenida\nParticipante: ${globalParticipante}\nLat: ${loc.coords.latitude.toFixed(6)}\nLon: ${loc.coords.longitude.toFixed(6)}\nVelocidad: ${fmt(speed.speed_kmh, 2)} km/h (${fmt(speed.speed_mps, 2)} m/s)\nAceleracion: ${fmt(speed.acceleration_mps2, 3)} m/s2\nAcelerometro: ${SensorService.getData().permission_state}\nPrecision: +/-${fmt(loc.coords.accuracy, 0)} m\nHora: ${new Date().toLocaleTimeString()}`,
-        'ok'
-      );
+      }));
+      if (isScannerMode) {
+        setLog(`Location obtained\nJudge: ${globalParticipante.replace('Judge_', '')}`, 'ok');
+      } else {
+        setLog(
+          `Location obtained\nParticipant: ${globalParticipante.replace(/participante_/i, '')}\nLat: ${loc.coords.latitude.toFixed(6)}\nLon: ${loc.coords.longitude.toFixed(6)}\nSpeed: ${fmt(speed.speed_kmh, 2)} km/h (${fmt(speed.speed_mps, 2)} m/s)\nAcceleration: ${fmt(speed.acceleration_mps2, 3)} m/s2\nAccelerometer: ${SensorService.getData().permission_state}\nAccuracy: +/-${fmt(loc.coords.accuracy, 0)} m\nTime: ${new Date().toLocaleTimeString()}`,
+          'ok'
+        );
+      }
     } catch (error) {
       if (mountedRef.current) {
-        setLog(`Datos obtenidos pero hubo error al enviar:\n${error.message}`, 'error');
+        setLog(`Location obtained but failed to send:\n${error.message}`, 'error');
       }
     }
   };
@@ -297,7 +351,7 @@ export default function App() {
   const escanearUnaVez = async () => {
     if (scanningRef.current || !cameraRef.current) return;
     
-    const ptsActuales = (countsRef.current.Rojo * 1) + (countsRef.current.Blanco * 3) + (countsRef.current.Negro * 5);
+    const ptsActuales = (countsRef.current.Rojo * 3) + (countsRef.current.Blanco * 1) + (countsRef.current.Negro * 5);
     if (ptsActuales >= 10) return;
 
     scanningRef.current = true;
@@ -305,8 +359,8 @@ export default function App() {
     setLog('Procesando imagen (Rápido 150%)...', 'info');
 
     try {
-      const photo = await cameraRef.current.takePictureAsync({ base64: true, quality: 0.2, shutterSound: false });
-      const data = await NetworkService.processVision(globalServerUrl, globalDeviceId, globalParticipante, photo.base64);
+      const photo = await cameraRef.current.takePictureAsync({ base64: true, quality: 0.8, shutterSound: false });
+      const data = await NetworkService.processVision(globalServerUrl, globalDeviceId, targetScanParticipant, photo.base64, globalCheckpoint);
 
       if (data.status === 'ok') {
         setDetectedBalls(data.balls || []);
@@ -314,18 +368,17 @@ export default function App() {
           for (const color of ['Rojo', 'Blanco', 'Negro']) {
             let val = data.counts[color] || 0;
             countsRef.current[color] = Math.max(countsRef.current[color], val);
-
-            if (color === 'Negro' && countsRef.current[color] > 2) countsRef.current[color] = 2;
-            if (color === 'Blanco' && countsRef.current[color] > 3) countsRef.current[color] = 3;
-            if (color === 'Rojo' && countsRef.current[color] > 10) countsRef.current[color] = 10;
           }
           setMaxCounts({ ...countsRef.current });
 
-          const pts = (countsRef.current.Rojo * 1) + (countsRef.current.Blanco * 3) + (countsRef.current.Negro * 5);
-          if (pts >= 10) {
-            setLog('Límite de 10 puntos alcanzado.', 'success');
-          } else {
-            setLog(`Escaneo listo: ${pts} puntos.`, 'success');
+          const pts = (countsRef.current.Rojo * 3) + (countsRef.current.Blanco * 1) + (countsRef.current.Negro * 5);
+          setLog(`Scan ready: ${pts} points.`, 'success');
+          
+          try {
+            await NetworkService.saveWeight(globalServerUrl, targetScanParticipant, pts, countsRef.current, globalParticipante, globalCheckpoint);
+            setLog(`Saved ${pts} kg for ${targetScanParticipant}`, 'success');
+          } catch (err) {
+            setLog(`Error saving weight: ${err.message}`, 'error');
           }
 
           setTimeout(() => {
@@ -334,7 +387,7 @@ export default function App() {
         }
       }
     } catch (e) {
-      setLog('Error al conectar con servidor', 'error');
+      setLog('Error connecting to server', 'error');
     }
 
     scanningRef.current = false;
@@ -348,13 +401,24 @@ export default function App() {
     setLog('Escaneo reiniciado', 'neutral');
   };
 
+  const handleSaveScore = async () => {
+    const currentMax = maxCounts; // since we might have manually edited maxCounts
+    const pts = (currentMax.Rojo * 3) + (currentMax.Blanco * 1) + (currentMax.Negro * 5);
+    try {
+      await NetworkService.saveWeight(globalServerUrl, targetScanParticipant, pts, currentMax, globalParticipante, globalCheckpoint);
+      setLog(`Saved manually: ${pts} kg for ${targetScanParticipant}`, 'success');
+    } catch (err) {
+      setLog(`Error saving weight: ${err.message}`, 'error');
+    }
+  };
+
   const abrirGaleria = async () => {
     try {
-      const data = await NetworkService.getGallery(serverUrl);
+      const data = await NetworkService.getGallery(globalServerUrl, targetScanParticipant);
       setGaleriaImagenes(data);
       setGaleriaVisible(true);
     } catch (e) {
-      setLog('Error al cargar la galería', 'error');
+      setLog('Error loading gallery', 'error');
     }
   };
 
@@ -362,39 +426,56 @@ export default function App() {
     try {
       await NetworkService.clearGallery(globalServerUrl);
       setGaleriaImagenes([]);
-      setLog('Galería limpiada', 'neutral');
+      setLog('Gallery cleared', 'neutral');
     } catch (e) {
-      setLog('Error al limpiar la galería', 'error');
+      setLog('Error clearing gallery', 'error');
     }
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ErrorBoundary>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <StatusBar style="dark" />
-      <Text style={styles.title}>Tracker y Escáner</Text>
-      <Text style={styles.subtitle}>Captura ubicación y escanea pelotas con YOLO.</Text>
+      <Text style={styles.title}>Tracker & Scanner</Text>
+      <Text style={styles.subtitle}>Capture location and scan balls with YOLO.</Text>
 
       {/* CAMERA AND YOLO */}
-      {!permission ? (
-        <View style={styles.connectionPanel}><Text>Cargando permisos de cámara...</Text></View>
-      ) : !permission.granted ? (
-        <View style={styles.connectionPanel}>
-          <Text style={styles.label}>Cámara y Escáner YOLO</Text>
-          <Text style={{ marginBottom: 10 }}>Necesitamos permiso para usar la cámara</Text>
-          <TouchableOpacity style={[styles.button, styles.secondaryButton]} onPress={requestPermission}>
-            <Text style={styles.buttonText}>Otorgar Permiso</Text>
-          </TouchableOpacity>
+      {isScannerMode && (
+        !permission ? (
+          <View style={styles.connectionPanel}><Text>Loading camera permissions...</Text></View>
+        ) : !permission.granted ? (
+          <View style={styles.connectionPanel}>
+            <Text style={styles.label}>CAMERA AND YOLO SCANNER</Text>
+            <Text style={{ marginBottom: 10 }}>We need permission to use the camera</Text>
+            <TouchableOpacity style={[styles.button, styles.secondaryButton]} onPress={requestPermission}>
+              <Text style={styles.buttonText}>Grant Permission</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <ScannerCamera
+            cameraRef={cameraRef}
+            contandoActivo={contandoActivo}
+            maxCounts={maxCounts}
+            setMaxCounts={setMaxCounts}
+            detectedBalls={detectedBalls}
+            onScanOnce={escanearUnaVez}
+            onReset={reiniciarEscaneo}
+            onSaveScore={handleSaveScore}
+            onOpenGallery={abrirGaleria}
+          />
+        )
+      )}
+
+      {/* METRICS */}
+      {!isScannerMode && location && (
+        <View style={styles.grid}>
+          <MetricCard label="Latitude" value={fmt(location.coords.latitude, 5)} />
+          <MetricCard label="Longitude" value={fmt(location.coords.longitude, 5)} />
+          <MetricCard label="Altitude" value={fmt(location.coords.altitude, 1)} detail="meters" />
+          <MetricCard label="Speed" value={fmt(speedInfo?.speed_kmh, 2)} detail="km/h" />
+          <MetricCard label="Accuracy" value={fmt(location.coords.accuracy, 1)} detail="meters" />
+          <MetricCard full label="Nearest weighted checkpoint" value={checkpointInfo.label} detail={`Distance: ${fmt(checkpointInfo.distance, 2)} m`} />
         </View>
-      ) : (
-        <ScannerCamera
-          cameraRef={cameraRef}
-          contandoActivo={contandoActivo}
-          maxCounts={maxCounts}
-          detectedBalls={detectedBalls}
-          onScanOnce={escanearUnaVez}
-          onReset={reiniciarEscaneo}
-          onOpenGallery={abrirGaleria}
-        />
       )}
 
       {/* SERVER AND REGISTRATION */}
@@ -409,9 +490,97 @@ export default function App() {
           autoCorrect={false}
           editable={!activo}
         />
+        {!isScannerMode ? (
+          <>
+            <Text style={styles.label}>PARTICIPANT / DEVICE NAME</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: '#e2e8f0', color: '#475569' }]}
+              value={participante}
+              onChangeText={setParticipante}
+              placeholder="Automatic assignment..."
+              editable={false}
+            />
+          </>
+        ) : (
+          <>
+            <Text style={styles.label}>Select Checkpoint (Judge)</Text>
+            <select
+              style={{ ...styles.input, height: 40, padding: 8 }}
+              value={checkpointInfo.id ? checkpointInfo.id.toString() : ""}
+              onChange={(e) => {
+                const rawVal = e.target.value;
+                if (!rawVal) {
+                  setCheckpointInfo(prev => ({ ...prev, id: null }));
+                  StorageService.setCheckpoint("");
+                  globalCheckpoint = null;
+                } else {
+                  const val = parseInt(rawVal, 10);
+                  setCheckpointInfo(prev => ({ ...prev, id: val }));
+                  StorageService.setCheckpoint(val.toString());
+                  globalCheckpoint = val;
+                }
+                setCheckpointConfirmado(false);
+              }}
+              disabled={checkpointConfirmado}
+            >
+              <option value="">-- Select Checkpoint --</option>
+              <option value="1">Checkpoint 1</option>
+              <option value="2">Checkpoint 2</option>
+              <option value="3">Checkpoint 3</option>
+              <option value="4">Checkpoint 4</option>
+              <option value="5">Checkpoint 5</option>
+              <option value="6">Checkpoint 6</option>
+              <option value="7">Checkpoint 7</option>
+              <option value="8">Checkpoint 8</option>
+              <option value="9">Checkpoint 9</option>
+              <option value="10">Checkpoint 10</option>
+            </select>
+            
+            <TouchableOpacity
+              style={[styles.button, { backgroundColor: '#f59e0b', marginBottom: 15 }, (checkpointConfirmado || !checkpointInfo.id) && styles.disabledButton]}
+              onPress={confirmarCheckpoint}
+              disabled={checkpointConfirmado || !checkpointInfo.id}
+            >
+              <Text style={styles.buttonText}>{checkpointConfirmado ? 'Checkpoint Confirmed' : 'Confirm Checkpoint'}</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.label}>Participant to Scan</Text>
+            <select
+              style={{ ...styles.input, height: 40, padding: 8 }}
+              value={targetScanParticipant || "Desconocido"}
+              onChange={(e) => {
+                setTargetScanParticipant(e.target.value);
+                reiniciarEscaneo();
+              }}
+            >
+              <option value="Desconocido">-- Select Participant --</option>
+              <option value="Participante_1">Participant 1</option>
+              <option value="Participante_2">Participant 2</option>
+              <option value="Participante_3">Participant 3</option>
+              <option value="Participante_4">Participant 4</option>
+              <option value="Participante_5">Participant 5</option>
+              <option value="Participante_6">Participant 6</option>
+              <option value="Participante_7">Participant 7</option>
+              <option value="Participante_8">Participant 8</option>
+              <option value="Participante_9">Participant 9</option>
+              <option value="Participante_10">Participant 10</option>
+              <option value="Participante_11">Participant 11</option>
+              <option value="Participante_12">Participant 12</option>
+              <option value="Participante_13">Participant 13</option>
+              <option value="Participante_14">Participant 14</option>
+              <option value="Participante_15">Participant 15</option>
+            </select>
+          </>
+        )}
+
         <TouchableOpacity
           style={[styles.button, styles.secondaryButton, (!canRegister || activo) && styles.disabledButton]}
-          onPress={registerParticipant}
+          onPress={async () => {
+            const assigned = await registerParticipant();
+            if (assigned) {
+              startCapture();
+            }
+          }}
           disabled={!canRegister || activo}
         >
           <Text style={styles.buttonText}>Connect and register</Text>
@@ -419,38 +588,11 @@ export default function App() {
       </View>
 
       <TouchableOpacity
-        style={[styles.button, styles.secondaryButton, accelData.permission_state === 'granted' && styles.disabledButton]}
-        onPress={activateSensors}
-        disabled={accelData.permission_state === 'granted'}
-      >
-        <Text style={styles.buttonText}>
-          {accelData.permission_state === 'granted' ? 'Accelerometer active' : 'Activate manual accelerometer'}
-        </Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
         style={[styles.button, activo && styles.dangerButton]}
         onPress={activo ? stopFromButton : startCapture}
       >
         <Text style={styles.buttonText}>{activo ? 'Stop capture' : 'Start capture'}</Text>
       </TouchableOpacity>
-
-      {/* METRICS */}
-      <View style={styles.grid}>
-        <MetricCard label="Speed" value={`${fmt(speedInfo.speed_kmh, 2)} km/h`} detail={`Source: ${speedInfo.speed_source || 'waiting for GPS'}`} />
-        <MetricCard label="GPS Accuracy" value={location ? `+/-${fmt(location.coords.accuracy, 0)} m` : '-- m'} detail={`Time: ${location ? new Date(location.timestamp || Date.now()).toLocaleTimeString() : '--'}`} />
-        <MetricCard full label="Nearest weighted checkpoint" value={checkpointInfo.label} detail={`Distance: ${fmt(checkpointInfo.distance, 2)} m`} />
-        
-        <View style={styles.cardFull}>
-          <Text style={styles.label}>Accelerometer with gravity</Text>
-          <Text style={styles.small}>X: {fmt(accelData.gx, 3)} m/s2</Text>
-          <Text style={styles.small}>Y: {fmt(accelData.gy, 3)} m/s2</Text>
-          <Text style={styles.small}>Z: {fmt(accelData.gz, 3)} m/s2</Text>
-          <Text style={styles.small}>Magnitude: {fmt(accelData.g_magnitude, 3)} m/s2</Text>
-        </View>
-
-        <MetricCard full label="Acceleration" value={`${fmt(speedInfo.acceleration_mps2, 3)} m/s2`} detail="Speed / time, 3 samples" />
-      </View>
 
       {/* STATUS BOX */}
       <View style={[styles.statusBox, styles[`status_${status.tone}`]]}>
@@ -465,15 +607,16 @@ export default function App() {
         serverUrl={serverUrl}
       />
     </ScrollView>
+    </ErrorBoundary>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8fafc' },
-  content: { padding: 20, paddingTop: 58, paddingBottom: 40 },
-  title: { color: '#0f172a', fontSize: 30, fontWeight: '800', marginBottom: 6 },
-  subtitle: { color: '#475569', fontSize: 14, lineHeight: 20, marginBottom: 18 },
-  connectionPanel: { backgroundColor: '#ffffff', borderColor: '#e2e8f0', borderRadius: 8, borderWidth: 1, marginBottom: 12, padding: 14 },
+  content: { padding: 20, paddingTop: 58, paddingBottom: 40, width: '100%', maxWidth: 700, alignSelf: 'center' },
+  title: { color: '#0f172a', fontSize: 30, fontWeight: '800', marginBottom: 6, textAlign: 'center' },
+  subtitle: { color: '#475569', fontSize: 14, lineHeight: 20, marginBottom: 18, textAlign: 'center' },
+  connectionPanel: { backgroundColor: '#ffffff', borderColor: '#e2e8f0', borderRadius: 12, borderWidth: 1, marginBottom: 16, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
   input: { backgroundColor: '#f1f5f9', borderColor: '#e2e8f0', borderRadius: 8, borderWidth: 1, color: '#0f172a', fontSize: 15, marginBottom: 10, paddingHorizontal: 12, paddingVertical: 12 },
   button: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 8, marginBottom: 10, paddingHorizontal: 16, paddingVertical: 15 },
   secondaryButton: { backgroundColor: '#0f766e' },

@@ -171,7 +171,7 @@
     <h2>GPS Tracker</h2>
     <div class="sub">Captures phone location, speed and accelerometer.</div>
 
-    <button id="sensorBtn" class="secondary" onclick="activarSensores()">Activate manual accelerometer</button>
+    <button id="sensorBtn" class="secondary" onclick="activarSensores()" style="display: none;">Activate manual accelerometer</button>
     <button id="camaraBtn" class="secondary" onclick="toggleCamara()">Turn on camera</button>
     <button id="btnCaptura" class="primary" onclick="iniciarOdetener()">Start capture</button>
 
@@ -237,7 +237,7 @@ Magnitude: --</div>
 
     <div id="estado">Waiting...</div>
 
-    <!-- Modal de Galería -->
+    <!-- Modal de Gallery -->
     <div class="modal-overlay" id="galleryModal">
         <div class="modal-content">
             <div class="modal-header">
@@ -295,7 +295,7 @@ Magnitude: --</div>
     let activo = false;
     let participante = null;
     let ultimoPunto = null;
-    let historialVelocidad = [];
+    let historialSpeed = [];
     let envioGpsEnCurso = false;
     let ultimoEnvioGpsMs = 0;
     let gpsPollTimer = null;
@@ -333,7 +333,7 @@ Magnitude: --</div>
         const c = data.checkpoint_mas_cercano;
         const dist = Number(data.distancia_checkpoint_mas_cercano_m);
         document.getElementById("checkpointCercano").textContent = getCheckpointLabel(c);
-        document.getElementById("distanciaCheckpointCercano").textContent = `Distancia: ${fmt(dist, 2)} m`;
+        document.getElementById("distanciaCheckpointCercano").textContent = `Distance: ${fmt(dist, 2)} m`;
     }
 
     function calcularMagnitud(x, y, z) {
@@ -351,9 +351,14 @@ Magnitude: --</div>
     // -------------------------------------------------------------------------
     // Acelerómetro
     // -------------------------------------------------------------------------
+    let ultimoRenderAcel = 0;
     function actualizarPanelAcelerometro() {
+        const ahora = Date.now();
+        if (ahora - ultimoRenderAcel < 200) return; // Límite de 5 cuadros por segundo para evitar que el navegador se trabe
+        ultimoRenderAcel = ahora;
+        
         document.getElementById("acelG").textContent = 
-            `X: ${fmt(accelData.gx, 3)} m/s²\nY: ${fmt(accelData.gy, 3)} m/s²\nZ: ${fmt(accelData.gz, 3)} m/s²\nMagnitud: ${fmt(accelData.g_magnitude, 3)} m/s²`;
+            `X: ${fmt(accelData.gx, 3)} m/s²\nY: ${fmt(accelData.gy, 3)} m/s²\nZ: ${fmt(accelData.gz, 3)} m/s²\nMagnitude: ${fmt(accelData.g_magnitude, 3)} m/s²`;
         document.getElementById("aceleracionReal").textContent = `${fmt(accelData.acceleration_mps2, 3)} m/s²`;
     }
 
@@ -392,9 +397,9 @@ Magnitude: --</div>
     }
 
     // -------------------------------------------------------------------------
-    // Velocidad
+    // Speed
     // -------------------------------------------------------------------------
-    function calcularVelocidad(pos, lat, lon) {
+    function calcularSpeed(pos, lat, lon) {
         const nowMs = Date.now();
         let speedMps = null, speedSource = "none", accMps2 = null;
         if (pos.coords.speed !== null && Number.isFinite(pos.coords.speed)) {
@@ -405,13 +410,13 @@ Magnitude: --</div>
             if (dt > 0) { speedMps = dist / dt; speedSource = "calculated_gps_distance_time"; }
         }
         if (Number.isFinite(speedMps)) {
-            if (historialVelocidad.length >= ACCELERATION_SAMPLE_WINDOW - 1) {
-                const ref = historialVelocidad[0];
+            if (historialSpeed.length >= ACCELERATION_SAMPLE_WINDOW - 1) {
+                const ref = historialSpeed[0];
                 const dt = (nowMs - ref.timestamp_ms) / 1000;
                 if (dt > 0 && Number.isFinite(ref.speed_mps)) accMps2 = (speedMps - ref.speed_mps) / dt;
             }
-            historialVelocidad.push({ speed_mps: speedMps, timestamp_ms: nowMs });
-            while (historialVelocidad.length > ACCELERATION_SAMPLE_WINDOW - 1) historialVelocidad.shift();
+            historialSpeed.push({ speed_mps: speedMps, timestamp_ms: nowMs });
+            while (historialSpeed.length > ACCELERATION_SAMPLE_WINDOW - 1) historialSpeed.shift();
         }
         ultimoPunto = { lat, lon, timestamp_ms: nowMs, speed_mps: speedMps };
         return { speed_mps: speedMps, speed_kmh: Number.isFinite(speedMps) ? speedMps * 3.6 : null, speed_source: speedSource, acceleration_mps2: accMps2 };
@@ -500,7 +505,7 @@ Magnitude: --</div>
         if (maxCounts.Blanco > 3) maxCounts.Blanco = 3;
         if (maxCounts.Rojo > 10) maxCounts.Rojo = 10;
 
-        totalPoints = (maxCounts.Rojo * 1) + (maxCounts.Blanco * 3) + (maxCounts.Negro * 5);
+        totalPoints = (maxCounts.Rojo * 3) + (maxCounts.Blanco * 1) + (maxCounts.Negro * 5);
         
         document.getElementById("cntRojo").textContent = maxCounts.Rojo;
         document.getElementById("cntBlanco").textContent = maxCounts.Blanco;
@@ -655,7 +660,7 @@ Magnitude: --</div>
             silentAudio.play().catch(e => {});
             requestWakeLock();
             
-            activo = true; ultimoPunto = null; ultimaPosicionGps = null; historialVelocidad = [];
+            activo = true; ultimoPunto = null; ultimaPosicionGps = null; historialSpeed = [];
             document.getElementById("btnCaptura").textContent = "Stop capture";
             log("Getting location and accelerometer...");
             
@@ -676,13 +681,13 @@ Magnitude: --</div>
         if (envioGpsEnCurso || ahoraMs - ultimoEnvioGpsMs < GPS_SEND_INTERVAL_MS) return;
         envioGpsEnCurso = true; ultimoEnvioGpsMs = ahoraMs;
         
-        const speed = calcularVelocidad(pos, pos.coords.latitude, pos.coords.longitude);
+        const speed = calcularSpeed(pos, pos.coords.latitude, pos.coords.longitude);
         accelData.acceleration_mps2 = speed.acceleration_mps2;
 
         document.getElementById("velocidad").textContent = `${fmt(speed.speed_kmh, 2)} km/h`;
-        document.getElementById("velocidadFuente").textContent = `Fuente: ${speed.speed_source}`;
+        document.getElementById("velocidadFuente").textContent = `Source: ${speed.speed_source}`;
         document.getElementById("precision").textContent = `±${fmt(pos.coords.accuracy, 0)} m`;
-        document.getElementById("hora").textContent = `Hora: ${new Date().toLocaleTimeString()}`;
+        document.getElementById("hora").textContent = `Time: ${new Date().toLocaleTimeString()}`;
         actualizarPanelAcelerometro();
 
         try {

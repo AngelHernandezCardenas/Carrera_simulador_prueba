@@ -192,24 +192,14 @@ def es_falso_positivo_ligero(frame, x1, y1, x2, y2, nombre):
     roi = frame[max(0, int(y1)):int(y2), max(0, int(x1)):int(x2)]
     if roi.size == 0: return False
     
-    hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
-    v_mean = np.mean(hsv[:,:,2])
-    s_mean = np.mean(hsv[:,:,1])
-    
+    # Previene que pelotas Negras sean detectadas como Blancas (por brillos)
     if nombre == 'Blanco':
-        # Las sombras o fondos grises suelen ser muy oscuros o tener algo de color amarillento del ambiente
-        if v_mean < 80: return True  # Es una sombra oscura
-        if s_mean > 120: return True # Tiene demasiado color para ser blanco puro
-        
-    elif nombre == 'Rojo':
-        # Los fondos oscuros que YOLO confunde con rojo suelen tener poca saturación
-        if v_mean < 40: return True
-        if s_mean < 50: return True  # Un rojo vivo tiene saturación alta
-        
-    # Negro: sin filtro heurístico — confiamos 100% en YOLO para detectar pelotas negras.
-    # Las pelotas negras brillosas o bajo iluminación variable tienen valores HSV muy distintos
-    # y cualquier filtro de brillo/saturación termina descartando detecciones válidas.
-        
+        if validar_color_en_roi(frame, x1, y1, x2, y2, 'Negro', umbral_frac=0.25):
+            return True
+            
+    # OMITIDO: Checar Blanco dentro de Negro causa problemas con el brillo (glare) de las luces.
+    # Las pelotas negras brillan mucho y YOLO ya hace buen trabajo detectando negro.
+
     return False
 
 # ==============================================================================
@@ -318,18 +308,18 @@ def procesar_frame_yolo_api(frame, estado, modelo_yolo, mobile_mode=False, calib
                 else:
                     detecciones_brutas[nombre].append((cx, cy, r))
 
-        # --- Pasada 1: Rojo + Blanco con conf=0.80 (sin tocar) ---
-        res1 = modelo_yolo.predict(frame, conf=0.80, imgsz=480, verbose=False)
+        # --- Pasada 1: Rojo + Blanco con conf=0.50 (alta sensibilidad para no perder amontonadas) ---
+        res1 = modelo_yolo.predict(frame, conf=0.50, imgsz=640, verbose=False)
         if len(res1) > 0 and res1[0].boxes is not None:
             _procesar_cajas(res1[0].boxes, res1[0].masks if hasattr(res1[0], 'masks') else None, solo_negro=False)
 
-        # --- Pasada 2: Solo Negro con conf=0.45 para máxima sensibilidad ---
-        res2 = modelo_yolo.predict(frame, conf=0.45, imgsz=480, verbose=False)
+        # --- Pasada 2: Solo Negro con conf=0.35 para máxima sensibilidad (pelotas oscuras amontonadas) ---
+        res2 = modelo_yolo.predict(frame, conf=0.35, imgsz=640, verbose=False)
         if len(res2) > 0 and res2[0].boxes is not None:
             _procesar_cajas(res2[0].boxes, res2[0].masks if hasattr(res2[0], 'masks') else None, solo_negro=True)
 
         # NMS Global para no marcar el mismo objeto 2 veces con colores distintos o cajas repetidas
-        # factor_radio 0.75 para que si dos detecciones se solapan >75% del radio se cuenten como 1
+        # factor_radio 0.75 para ser más agresivo eliminando duplicados
         detecciones_brutas = nms_global(detecciones_brutas, factor_radio=0.75)
 
     detectado_result = None
@@ -344,7 +334,7 @@ def procesar_frame_yolo_api(frame, estado, modelo_yolo, mobile_mode=False, calib
     # Si es mobile, saltamos el tracker pesado y reportamos directo
     if mobile_mode:
         all_balls = []
-        for nombre in ['Negro', 'Rojo', 'Blanco']:
+        for nombre in ['Negro', 'Blanco', 'Rojo']:
             for idx, det in enumerate(detecciones_brutas[nombre]):
                 if len(det) > 3 and det[3] is not None:
                     cx, cy, r, contour = det
@@ -366,7 +356,7 @@ def procesar_frame_yolo_api(frame, estado, modelo_yolo, mobile_mode=False, calib
                 })
                 
                 # Reportar detectado instantáneo
-                mapa_cargas = {"Rojo": 1.0, "Blanco": 3.0, "Negro": 5.0}
+                mapa_cargas = {"Rojo": 1.0, "Blanco": 5.0, "Negro": 3.0}
                 
                 if not detectado_result:
                     detectado_result = {
@@ -383,7 +373,7 @@ def procesar_frame_yolo_api(frame, estado, modelo_yolo, mobile_mode=False, calib
                     
         return detectado_result, frame
 
-    for nombre in ['Negro', 'Rojo', 'Blanco']:
+    for nombre in ['Negro', 'Blanco', 'Rojo']:
         lista = sorted(detecciones_brutas[nombre], key=lambda d: (d[1]//80, d[0]//80))
         asignaciones = emparejar_detecciones(trackers[nombre], lista)
         
@@ -416,7 +406,7 @@ def procesar_frame_yolo_api(frame, estado, modelo_yolo, mobile_mode=False, calib
             # Registrar Detección y Puntos
             if (t_act - ultimo_intento.get(nombre, 0.0)) >= COOLDOWN and not detectado_result:
                 ultimo_intento[nombre] = t_act
-                mapa_cargas = {"Rojo": 15.0, "Blanco": 25.0, "Negro": 40.0}
+                mapa_cargas = {"Rojo": 1.0, "Blanco": 5.0, "Negro": 3.0}
                 detectado_result = {
                     "color": nombre,
                     "carga_kg": mapa_cargas.get(nombre, 0.0),

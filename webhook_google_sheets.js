@@ -4,7 +4,31 @@ function doPost(e) {
       return ContentService.createTextOutput(JSON.stringify({status: "error", message: "No data received"})).setMimeType(ContentService.MimeType.JSON);
     }
     
-    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+    
+    // INTENTAMOS ENCONTRAR LA PESTAÑA CORRECTA PARA GUARDAR LOS ESCANEOS
+    // Cambia "Loading" por el nombre exacto de tu pestaña donde se guardan las pelotas
+    var sheetNameForScans = "Loading"; 
+    var sheet = spreadsheet.getSheetByName(sheetNameForScans);
+    
+    // Si no existe la pestaña "Loading", buscamos una que NO sea el Scoreboard
+    if (!sheet) {
+      var allSheets = spreadsheet.getSheets();
+      for (var i = 0; i < allSheets.length; i++) {
+        var tempName = allSheets[i].getName().toLowerCase();
+        // Evitamos guardar en el Scoreboard accidentalmente
+        if (!tempName.includes("scoreboard") && !tempName.includes("puntaje")) {
+          sheet = allSheets[i];
+          break;
+        }
+      }
+    }
+    
+    // Si de plano no encontramos ninguna otra, usamos la primera por defecto
+    if (!sheet) {
+      sheet = spreadsheet.getSheets()[0];
+    }
+    
     var data = JSON.parse(e.postData.contents);
     
     var hora = data.hora || "";

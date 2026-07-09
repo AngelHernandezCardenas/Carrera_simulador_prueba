@@ -7,11 +7,13 @@
 """
 
 import os
+import csv
 import json
 import time
 import threading
 import requests as _requests
 from datetime import datetime
+from pathlib import Path
 from flask import Flask, request, jsonify, render_template_string
 from flask_socketio import SocketIO
 
@@ -39,7 +41,7 @@ def _nmea_a_decimal(coord: str, hemisferio: str) -> float | None:
         decimal = grados + minutos / 60.0
         if hemisferio.strip().upper() in ('S', 'W'):
             decimal = -decimal
-        return round(decimal, 7)
+        return round(decimal, 5)
     except Exception:
         return None
 
@@ -59,8 +61,8 @@ def _reenviar_al_mapa(datos: dict) -> None:
     # Por simplicidad asumimos N/W para México; ajusta si la Rasp ya manda
     # decimales puros (en ese caso se usan directamente).
     try:
-        lat = float(lat_nmea)
-        lon = float(lon_nmea)
+        lat = round(float(lat_nmea), 5)
+        lon = round(float(lon_nmea), 5)
         # Si el valor tiene más de 2 dígitos antes del punto decimal
         # probablemente sea NMEA; si es razonable como decimal, lo usamos tal cual.
         if abs(lat) > 90:
@@ -80,15 +82,19 @@ def _reenviar_al_mapa(datos: dict) -> None:
         "device_label": "Bicicleta Relieve",
         "participante": "bicicleta_relieve",
         "speed_kmh":    None,
-        # Campos extra (visibles en el log del servidor principal)
-        "voltaje":      datos.get("voltaje"),
-        "soc":          datos.get("soc"),
-        "motor_voltaje": datos.get("motor_voltaje"),
-        "motor_corriente": datos.get("motor_corriente"),
-        "motor_potencia": datos.get("motor_potencia"),
-        "motor_rpm": datos.get("motor_rpm"),
-        "motor_temp": datos.get("motor_temp"),
-        "ah_consumidos": datos.get("ah_consumidos")
+        # Batería principal
+        "voltaje":          datos.get("voltaje"),
+        "corriente":        datos.get("corriente"),
+        "potencia":         datos.get("potencia"),
+        "soc":              datos.get("soc"),
+        "ttg_min":          datos.get("ttg_min"),
+        "ah_consumidos":    datos.get("ah_consumidos"),
+        # Motor
+        "motor_voltaje":    datos.get("motor_voltaje"),
+        "motor_corriente":  datos.get("motor_corriente"),
+        "motor_potencia":   datos.get("motor_potencia"),
+        "motor_rpm":        datos.get("motor_rpm"),
+        "motor_temp":       datos.get("motor_temp"),
     }
 
     try:
@@ -105,6 +111,47 @@ def _reenviar_al_mapa(datos: dict) -> None:
     except Exception as e:
         print(f"[BRIDGE] [ERROR] Excepcion desconocida al conectar al mapa principal: {e}")
 
+# ── CSV ───────────────────────────────────────────────────────────────────────
+# Los CSV se guardan junto al script: relieve/relieve_datos_YYYYMMDD.csv
+CSV_DIR = Path(__file__).parent
+
+CSV_COLUMNAS = [
+    "timestamp", "dispositivo_id",
+    "latitud", "longitud",
+    "voltaje", "corriente", "potencia", "potencia_calculada", "soc", "ttg_min",
+    "ah_consumidos",
+    "motor_voltaje", "motor_corriente", "motor_potencia",
+    "motor_rpm", "motor_temp",
+    # Campos calculados en servidor
+    "tiempo_acumulado(s)", "delta_t_s", "energia_wh", "energia_acumulada_wh",
+]
+
+
+def _guardar_csv(datos: dict) -> None:
+    """
+    Añade una fila al CSV diario.  Si el archivo no existe lo crea con cabecera.
+    Cualquier campo extra que llegue en 'datos' y no esté en CSV_COLUMNAS
+    se guarda igualmente al final.
+    """
+    hoy = datetime.now().strftime("%Y%m%d")
+    ruta = CSV_DIR / f"relieve_datos_{hoy}.csv"
+
+    # Columnas = las predefinidas + cualquier campo extra que llegue
+    campos_extra = [k for k in datos if k not in CSV_COLUMNAS]
+    columnas = CSV_COLUMNAS + campos_extra
+
+    nuevo = not ruta.exists()
+    try:
+        with open(ruta, "a", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=columnas, extrasaction="ignore")
+            if nuevo:
+                writer.writeheader()
+                print(f"[CSV] Archivo creado: {ruta}")
+            writer.writerow(datos)
+    except Exception as e:
+        print(f"[CSV] [ERROR] No se pudo escribir en el CSV: {e}")
+
+
 # ── App ────────────────────────────────────────────────────────────────────────
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "relieve-secret-key"
@@ -118,6 +165,10 @@ dispositivos: dict[str, dict] = {}
 # Historial de los últimos 200 paquetes (todos los dispositivos mezclados)
 historial: list[dict] = []
 HISTORIAL_MAX = 200
+
+# ── Stats acumulados por dispositivo (calculados en servidor) ─────────────────
+# _device_stats[id] = { "start": datetime, "last": datetime, "energia_acum_wh": float }
+_device_stats: dict[str, dict] = {}
 
 # ── HTML del dashboard (todo en este mismo archivo, sin dependencias) ─────────
 DASHBOARD_HTML = """
@@ -359,19 +410,19 @@ DASHBOARD_HTML = """
         <thead>
           <tr>
             <th>Timestamp</th>
+            <th>T. Acum. (s)</th>
             <th>Dispositivo</th>
             <th>Latitud</th>
             <th>Longitud</th>
             <th>V (V)</th>
             <th>I (A)</th>
-            <th>W</th>
+            <th>W (Rasp)</th>
+            <th>W (Calc)</th>
             <th>SOC %</th>
             <th>TTG min</th>
-            <th>Motor V</th>
-            <th>Motor I</th>
-            <th>Motor W</th>
-            <th>RPM</th>
-            <th>Temp °C</th>
+            <th title="Intervalo entre paquetes">Δt (s)</th>
+            <th>E (Wh)</th>
+            <th>E acum. (Wh)</th>
           </tr>
         </thead>
         <tbody id="logBody"></tbody>
@@ -425,8 +476,8 @@ DASHBOARD_HTML = """
 
     const soc = d.soc ?? 0;
     const socColor = soc > 60 ? '#3de8a0' : soc > 25 ? '#f5c542' : '#ff5f6d';
-    const latRaw  = d.latitud  ?? '—';
-    const lonRaw  = d.longitud ?? '—';
+    const latRaw  = d.latitud  != null ? Number(d.latitud).toFixed(5)  : '—';
+    const lonRaw  = d.longitud != null ? Number(d.longitud).toFixed(5) : '—';
     const mapsUrl = (d.latitud && d.longitud)
       ? `https://www.google.com/maps?q=${latRaw},${lonRaw}`
       : null;
@@ -457,14 +508,6 @@ DASHBOARD_HTML = """
           <div class="metric-value">${fmt(d.potencia, 1)} W</div>
         </div>
         <div class="metric">
-          <div class="metric-label">Motor V / A / W</div>
-          <div class="metric-value" style="font-size:0.85rem">${fmt(d.motor_voltaje, 2)}V ${fmt(d.motor_corriente, 2)}A ${fmt(d.motor_potencia, 1)}W</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Motor RPM / Temp</div>
-          <div class="metric-value" style="font-size:0.85rem">${d.motor_rpm ?? '—'} / ${d.motor_temp ?? '—'}°C</div>
-        </div>
-        <div class="metric">
           <div class="metric-label">Latitud</div>
           <div class="metric-value" style="font-size:0.85rem">${latRaw}</div>
         </div>
@@ -477,26 +520,75 @@ DASHBOARD_HTML = """
     `;
   }
 
+  // ── Estado acumulado por dispositivo (energía y tiempo) ───────────────────
+  const devStats = {};
+  // devStats[id] = { startMs, lastMs, energiaAcumuladaWh }
+
+  function fmtDuracion(ms) {
+    const s = Math.max(0, Math.floor(ms / 1000));
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    return [h, m, sec].map(v => String(v).padStart(2, '0')).join(':');
+  }
+
   // ── Agregar fila a la tabla ────────────────────────────────────────────────
   function agregarFila(p, isNew = false) {
     const tbody = document.getElementById('logBody');
     const tr = document.createElement('tr');
     if (isNew) tr.className = 'new-row';
+
+    const devId = p.dispositivo_id ?? 'desconocido';
+    const ahora = Date.now();
+    let tiempoAcum = '—';
+    let eWh        = '—';
+    let eAcumStr   = '—';
+    let deltaS     = '—';
+
+    if (isNew) {
+      if (!devStats[devId]) {
+        devStats[devId] = { startMs: ahora, lastMs: ahora, energiaAcumuladaWh: 0 };
+      }
+      const st = devStats[devId];
+
+      // Tiempo acumulado desde el primer paquete del dispositivo en segundos
+      tiempoAcum = Math.max(0, Math.floor((ahora - st.startMs) / 1000));
+
+      // Δt entre paquetes
+      const deltaMs = ahora - st.lastMs;
+      if (st.lastMs !== st.startMs && deltaMs > 0) {
+        deltaS = (deltaMs / 1000).toFixed(1);
+      }
+
+      // E(Wh) = P × (Δt / 3_600_000)   [Δt en ms]
+      const potencia = Number(p.potencia_calculada != null ? p.potencia_calculada : p.potencia);
+      if (Number.isFinite(potencia) && deltaMs > 0 && st.lastMs !== st.startMs) {
+        const sampleWh = potencia * (deltaMs / 3_600_000);
+        st.energiaAcumuladaWh += sampleWh;
+        eWh = sampleWh.toFixed(4);
+      }
+      eAcumStr = Number.isFinite(st.energiaAcumuladaWh) ? st.energiaAcumuladaWh.toFixed(4) : '—';
+      st.lastMs = ahora;
+    }
+
+    const latStr = p.latitud  != null ? Number(p.latitud).toFixed(5)  : '—';
+    const lonStr = p.longitud != null ? Number(p.longitud).toFixed(5) : '—';
+
     tr.innerHTML = `
       <td class="muted">${p.timestamp ?? '—'}</td>
-      <td>${p.dispositivo_id ?? '—'}</td>
-      <td>${p.latitud  ?? '—'}</td>
-      <td>${p.longitud ?? '—'}</td>
+      <td style="color:var(--accent);font-weight:500">${tiempoAcum}</td>
+      <td>${devId}</td>
+      <td>${latStr}</td>
+      <td>${lonStr}</td>
       <td>${fmt(p.voltaje, 2)}</td>
       <td>${fmt(p.corriente, 2)}</td>
       <td>${fmt(p.potencia, 1)}</td>
+      <td>${fmt(p.potencia_calculada, 2)}</td>
       <td>${fmt(p.soc, 1)}</td>
       <td>${p.ttg_min ?? '—'}</td>
-      <td>${fmt(p.motor_voltaje, 2)}</td>
-      <td>${fmt(p.motor_corriente, 2)}</td>
-      <td>${fmt(p.motor_potencia, 1)}</td>
-      <td>${p.motor_rpm ?? '—'}</td>
-      <td>${p.motor_temp ?? '—'}</td>
+      <td class="muted">${deltaS}</td>
+      <td style="color:var(--yellow)">${eWh}</td>
+      <td style="color:var(--green);font-weight:600">${eAcumStr}</td>
     `;
     tbody.insertBefore(tr, tbody.firstChild);
     // Limitar filas en pantalla a 100
@@ -578,6 +670,65 @@ def recibir_datos():
         f"BAT: {data.get('voltaje','?')}V {data.get('corriente','?')}A {data.get('potencia','?')}W SOC:{data.get('soc','?')}% TTG:{data.get('ttg_min','?')}m | "
         f"MOT: {data.get('motor_voltaje','?')}V {data.get('motor_corriente','?')}A {data.get('motor_potencia','?')}W RPM:{data.get('motor_rpm','?')} T:{data.get('motor_temp','?')}C"
     )
+
+    # ── Calcular campos de energía y tiempo en el servidor ──────────────────
+    ahora = datetime.now()
+    with _lock:
+        if dispositivo_id not in _device_stats:
+            _device_stats[dispositivo_id] = {
+                "start":           ahora,
+                "last":            ahora,
+                "energia_acum_wh": 0.0,
+                "last_potencia":   0.0  # <--- Agregamos esto para recordar la potencia previa
+            }
+        st = _device_stats[dispositivo_id]
+
+        # Tiempo acumulado desde el primer paquete
+        delta_total = (ahora - st["start"]).total_seconds()
+        data["tiempo_acumulado(s)"] = int(delta_total)
+
+        # Δt entre paquetes consecutivos
+        delta_s = (ahora - st["last"]).total_seconds()
+        if st["last"] != st["start"] and delta_s > 0:
+            data["delta_t_s"] = round(delta_s, 2)
+        else:
+            data["delta_t_s"] = None
+
+        # ── NUEVO CÁLCULO DE ENERGÍA (Filtro de ceros + Regla del Trapecio) ──
+        try:
+            v_val = float(data.get("voltaje") or 0.0)
+            i_val = float(data.get("corriente") or 0.0)
+            potencia_actual = v_val * i_val
+        except (TypeError, ValueError):
+            potencia_actual = 0.0
+            
+        data["potencia_calculada"] = round(potencia_actual, 2)
+
+        potencia_anterior = st["last_potencia"]
+ 
+        # Filtro: Si cae a 0 abruptamente, asumimos que es un microcorte del sensor y usamos el valor anterior
+        if potencia_actual == 0.0 and potencia_anterior > 0.0:
+            potencia_actual = potencia_anterior
+            data["potencia_calculada"] = round(potencia_actual, 2)  # Sobreescribimos el payload para que el CSV y UI vean el dato corregido
+
+        if data["delta_t_s"] is not None and delta_s > 0:
+            # Integración trapezoidal
+            potencia_promedio = (potencia_actual + potencia_anterior) / 2.0
+            e_wh = potencia_promedio * (delta_s / 3600.0)
+            
+            st["energia_acum_wh"] += e_wh
+            data["energia_wh"]           = round(e_wh, 6)
+            data["energia_acumulada_wh"] = round(st["energia_acum_wh"], 6)
+        else:
+            data["energia_wh"]           = None
+            data["energia_acumulada_wh"] = round(st["energia_acum_wh"], 6)
+
+        # Actualizar estado para la siguiente iteración
+        st["last_potencia"] = potencia_actual
+        st["last"] = ahora
+
+    # Guardar en CSV
+    _guardar_csv(data)
 
     # Emitir al dashboard propio
     socketio.emit("nuevo_paquete", data)

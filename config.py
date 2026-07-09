@@ -14,8 +14,8 @@ MAX_JUECES_POR_CHECKPOINT = 2
 # Debes llenar esta variable con la URL que obtengas al implementar tu script
 GOOGLE_APPS_SCRIPT_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbz9syGZK33V3QHTBfnCquv7faJSdutlaI6xNZTlX66LetBNsjasgEwOIHhNr8hx4j-9/exec"
 
-# Duracion de la sesion
-DURACION = 4 * 60 * 60  # 4 horas en segundos
+# --- Duración de la sesión ---
+DURACION = 24 * 60 * 60  # 24 horas en segundos
 
 # Locks globales
 file_lock = threading.Lock()

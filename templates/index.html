@@ -697,10 +697,12 @@ Magnitude: --</div>
             for(let i=0; i<maxCounts.Blanco; i++) colorArray.push("Blanco");
             for(let i=0; i<maxCounts.Negro; i++) colorArray.push("Negro");
 
+            const lat5 = Math.round(pos.coords.latitude  * 1e5) / 1e5;
+            const lon5 = Math.round(pos.coords.longitude * 1e5) / 1e5;
             const resp = await fetch("/gps", {
                 method: "POST", headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    latitude: pos.coords.latitude, longitude: pos.coords.longitude,
+                    latitude: lat5, longitude: lon5,
                     accuracy: pos.coords.accuracy, altitude: pos.coords.altitude, heading: pos.coords.heading,
                     speed_mps: speed.speed_mps, speed_kmh: speed.speed_kmh, speed_source: speed.speed_source,
                     accel_gx: accelData.gx, accel_gy: accelData.gy, accel_gz: accelData.gz, accel_g_magnitude: accelData.g_magnitude,

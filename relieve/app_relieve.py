@@ -118,12 +118,12 @@ CSV_DIR = Path(__file__).parent
 CSV_COLUMNAS = [
     "timestamp", "dispositivo_id",
     "latitud", "longitud",
-    "voltaje", "corriente", "potencia", "soc", "ttg_min",
+    "voltaje", "corriente", "potencia", "potencia_calculada", "soc", "ttg_min",
     "ah_consumidos",
     "motor_voltaje", "motor_corriente", "motor_potencia",
     "motor_rpm", "motor_temp",
     # Campos calculados en servidor
-    "tiempo_acumulado", "delta_t_s", "energia_wh", "energia_acumulada_wh",
+    "tiempo_acumulado(s)", "delta_t_s", "energia_wh", "energia_acumulada_wh",
 ]
 
 
@@ -410,13 +410,14 @@ DASHBOARD_HTML = """
         <thead>
           <tr>
             <th>Timestamp</th>
-            <th>T. Acum.</th>
+            <th>T. Acum. (s)</th>
             <th>Dispositivo</th>
             <th>Latitud</th>
             <th>Longitud</th>
             <th>V (V)</th>
             <th>I (A)</th>
-            <th>W</th>
+            <th>W (Rasp)</th>
+            <th>W (Calc)</th>
             <th>SOC %</th>
             <th>TTG min</th>
             <th title="Intervalo entre paquetes">Δt (s)</th>
@@ -550,8 +551,8 @@ DASHBOARD_HTML = """
       }
       const st = devStats[devId];
 
-      // Tiempo acumulado desde el primer paquete del dispositivo
-      tiempoAcum = fmtDuracion(ahora - st.startMs);
+      // Tiempo acumulado desde el primer paquete del dispositivo en segundos
+      tiempoAcum = Math.max(0, Math.floor((ahora - st.startMs) / 1000));
 
       // Δt entre paquetes
       const deltaMs = ahora - st.lastMs;
@@ -560,7 +561,7 @@ DASHBOARD_HTML = """
       }
 
       // E(Wh) = P × (Δt / 3_600_000)   [Δt en ms]
-      const potencia = Number(p.potencia);
+      const potencia = Number(p.potencia_calculada != null ? p.potencia_calculada : p.potencia);
       if (Number.isFinite(potencia) && deltaMs > 0 && st.lastMs !== st.startMs) {
         const sampleWh = potencia * (deltaMs / 3_600_000);
         st.energiaAcumuladaWh += sampleWh;
@@ -582,6 +583,7 @@ DASHBOARD_HTML = """
       <td>${fmt(p.voltaje, 2)}</td>
       <td>${fmt(p.corriente, 2)}</td>
       <td>${fmt(p.potencia, 1)}</td>
+      <td>${fmt(p.potencia_calculada, 2)}</td>
       <td>${fmt(p.soc, 1)}</td>
       <td>${p.ttg_min ?? '—'}</td>
       <td class="muted">${deltaS}</td>
@@ -683,10 +685,7 @@ def recibir_datos():
 
         # Tiempo acumulado desde el primer paquete
         delta_total = (ahora - st["start"]).total_seconds()
-        h = int(delta_total // 3600)
-        m = int((delta_total % 3600) // 60)
-        s = int(delta_total % 60)
-        data["tiempo_acumulado"] = f"{h:02d}:{m:02d}:{s:02d}"
+        data["tiempo_acumulado(s)"] = int(delta_total)
 
         # Δt entre paquetes consecutivos
         delta_s = (ahora - st["last"]).total_seconds()
@@ -697,16 +696,20 @@ def recibir_datos():
 
         # ── NUEVO CÁLCULO DE ENERGÍA (Filtro de ceros + Regla del Trapecio) ──
         try:
-            potencia_actual = float(data.get("potencia") or 0.0)
+            v_val = float(data.get("voltaje") or 0.0)
+            i_val = float(data.get("corriente") or 0.0)
+            potencia_actual = v_val * i_val
         except (TypeError, ValueError):
             potencia_actual = 0.0
+            
+        data["potencia_calculada"] = round(potencia_actual, 2)
 
         potencia_anterior = st["last_potencia"]
-
+ 
         # Filtro: Si cae a 0 abruptamente, asumimos que es un microcorte del sensor y usamos el valor anterior
         if potencia_actual == 0.0 and potencia_anterior > 0.0:
             potencia_actual = potencia_anterior
-            data["potencia"] = potencia_actual  # Sobreescribimos el payload para que el CSV y UI vean el dato corregido
+            data["potencia_calculada"] = round(potencia_actual, 2)  # Sobreescribimos el payload para que el CSV y UI vean el dato corregido
 
         if data["delta_t_s"] is not None and delta_s > 0:
             # Integración trapezoidal

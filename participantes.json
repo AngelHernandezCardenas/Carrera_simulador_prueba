@@ -88,8 +88,8 @@
     "nombre": "participante_16",
     "device_id": "Raspberry_Relieve1",
     "last_coord": [
-      25.65299,
-      -100.29013
+      25.65176,
+      -100.29093
     ],
     "checkpoints_visitados": [],
     "cantidad_checkpoints_visitados": 0,
@@ -100,15 +100,15 @@
       "nombre": "Checkpoint 3"
     },
     "checkpoint_pendiente_mas_cercano_id": 3,
-    "distancia_checkpoint_pendiente_mas_cercano_m": 172.45,
+    "distancia_checkpoint_pendiente_mas_cercano_m": 78.12,
     "checkpoint_mas_cercano": {
       "id": 3,
       "nombre": "Checkpoint 3"
     },
     "checkpoint_mas_cercano_id": 3,
-    "distancia_checkpoint_mas_cercano_m": 172.45,
-    "puntuacion_checkpoints": -172.45,
-    "puntaje_checkpoints": 6.2,
+    "distancia_checkpoint_mas_cercano_m": 78.12,
+    "puntuacion_checkpoints": -78.12,
+    "puntaje_checkpoints": 6.9,
     "checkpoints_puntos_entregados": [],
     "puntos_totales": 0,
     "peso": 0,
@@ -168,5 +168,11 @@
   },
   "dev-mrayoori-mg7lo9c6": {
     "nombre": "participante_30"
+  },
+  "dev-mrcpqaaa-5umqvvhi": {
+    "nombre": "participante_31"
+  },
+  "dev-mrcpwbq3-rldn94ol": {
+    "nombre": "participante_32"
   }
 }

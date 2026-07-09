@@ -30,32 +30,42 @@ function doGet(e) {
   if (action === "getScoreboard") {
     try {
       var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-      var sheet = spreadsheet.getSheetByName("Scoreboard") || spreadsheet.getActiveSheet(); 
+      var sheets = spreadsheet.getSheets();
       
-      var data = sheet.getDataRange().getDisplayValues();
-      var result = [];
-      
-      // Buscar en qué fila están los encabezados (donde dice "Rank" y "Team")
+      var data = null;
       var headerRowIndex = -1;
-      for (var i = 0; i < data.length; i++) {
-        var rowStr = data[i].join("").toLowerCase();
-        if (rowStr.includes("rank") && rowStr.includes("team")) {
-          headerRowIndex = i;
-          break;
+      var targetSheet = null;
+      
+      // Buscar en TODAS las pestañas cuál es la que tiene el Scoreboard (buscando "Rank" y "Team")
+      for (var s = 0; s < sheets.length; s++) {
+        var tempSheet = sheets[s];
+        var tempData = tempSheet.getDataRange().getDisplayValues();
+        
+        for (var i = 0; i < tempData.length; i++) {
+          var rowStr = tempData[i].join("").toLowerCase();
+          if (rowStr.includes("rank") && rowStr.includes("team")) {
+            headerRowIndex = i;
+            data = tempData;
+            targetSheet = tempSheet;
+            break;
+          }
+        }
+        if (headerRowIndex !== -1) {
+          break; // Ya encontramos la hoja correcta
         }
       }
       
       if (headerRowIndex === -1) {
-        return ContentService.createTextOutput(JSON.stringify({error: "No se encontraron los encabezados Rank y Team"})).setMimeType(ContentService.MimeType.JSON);
+        return ContentService.createTextOutput(JSON.stringify({error: "No se encontraron los encabezados Rank y Team en ninguna pestaña"})).setMimeType(ContentService.MimeType.JSON);
       }
       
+      var result = [];
       var headers = data[headerRowIndex];
       
       for (var i = headerRowIndex + 1; i < data.length; i++) {
         var row = data[i];
         var obj = {};
         for (var j = 0; j < headers.length; j++) {
-          // Remover espacios extra de los encabezados por si acaso
           var h = headers[j].trim();
           if (h) {
             obj[h] = row[j];

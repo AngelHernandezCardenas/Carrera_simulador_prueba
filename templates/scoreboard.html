@@ -511,31 +511,55 @@
 
     async function fetchScoreboard() {
       try {
-        const WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwJQ6Kw_pLCW0uynHf_zbO4KXQqBCgu7n3xajhsMm1Oaom4SE7Nz1g-teCMnSOUer8a/exec";
+        const WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbx5Z5a5H9QEpPtVaItwPNFLmmxlr58_wp9Xxsm3tsCiYzq3c9jACDNrnr1tP40HKgCW/exec";
         const res = await fetch(`${WEBHOOK_URL}?action=getScoreboard&t=${Date.now()}`);
         const data = await res.json();
 
         const tbody = document.getElementById('scoreboardBody');
         tbody.innerHTML = '';
 
-        if (data && data.length > 0) {
-           const lead = data[0];
-           document.getElementById('leadTeamName').textContent = lead["Team"] || "-";
-           document.getElementById('leadTeamLoading').textContent = lead["Load (%)"] || lead["Loading"] || "-";
-           document.getElementById('leadTeamPoints').textContent = lead["Total (-/100)"] || lead["Total"] || "-";
+        // Normalizar claves del JSON por si traen saltos de línea (\n) o textos compuestos
+        const normalizedData = data.map(row => {
+          const normalized = {};
+          Object.keys(row).forEach(key => {
+            const lowKey = key.toLowerCase();
+            if (lowKey.includes("rank")) {
+              normalized.rank = row[key];
+            } else if (lowKey.includes("team") || lowKey.includes("equipo")) {
+              normalized.team = row[key];
+            } else if (lowKey.includes("load") || lowKey.includes("loading")) {
+              normalized.load = row[key];
+            } else if (lowKey.includes("energy")) {
+              normalized.energy = row[key];
+            } else if (lowKey.includes("time")) {
+              normalized.time = row[key];
+            } else if (lowKey.includes("challenge")) {
+              normalized.challenges = row[key];
+            } else if (lowKey.includes("total")) {
+              normalized.total = row[key];
+            }
+          });
+          return normalized;
+        });
+
+        if (normalizedData && normalizedData.length > 0) {
+           const lead = normalizedData[0];
+           document.getElementById('leadTeamName').textContent = lead.team || "-";
+           document.getElementById('leadTeamLoading').textContent = lead.load || "-";
+           document.getElementById('leadTeamPoints').textContent = lead.total || "-";
         }
 
         let renderedRows = 0;
-        data.forEach((row, idx) => {
-          const rank = row["Rank"];
+        normalizedData.forEach((row, idx) => {
+          const rank = row.rank;
           if (!rank) return;
 
-          const teamName = row["Team"] || "Unknown";
-          const loadingPct = row["Load (%)"] || row["Loading"] || "0%";
-          const energyPct = row["Energy (%)"] || row["Energy"] || "0%";
-          const timeVal = row["Time (%)"] || row["Time"] || "0%";
-          const challengesPct = row["Challenges (%)"] || row["Challenges"] || "0%";
-          const totalScore = row["Total (-/100)"] || row["Total"] || "0";
+          const teamName = row.team || "Unknown";
+          const loadingPct = row.load || "0%";
+          const energyPct = row.energy || "0%";
+          const timeVal = row.time || "0%";
+          const challengesPct = row.challenges || "0%";
+          const totalScore = row.total || "0";
 
           renderedRows++;
           const isEven = renderedRows % 2 === 0;

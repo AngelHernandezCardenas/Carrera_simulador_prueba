@@ -236,24 +236,6 @@ export default function ScannerCamera({
       {/* Contadores Manuales */}
       <View style={styles.countersContainer}>
         <View style={styles.counterPanel}>
-          <View style={[styles.counterCircle, { backgroundColor: '#ef4444' }]}>
-            <Text style={styles.counterTextWhite}>Red</Text>
-          </View>
-          <View style={styles.stepperContainer}>
-            <TextInput
-              style={styles.manualInputStepper}
-              keyboardType="numeric"
-              placeholder="0"
-              value={maxCounts.Rojo === 0 ? "" : maxCounts.Rojo.toString()}
-              onChangeText={(val) => {
-                const num = parseInt(val) || 0;
-                if (setMaxCounts) setMaxCounts(prev => ({ ...prev, Rojo: num }));
-              }}
-            />
-          </View>
-        </View>
-
-        <View style={styles.counterPanel}>
           <View style={[styles.counterCircle, { backgroundColor: 'white', borderWidth: 1, borderColor: '#ccc' }]}>
             <Text style={styles.counterTextBlack}>White</Text>
           </View>
@@ -266,6 +248,24 @@ export default function ScannerCamera({
               onChangeText={(val) => {
                 const num = parseInt(val) || 0;
                 if (setMaxCounts) setMaxCounts(prev => ({ ...prev, Blanco: num }));
+              }}
+            />
+          </View>
+        </View>
+
+        <View style={styles.counterPanel}>
+          <View style={[styles.counterCircle, { backgroundColor: '#ef4444' }]}>
+            <Text style={styles.counterTextWhite}>Red</Text>
+          </View>
+          <View style={styles.stepperContainer}>
+            <TextInput
+              style={styles.manualInputStepper}
+              keyboardType="numeric"
+              placeholder="0"
+              value={maxCounts.Rojo === 0 ? "" : maxCounts.Rojo.toString()}
+              onChangeText={(val) => {
+                const num = parseInt(val) || 0;
+                if (setMaxCounts) setMaxCounts(prev => ({ ...prev, Rojo: num }));
               }}
             />
           </View>

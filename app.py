@@ -278,7 +278,19 @@ def get_participants_for_view() -> list[str]:
     )
 
 def get_scoreboard_data() -> list[dict]:
-    from Puntaje import get_puntaje_retos, get_activity_points, get_time_s, get_team_name, get_team_id, nombres_equipos_cache, puntajes_retos_lock
+    from Puntaje import (
+        get_activity_points,
+        get_challenges_percent,
+        get_energy_percent,
+        get_load_percent,
+        get_puntaje_retos,
+        get_team_id,
+        get_team_name,
+        get_time_percent,
+        get_time_s,
+        nombres_equipos_cache,
+        puntajes_retos_lock,
+    )
     scoreboard_list = []
     
     galeria = load_gallery_items()
@@ -320,6 +332,10 @@ def get_scoreboard_data() -> list[dict]:
         
         activity_points = get_activity_points(nombre)
         time_s = get_time_s(nombre)
+        load_percent = get_load_percent(nombre)
+        energy_percent = get_energy_percent(nombre)
+        time_percent = get_time_percent(nombre)
+        challenges_percent = get_challenges_percent(nombre)
         
         equipo_nombre = get_team_name(nombre)
         team_id = get_team_id(nombre)
@@ -331,6 +347,13 @@ def get_scoreboard_data() -> list[dict]:
             "nombre": nombre,
             "equipo": equipo_nombre,
             "team_id": team_id,
+            "Team": equipo_nombre,
+            "Team ID": team_id,
+            "Load (%)": round(load_percent, 2),
+            "Energy (%)": round(energy_percent, 2),
+            "Time (%)": round(time_percent, 2),
+            "Challenges (%)": round(challenges_percent, 2),
+            "Total (-/100)": round(puntaje_sheets, 2),
             "scores": scores,
             "total_score": round(total_score, 2),
             "puntaje_sheets": round(puntaje_sheets, 2),
@@ -343,7 +366,10 @@ def get_scoreboard_data() -> list[dict]:
             "peso_entregado_kg": round(safe_float(entry.get("peso_entregado_kg"), 0.0), 2),
         })
                 
-    return sorted(scoreboard_list, key=lambda x: x["total_score"], reverse=True)
+    scoreboard_list = sorted(scoreboard_list, key=lambda x: x["Total (-/100)"], reverse=True)
+    for idx, row in enumerate(scoreboard_list, start=1):
+        row["Rank"] = idx
+    return scoreboard_list
 
 
 def safe_filename_part(value) -> str:

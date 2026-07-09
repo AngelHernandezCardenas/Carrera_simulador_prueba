@@ -7,12 +7,16 @@ import pandas as pd
 
 
 URL_CSV = "https://docs.google.com/spreadsheets/d/12XWCYO1ZQnaXqPCrHneu70BThHSja_hduYWnIFZxQYw/export?format=xlsx"
-NOMBRE_HOJA = "Results"
+NOMBRE_HOJA = "Stream"
 
 ultimo_estado = None
 puntajes_retos_cache: dict[str, float] = {}
 activity_points_cache: dict[str, float] = {}
 time_s_cache: dict[str, float] = {}
+load_percent_cache: dict[str, float] = {}
+energy_percent_cache: dict[str, float] = {}
+time_percent_cache: dict[str, float] = {}
+challenges_percent_cache: dict[str, float] = {}
 totales_retos_cache: dict[str, float] = {}
 nombres_equipos_cache: dict[str, str] = {}
 team_id_cache: dict[str, str] = {}
@@ -54,19 +58,55 @@ def normalizar_participante(equipo) -> str | None:
 def obtener_puntajes_por_participante(df: pd.DataFrame) -> dict[str, dict[str, float]]:
     import re
     resultados = {}
-    
+
     # Cast column names to str to avoid 'int has no attribute replace' when
-    # pandas loads a sheet without a proper header row (columns become 0,1,2,...)\
+    # pandas loads a sheet without a proper header row (columns become 0,1,2,...)\ 
     str_columns = [str(c) for c in df.columns]
-    cols = {c.replace('\n', '').replace(' ', '').lower(): orig for c, orig in zip(str_columns, df.columns)}
+    cols = {normalizar_columna(c): orig for c, orig in zip(str_columns, df.columns)}
 
-    col_team_id   = cols.get('teamidequipoid')   or df.columns[0]
-    col_team_name = cols.get('teamequipo')        or (df.columns[1] if len(df.columns) > 1 else df.columns[0])
-    col_total     = cols.get('totaltotal')        or (df.columns[17] if len(df.columns) > 17 else df.columns[-1])
-    col_time      = cols.get('time_stiempo_s')   or (df.columns[3]  if len(df.columns) > 3  else None)
+    def buscar_columna(*opciones: str, default=None):
+        for opcion in opciones:
+            clave = normalizar_columna(opcion)
+            if clave in cols:
+                return cols[clave]
+        return default
 
-    # Challenges = sum of columns E:N (indices 4 to 13, the 10 individual challenge scores)
-    # This matches the user request: cells E2:O17 on the Results page
+    def buscar_columna_por_tokens(*tokens: str, default=None):
+        tokens_norm = [normalizar_columna(token) for token in tokens]
+        for clave, orig in cols.items():
+            if all(token in clave for token in tokens_norm):
+                return orig
+        return default
+
+    col_team_id = (
+        buscar_columna('teamidequipoid', 'team id', 'equipo id')
+        or buscar_columna_por_tokens('team', 'id')
+        or buscar_columna_por_tokens('equipo', 'id')
+        or df.columns[0]
+    )
+    col_team_name = (
+        buscar_columna('teamequipo', 'team', 'equipo')
+        or buscar_columna_por_tokens('team')
+        or buscar_columna_por_tokens('equipo')
+        or (df.columns[1] if len(df.columns) > 1 else df.columns[0])
+    )
+    col_total = (
+        buscar_columna('totaltotal', 'total (-/100)', 'total')
+        or buscar_columna_por_tokens('total')
+        or (df.columns[17] if len(df.columns) > 17 else df.columns[-1])
+    )
+    col_time_s = (
+        buscar_columna('time_stiempo_s', 'time_s', 'tiempo_s')
+        or buscar_columna_por_tokens('time', 's')
+        or buscar_columna_por_tokens('tiempo', 's')
+        or (df.columns[3] if len(df.columns) > 3 else None)
+    )
+    col_load_percent = buscar_columna('load (%)', 'loading', 'load', 'carga (%)') or buscar_columna_por_tokens('load')
+    col_energy_percent = buscar_columna('energy (%)', 'energy', 'energia', 'energía') or buscar_columna_por_tokens('energy') or buscar_columna_por_tokens('energia')
+    col_time_percent = buscar_columna('time (%)', 'time', 'tiempo (%)') or buscar_columna_por_tokens('time')
+    col_challenges_percent = buscar_columna('challenges (%)', 'challenges', 'retos (%)') or buscar_columna_por_tokens('challenge') or buscar_columna_por_tokens('reto')
+
+    # Compatibility fallback for older sheets with individual challenge columns.
     challenge_col_indices = [i for i in range(4, 14) if i < len(df.columns)]
 
     for idx, row in df.iterrows():
@@ -74,7 +114,7 @@ def obtener_puntajes_por_participante(df: pd.DataFrame) -> dict[str, dict[str, f
             equipo_id_str = str(row[col_team_id])
             nombre_equipo = str(row[col_team_name])
             puntaje_val   = row[col_total]
-            time_val      = row[col_time] if col_time is not None else None
+            time_val      = row[col_time_s] if col_time_s is not None else None
             
             # Sum all individual challenge columns (E to N = indices 4 to 13)
             challenge_total = 0.0
@@ -98,11 +138,58 @@ def obtener_puntajes_por_participante(df: pd.DataFrame) -> dict[str, dict[str, f
                     "time_s":          time_s,
                     "total":           100.0,
                     "team_id":         equipo_id_str,
-                    "team_name":       nombre_equipo
+                    "team_name":       nombre_equipo,
+                    "load_percent": safe_float(row[col_load_percent]) if col_load_percent is not None else 0.0,
+                    "energy_percent": safe_float(row[col_energy_percent]) if col_energy_percent is not None else 0.0,
+                    "time_percent": safe_float(row[col_time_percent]) if col_time_percent is not None else 0.0,
+                    "challenges_percent": safe_float(row[col_challenges_percent]) if col_challenges_percent is not None else challenge_total,
                 }
         except Exception:
             continue
     return resultados
+
+
+def normalizar_columna(valor) -> str:
+    import unicodedata
+
+    texto = str(valor or "").strip().lower()
+    texto = unicodedata.normalize("NFKD", texto)
+    texto = "".join(char for char in texto if not unicodedata.combining(char))
+    return "".join(char for char in texto if char.isalnum())
+
+
+def safe_float(valor, default: float = 0.0) -> float:
+    if pd.isna(valor):
+        return default
+    try:
+        if isinstance(valor, str):
+            valor = valor.strip().replace("%", "").replace(",", ".")
+        return float(valor)
+    except (TypeError, ValueError):
+        return default
+
+
+def normalizar_dataframe_puntajes(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
+
+    working = df.dropna(how="all").reset_index(drop=True)
+    if working.empty:
+        return working
+
+    for idx, row in working.iterrows():
+        values = [str(value).strip() for value in row.tolist() if pd.notna(value) and str(value).strip()]
+        normalized = " ".join(normalizar_columna(value) for value in values)
+        has_header_words = (
+            ("team" in normalized or "equipo" in normalized)
+            and ("total" in normalized or "challenge" in normalized or "reto" in normalized)
+        )
+        if len(values) >= 3 and has_header_words:
+            normalized_df = working.iloc[idx + 1:].copy()
+            normalized_df.columns = [str(value).strip() if pd.notna(value) and str(value).strip() else f"col_{i}" for i, value in enumerate(row.tolist())]
+            return normalized_df.dropna(how="all").reset_index(drop=True)
+
+    return working
 
 
 def leer_hoja_puntajes() -> pd.DataFrame:
@@ -122,10 +209,12 @@ def leer_hoja_puntajes() -> pd.DataFrame:
         with urlopen(request, timeout=15) as response:
             excel_bytes = response.read()
 
-        return pd.read_excel(
+        df = pd.read_excel(
             BytesIO(excel_bytes),
             sheet_name=NOMBRE_HOJA,
+            header=None,
         )
+        return normalizar_dataframe_puntajes(df)
     except Exception:
         # Devuelve un DataFrame simulado con los datos de la imagen si SharePoint bloquea
         mock_data = [
@@ -168,6 +257,10 @@ def set_puntajes_retos_cache(puntajes_por_participante: dict[str, dict[str, floa
             puntajes_retos_cache[participante] = puntaje_nuevo
             activity_points_cache[participante] = float(valores.get("activity_points", 0.0))
             time_s_cache[participante] = float(valores.get("time_s", 0.0))
+            load_percent_cache[participante] = float(valores.get("load_percent", 0.0))
+            energy_percent_cache[participante] = float(valores.get("energy_percent", 0.0))
+            time_percent_cache[participante] = float(valores.get("time_percent", 0.0))
+            challenges_percent_cache[participante] = float(valores.get("challenges_percent", 0.0))
             totales_retos_cache[participante] = 100.0
             if "team_name" in valores:
                 nombres_equipos_cache[participante] = valores["team_name"]
@@ -195,6 +288,22 @@ def get_activity_points(participante: str) -> float:
 def get_time_s(participante: str) -> float:
     with puntajes_retos_lock:
         return float(time_s_cache.get(participante, 0.0))
+
+def get_load_percent(participante: str) -> float:
+    with puntajes_retos_lock:
+        return float(load_percent_cache.get(participante, 0.0))
+
+def get_energy_percent(participante: str) -> float:
+    with puntajes_retos_lock:
+        return float(energy_percent_cache.get(participante, 0.0))
+
+def get_time_percent(participante: str) -> float:
+    with puntajes_retos_lock:
+        return float(time_percent_cache.get(participante, 0.0))
+
+def get_challenges_percent(participante: str) -> float:
+    with puntajes_retos_lock:
+        return float(challenges_percent_cache.get(participante, 0.0))
 
 
 def get_puntaje_retos_detalle(participante: str) -> dict:

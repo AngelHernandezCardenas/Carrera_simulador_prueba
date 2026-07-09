@@ -511,31 +511,32 @@
 
     async function fetchScoreboard() {
       try {
-        const WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwJQ6Kw_pLCW0uynHf_zbO4KXQqBCgu7n3xajhsMm1Oaom4SE7Nz1g-teCMnSOUer8a/exec";
-        const res = await fetch(`${WEBHOOK_URL}?action=getScoreboard&t=${Date.now()}`);
-        const data = await res.json();
+        const res = await fetch(`/api/scoreboard?t=${Date.now()}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const payload = await res.json();
+        const data = payload.participantes || [];
 
         const tbody = document.getElementById('scoreboardBody');
         tbody.innerHTML = '';
 
         if (data && data.length > 0) {
            const lead = data[0];
-           document.getElementById('leadTeamName').textContent = lead["Team"] || "-";
-           document.getElementById('leadTeamLoading').textContent = lead["Load (%)"] || lead["Loading"] || "-";
-           document.getElementById('leadTeamPoints').textContent = lead["Total (-/100)"] || lead["Total"] || "-";
+           document.getElementById('leadTeamName').textContent = lead["Team"] || lead.equipo || "-";
+           document.getElementById('leadTeamLoading').textContent = formatPercent(lead["Load (%)"]);
+           document.getElementById('leadTeamPoints').textContent = formatScore(lead["Total (-/100)"] ?? lead.total_score);
         }
 
         let renderedRows = 0;
-        data.forEach((row, idx) => {
+        data.forEach((row) => {
           const rank = row["Rank"];
           if (!rank) return;
 
-          const teamName = row["Team"] || "Unknown";
-          const loadingPct = row["Load (%)"] || row["Loading"] || "0%";
-          const energyPct = row["Energy (%)"] || row["Energy"] || "0%";
-          const timeVal = row["Time (%)"] || row["Time"] || "0%";
-          const challengesPct = row["Challenges (%)"] || row["Challenges"] || "0%";
-          const totalScore = row["Total (-/100)"] || row["Total"] || "0";
+          const teamName = row["Team"] || row.equipo || "Unknown";
+          const loadingPct = formatPercent(row["Load (%)"]);
+          const energyPct = formatPercent(row["Energy (%)"]);
+          const timeVal = formatPercent(row["Time (%)"]);
+          const challengesPct = formatPercent(row["Challenges (%)"]);
+          const totalScore = formatScore(row["Total (-/100)"] ?? row.total_score);
 
           renderedRows++;
           const isEven = renderedRows % 2 === 0;
@@ -547,7 +548,7 @@
 
           tr.innerHTML = `
           <td style="padding: 12px; font-weight: bold; color: #1e293b;">${rank}</td>
-          <td style="padding: 12px; font-weight: bold; color: #334155;">${teamName}</td>
+          <td style="padding: 12px; font-weight: bold; color: #334155;">${escapeHtml(teamName)}</td>
           <td style="padding: 12px; color: #475569;">${loadingPct}</td>
           <td style="padding: 12px; color: #475569;">${energyPct}</td>
           <td style="padding: 12px; color: #475569;">${timeVal}</td>
@@ -562,7 +563,30 @@
         }
       } catch (err) {
         console.error(err);
+        document.getElementById('scoreboardBody').innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 30px; color: #b91c1c;">Could not load scoreboard data.</td></tr>';
       }
+    }
+
+    function formatPercent(value) {
+      let num = Number(value);
+      if (!Number.isFinite(num)) return "0%";
+      if (Math.abs(num) <= 1) num *= 100;
+      return `${num.toFixed(2).replace(/\.00$/, '')}%`;
+    }
+
+    function formatScore(value) {
+      const num = Number(value);
+      if (!Number.isFinite(num)) return "0";
+      return num.toFixed(2).replace(/\.00$/, '');
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
     }
 
     // Funciones del Modal
@@ -742,6 +766,15 @@
     }
 
     // Initialize theme: default is light
+    (function ensureThemeToggleTarget() {
+      if (!document.getElementById('themeToggle')) {
+        const themeToggle = document.createElement('span');
+        themeToggle.id = 'themeToggle';
+        themeToggle.style.display = 'none';
+        document.body.appendChild(themeToggle);
+      }
+    })();
+
     (function initTheme() {
       const saved = localStorage.getItem('scoreboard-theme');
       if (saved === 'dark') {

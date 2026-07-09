@@ -1,15 +1,36 @@
 function doPost(e) {
   try {
-    // Check if the request has a JSON payload
     if (!e || !e.postData || !e.postData.contents) {
-      return ContentService.createTextOutput(JSON.stringify({status: "error", message: "No data received"}))
-                           .setMimeType(ContentService.MimeType.JSON);
+      return ContentService.createTextOutput(JSON.stringify({status: "error", message: "No data received"})).setMimeType(ContentService.MimeType.JSON);
     }
     
-    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+    
+    // INTENTAMOS ENCONTRAR LA PESTAÑA CORRECTA PARA GUARDAR LOS ESCANEOS
+    // Cambia "Loading" por el nombre exacto de tu pestaña donde se guardan las pelotas
+    var sheetNameForScans = "Loading"; 
+    var sheet = spreadsheet.getSheetByName(sheetNameForScans);
+    
+    // Si no existe la pestaña "Loading", buscamos una que NO sea el Scoreboard
+    if (!sheet) {
+      var allSheets = spreadsheet.getSheets();
+      for (var i = 0; i < allSheets.length; i++) {
+        var tempName = allSheets[i].getName().toLowerCase();
+        // Evitamos guardar en el Scoreboard accidentalmente
+        if (!tempName.includes("scoreboard") && !tempName.includes("puntaje")) {
+          sheet = allSheets[i];
+          break;
+        }
+      }
+    }
+    
+    // Si de plano no encontramos ninguna otra, usamos la primera por defecto
+    if (!sheet) {
+      sheet = spreadsheet.getSheets()[0];
+    }
+    
     var data = JSON.parse(e.postData.contents);
     
-    // Extract variables from the JSON payload
     var hora = data.hora || "";
     var juez = data.juez || "";
     var checkpoint = data.checkpoint || "";
@@ -18,16 +39,12 @@ function doPost(e) {
     var roja = data.roja || 0;
     var negra = data.negra || 0;
     
-    // Append the row to the active sheet
-    // Columns: Hora (A), Juez (B), Checkpoint (C), Equipo (D), Blanca (E), Roja (F), Negra (G)
     sheet.appendRow([hora, juez, checkpoint, equipo, blanca, roja, negra]);
     
-    return ContentService.createTextOutput(JSON.stringify({status: "success"}))
-                         .setMimeType(ContentService.MimeType.JSON);
+    return ContentService.createTextOutput(JSON.stringify({status: "success"})).setMimeType(ContentService.MimeType.JSON);
                          
   } catch (error) {
-    return ContentService.createTextOutput(JSON.stringify({status: "error", message: error.toString()}))
-                         .setMimeType(ContentService.MimeType.JSON);
+    return ContentService.createTextOutput(JSON.stringify({status: "error", message: error.toString()})).setMimeType(ContentService.MimeType.JSON);
   }
 }
 
@@ -37,35 +54,57 @@ function doGet(e) {
   if (action === "getScoreboard") {
     try {
       var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-      // Asegúrate de que exista una pestaña llamada "Scoreboard" en tu documento.
-      // Si la pestaña se llama diferente (ej: "01 puntaje WonWheels"), cámbialo aquí.
-      var sheet = spreadsheet.getSheetByName("Scoreboard") || spreadsheet.getActiveSheet(); 
+      var sheets = spreadsheet.getSheets();
       
-      var data = sheet.getDataRange().getDisplayValues();
-      var headers = data[0];
+      var data = null;
+      var headerRowIndex = -1;
+      var targetSheet = null;
+      
+      // Buscar en TODAS las pestañas cuál es la que tiene el Scoreboard (buscando "Rank" y "Team")
+      for (var s = 0; s < sheets.length; s++) {
+        var tempSheet = sheets[s];
+        var tempData = tempSheet.getDataRange().getDisplayValues();
+        
+        for (var i = 0; i < tempData.length; i++) {
+          var rowStr = tempData[i].join("").toLowerCase();
+          if (rowStr.includes("rank") && rowStr.includes("team")) {
+            headerRowIndex = i;
+            data = tempData;
+            targetSheet = tempSheet;
+            break;
+          }
+        }
+        if (headerRowIndex !== -1) {
+          break; // Ya encontramos la hoja correcta
+        }
+      }
+      
+      if (headerRowIndex === -1) {
+        return ContentService.createTextOutput(JSON.stringify({error: "No se encontraron los encabezados Rank y Team en ninguna pestaña"})).setMimeType(ContentService.MimeType.JSON);
+      }
+      
       var result = [];
+      var headers = data[headerRowIndex];
       
-      for (var i = 1; i < data.length; i++) {
+      for (var i = headerRowIndex + 1; i < data.length; i++) {
         var row = data[i];
         var obj = {};
         for (var j = 0; j < headers.length; j++) {
-          obj[headers[j]] = row[j];
+          var h = headers[j].trim();
+          if (h) {
+            obj[h] = row[j];
+          }
         }
-        // Solo agregamos si la fila tiene datos de un Team válido
         if (obj["Team"] || obj["Equipo"]) {
            result.push(obj);
         }
       }
       
-      // Devolver los datos al Scoreboard en formato JSON
-      return ContentService.createTextOutput(JSON.stringify(result))
-                           .setMimeType(ContentService.MimeType.JSON);
+      return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
     } catch (err) {
-      return ContentService.createTextOutput(JSON.stringify({error: err.toString()}))
-                           .setMimeType(ContentService.MimeType.JSON);
+      return ContentService.createTextOutput(JSON.stringify({error: err.toString()})).setMimeType(ContentService.MimeType.JSON);
     }
   }
   
-  return ContentService.createTextOutput(JSON.stringify({status: "ok", msg: "App is running"}))
-                       .setMimeType(ContentService.MimeType.JSON);
+  return ContentService.createTextOutput(JSON.stringify({status: "ok", msg: "App is running"})).setMimeType(ContentService.MimeType.JSON);
 }

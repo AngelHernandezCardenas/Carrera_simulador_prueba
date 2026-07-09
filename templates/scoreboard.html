@@ -521,8 +521,8 @@
         if (data && data.length > 0) {
            const lead = data[0];
            document.getElementById('leadTeamName').textContent = lead["Team"] || "-";
-           document.getElementById('leadTeamLoading').textContent = lead["Load (%)"] || "-";
-           document.getElementById('leadTeamPoints').textContent = lead["Total (-/100)"] || "-";
+           document.getElementById('leadTeamLoading').textContent = lead["Load (%)"] || lead["Loading"] || "-";
+           document.getElementById('leadTeamPoints').textContent = lead["Total (-/100)"] || lead["Total"] || "-";
         }
 
         let renderedRows = 0;
@@ -531,11 +531,11 @@
           if (!rank) return;
 
           const teamName = row["Team"] || "Unknown";
-          const loadingPct = row["Load (%)"] || "0%";
-          const energyPct = row["Energy (%)"] || "0%";
-          const timeVal = row["Time (%)"] || "0%";
-          const challengesPct = row["Challenges (%)"] || "0%";
-          const totalScore = row["Total (-/100)"] || "0";
+          const loadingPct = row["Load (%)"] || row["Loading"] || "0%";
+          const energyPct = row["Energy (%)"] || row["Energy"] || "0%";
+          const timeVal = row["Time (%)"] || row["Time"] || "0%";
+          const challengesPct = row["Challenges (%)"] || row["Challenges"] || "0%";
+          const totalScore = row["Total (-/100)"] || row["Total"] || "0";
 
           renderedRows++;
           const isEven = renderedRows % 2 === 0;

@@ -796,13 +796,16 @@
         </div>
     </div>
 
-
+    <script id="checkpoints-data" type="application/json">{{ checkpoints | tojson }}</script>
+    <script id="non-scoring-data" type="application/json">{{ non_scoring_checkpoint_ids | tojson }}</script>
+    <script id="participants-data" type="application/json">{{ participantes | tojson }}</script>
+    <script id="gallery-data" type="application/json">{{ galeria | tojson }}</script>
 
     <script>
-        const CHECKPOINTS = {{ checkpoints | tojson }};
-        const NON_SCORING_CHECKPOINT_IDS = new Set({{ non_scoring_checkpoint_ids | tojson }});
-        let participantList = {{ participantes | tojson }};
-        let photoGallery = {{ galeria | tojson }};
+        const CHECKPOINTS = JSON.parse(document.getElementById('checkpoints-data').textContent);
+        const NON_SCORING_CHECKPOINT_IDS = new Set(JSON.parse(document.getElementById('non-scoring-data').textContent));
+        let participantList = JSON.parse(document.getElementById('participants-data').textContent);
+        let photoGallery = JSON.parse(document.getElementById('gallery-data').textContent);
         let judgesList = [];
 
         function getPhotoCheckpointId(photo) {

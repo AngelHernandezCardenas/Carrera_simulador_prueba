@@ -394,15 +394,6 @@ export default function App() {
           const pts = (countsRef.current.Rojo * 3) + (countsRef.current.Blanco * 1) + (countsRef.current.Negro * 5);
           setLog(`Scan ready: ${pts} points.`, 'success');
           
-          try {
-            await NetworkService.saveWeight(globalServerUrl, targetScanParticipant, pts, countsRef.current, globalParticipante, globalCheckpoint);
-            setLog(`Saved ${pts} kg for ${targetScanParticipant}`, 'success');
-            setScanResultMessage(`${targetScanParticipant.replace(/Participante_/i, 'Team ')} registered with ${pts} pts`);
-            setTimeout(() => setScanResultMessage(null), 5000);
-          } catch (err) {
-            setLog(`Error saving weight: ${err.message}`, 'error');
-          }
-
           setTimeout(() => {
             if (mountedRef.current) setDetectedBalls([]);
           }, 3000);
@@ -463,8 +454,7 @@ export default function App() {
       ) : (
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <StatusBar style="dark" />
-      <Text style={styles.title}>Tracker & Scanner</Text>
-      <Text style={styles.subtitle}>Capture location and scan balls with YOLO.</Text>
+      <Text style={styles.title}>RelieVScanner</Text>
 
       {cargaKg >= 10 && !isScannerMode && (
           <View style={{ backgroundColor: cargaKg > 10 ? '#ef4444' : '#f59e0b', padding: 15, marginHorizontal: 20, marginBottom: 15, borderRadius: 8 }}>
@@ -553,9 +543,25 @@ export default function App() {
                       borderColor: isSelected ? '#0056b3' : '#bbb',
                       margin: 5
                     }}
-                    onPress={() => {
+                    onPress={async () => {
                       setTargetScanParticipant(teamId);
                       reiniciarEscaneo();
+                      setScanResultMessage(null); // Limpiar mensaje anterior
+
+                      if (serverUrl && checkpointInfo.id !== 4 && checkpointInfo.id !== "4") {
+                        try {
+                           const sUrl = serverUrl.endsWith('/') ? serverUrl.slice(0, -1) : serverUrl;
+                           const resp = await fetch(`${sUrl}/api/estado_participante/${teamId}`);
+                           if (resp.ok) {
+                             const data = await resp.json();
+                             if (data.carga_kg !== undefined && data.carga_kg > 0) {
+                               setScanResultMessage(`Participant previously had ${data.carga_kg} pts`);
+                             }
+                           }
+                        } catch (e) {
+                           console.log('Error fetching status', e);
+                        }
+                      }
                     }}
                   >
                     <Text style={{ 

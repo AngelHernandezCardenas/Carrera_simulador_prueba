@@ -13,7 +13,7 @@ export default function Scoreboard({ serverUrl }) {
     try {
       setLoading(true);
       // Usamos la URL del Google Apps Script para obtener los datos directamente
-      const scriptUrl = 'https://script.google.com/macros/s/AKfycbwJQ6Kw_pLCW0uynHf_zbO4KXQqBCgu7n3xajhsMm1Oaom4SE7Nz1g-teCMnSOUer8a/exec';
+      const scriptUrl = 'https://script.google.com/macros/s/AKfycbwcRWtZNa6_tv3r3i22esWhdYdQ9A-7aP4z1y6hInwM9gqclwdRJbNyQzrdsn5Vtuxk/exec';
       const response = await fetch(`${scriptUrl}?action=getScoreboard`);
       if (!response.ok) throw new Error('Network response was not ok');
       const text = await response.text();

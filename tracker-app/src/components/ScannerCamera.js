@@ -93,8 +93,6 @@ export default function ScannerCamera({
 
   return (
     <View style={styles.connectionPanel}>
-      <Text style={styles.label}>CAMERA AND YOLO SCANNER</Text>
-
       <View style={{ marginBottom: 15, padding: 10, backgroundColor: '#f0fdf4', borderRadius: 8, borderWidth: 1, borderColor: '#bbf7d0', alignItems: 'center' }}>
         <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#166534', marginBottom: 2 }}>{statusText}</Text>
       </View>

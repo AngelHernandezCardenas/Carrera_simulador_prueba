@@ -40,20 +40,37 @@ export default function GalleryModal({ visible, onClose, onClear, galeriaImagene
                     const isRed = colorStr.includes('rojo') || colorStr.includes('red');
                     const isBlack = colorStr.includes('negro') || colorStr.includes('black');
 
-                    let textColor = '#000000';
-                    let strokeColor = '#d1d5db';
-                    if (isWhite) { textColor = '#ffffff'; strokeColor = '#000000'; }
-                    if (isRed) { textColor = '#ef4444'; strokeColor = '#000000'; }
+                    const enColor = isWhite ? 'White' : (isRed ? 'Red' : 'Black');
+                    
+                    let bgColor = '#334155';
+                    let borderColor = '#1e293b';
+                    let textColor = '#f8fafc';
+                    
+                    if (isWhite) {
+                      bgColor = '#f8fafc';
+                      borderColor = '#cbd5e1';
+                      textColor = '#334155';
+                    } else if (isRed) {
+                      bgColor = '#fee2e2';
+                      borderColor = '#fca5a5';
+                      textColor = '#b91c1c';
+                    }
                     
                     return (
-                      <View key={color} style={{ marginRight: 15, alignItems: 'center', justifyContent: 'center' }}>
-                        <View>
-                          <Text style={{ position: 'absolute', left: -1, top: -1, fontSize: 12, fontFamily: 'serif', fontWeight: '900', color: strokeColor }}>{`${color}: ${count}`}</Text>
-                          <Text style={{ position: 'absolute', left: 1, top: -1, fontSize: 12, fontFamily: 'serif', fontWeight: '900', color: strokeColor }}>{`${color}: ${count}`}</Text>
-                          <Text style={{ position: 'absolute', left: -1, top: 1, fontSize: 12, fontFamily: 'serif', fontWeight: '900', color: strokeColor }}>{`${color}: ${count}`}</Text>
-                          <Text style={{ position: 'absolute', left: 1, top: 1, fontSize: 12, fontFamily: 'serif', fontWeight: '900', color: strokeColor }}>{`${color}: ${count}`}</Text>
-                          <Text style={{ fontSize: 12, fontFamily: 'serif', fontWeight: '900', color: textColor }}>{`${color}: ${count}`}</Text>
-                        </View>
+                      <View key={color} style={{ 
+                        marginRight: 10, 
+                        backgroundColor: bgColor,
+                        borderColor: borderColor,
+                        borderWidth: 1,
+                        paddingHorizontal: 8,
+                        paddingVertical: 4,
+                        borderRadius: 12,
+                        alignItems: 'center', 
+                        justifyContent: 'center' 
+                      }}>
+                        <Text style={{ fontSize: 12, fontWeight: 'bold', color: textColor }}>
+                          {`${enColor}: ${count}`}
+                        </Text>
                       </View>
                     );
                   })}

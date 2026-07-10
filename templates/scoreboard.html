@@ -75,6 +75,8 @@
       background: linear-gradient(135deg, #3b82f6, #8b5cf6);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
+      background-clip: text;
+      color: transparent;
     }
 
     .status {
@@ -570,7 +572,9 @@
     function formatPercent(value) {
       let num = Number(value);
       if (!Number.isFinite(num)) return "0%";
-      if (Math.abs(num) <= 1) num *= 100;
+      // Pandas can return fractions for percentages (e.g., 1.17 for 117%)
+      // If the number is small (<= 5), assume it's a fraction and multiply by 100.
+      if (Math.abs(num) <= 5) num *= 100;
       return `${num.toFixed(2).replace(/\.00$/, '')}%`;
     }
 

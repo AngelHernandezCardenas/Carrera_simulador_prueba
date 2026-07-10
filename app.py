@@ -661,6 +661,23 @@ def var_page():
     return render_template("var.html")
 
 
+@app.route("/api/estado_participante/<participante_id>")
+def estado_participante(participante_id):
+    target_entry = {}
+    with participants_lock:
+        for dev_id, entry in participants_cache.items():
+            if isinstance(entry, dict) and entry.get("nombre") == participante_id:
+                target_entry = entry
+                break
+                
+    return jsonify({
+        "status": "ok",
+        "participante": participante_id,
+        "peso_kg": target_entry.get("peso_kg", 0),
+        "carga_kg": target_entry.get("carga_kg", 0)
+    })
+
+
 @app.route("/api/registrar_peso", methods=["POST"])
 def registrar_peso():
     data = request.json or {}
@@ -1361,8 +1378,7 @@ def vision():
         checkpoint_nombre = data.get("checkpoint_nombre", "")
         
         # Imprimir la marca de agua (Juez, Checkpoint y Timestamp) en la imagen
-        cp_str = f" | {checkpoint_nombre}" if checkpoint_nombre else ""
-        watermark_text = f"Juez: {nombre_juez}{cp_str} | {fecha_hora}"
+        watermark_text = f"Judge: {nombre_juez} | {fecha_hora}"
         cv2.putText(frame_annotated, watermark_text, (20, frame_annotated.shape[0] - 20), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2, cv2.LINE_AA)
 

@@ -1,9 +1,9 @@
-﻿import urllib.request
+import urllib.request
 import json
 import random
 from datetime import datetime, timedelta
 
-WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbx6_D83m0wFavWQFGHRwC8q2E13fzkl2qa8Db-m77dL9Mgi9HZ-XtuRE3JuoZ8ORYBQIw/exec'
+WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbwcRWtZNa6_tv3r3i22esWhdYdQ9A-7aP4z1y6hInwM9gqclwdRJbNyQzrdsn5Vtuxk/exec'
 
 judges = [f'Judge_{i}' for i in range(1, 16)]
 participants = [f'Participante_{random.randint(1, 30)}' for _ in range(15)]

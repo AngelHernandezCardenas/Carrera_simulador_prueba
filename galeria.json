@@ -816,12 +816,29 @@
         "distancia_checkpoint_m": 0.0
     },
     {
-        "filename": "captura_Desconocido_checkpoint_2_1783631842.jpg",
-        "timestamp": 1783631842,
-        "device_id": "app-mre03emp-c26r47mq",
+        "filename": "captura_Desconocido_checkpoint_2_1783706832.jpg",
+        "timestamp": 1783706832,
+        "device_id": "app-mrf8udti-kiwqq8tf",
         "participante": "Desconocido",
-        "fecha_hora": "2026-07-09 15:17:22",
-        "juez": "Judge_4",
+        "fecha_hora": "2026-07-10 12:07:12",
+        "juez": "Judge_2",
+        "detections": {
+            "Rojo": 1,
+            "Blanco": 0,
+            "Negro": 0
+        },
+        "checkpoint_id": 2,
+        "checkpoint_nombre": "Bilio-Aulas4",
+        "checkpoint_slug": "checkpoint_2",
+        "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_2_checkpoint_2_1783706858.jpg",
+        "timestamp": 1783706858,
+        "device_id": "app-mrf8udti-kiwqq8tf",
+        "participante": "Participante_2",
+        "fecha_hora": "2026-07-10 12:07:38",
+        "juez": "Judge_2",
         "detections": {
             "Rojo": 0,
             "Blanco": 0,
@@ -833,16 +850,16 @@
         "distancia_checkpoint_m": 0.0
     },
     {
-        "filename": "captura_Participante_1_checkpoint_1_1783639154.jpg",
-        "timestamp": 1783639154,
-        "device_id": "app-mre1t1b8-akjbhljb",
+        "filename": "captura_Participante_1_checkpoint_1_1783706928.jpg",
+        "timestamp": 1783706928,
+        "device_id": "app-mrf8u77g-sqzitdcc",
         "participante": "Participante_1",
-        "fecha_hora": "2026-07-09 17:19:14",
+        "fecha_hora": "2026-07-10 12:08:48",
         "juez": "Judge_1",
         "detections": {
-            "Rojo": 2,
+            "Rojo": 0,
             "Blanco": 0,
-            "Negro": 0
+            "Negro": 1
         },
         "checkpoint_id": 1,
         "checkpoint_nombre": "Biotecnologia-Centrales",
@@ -850,45 +867,11 @@
         "distancia_checkpoint_m": 0.0
     },
     {
-        "filename": "captura_Participante_2_checkpoint_2_1783639181.jpg",
-        "timestamp": 1783639181,
-        "device_id": "app-mre1whfx-unxw73u4",
+        "filename": "captura_Participante_2_checkpoint_1_1783706966.jpg",
+        "timestamp": 1783706966,
+        "device_id": "app-mrf8u77g-sqzitdcc",
         "participante": "Participante_2",
-        "fecha_hora": "2026-07-09 17:19:41",
-        "juez": "Judge_2",
-        "detections": {
-            "Rojo": 0,
-            "Blanco": 1,
-            "Negro": 0
-        },
-        "checkpoint_id": 2,
-        "checkpoint_nombre": "Bilio-Aulas4",
-        "checkpoint_slug": "checkpoint_2",
-        "distancia_checkpoint_m": 0.0
-    },
-    {
-        "filename": "captura_Participante_1_checkpoint_2_1783639220.jpg",
-        "timestamp": 1783639220,
-        "device_id": "app-mre1whfx-unxw73u4",
-        "participante": "Participante_1",
-        "fecha_hora": "2026-07-09 17:20:20",
-        "juez": "Judge_2",
-        "detections": {
-            "Rojo": 1,
-            "Blanco": 1,
-            "Negro": 0
-        },
-        "checkpoint_id": 2,
-        "checkpoint_nombre": "Bilio-Aulas4",
-        "checkpoint_slug": "checkpoint_2",
-        "distancia_checkpoint_m": 0.0
-    },
-    {
-        "filename": "captura_Participante_2_checkpoint_1_1783639242.jpg",
-        "timestamp": 1783639242,
-        "device_id": "app-mre1t1b8-akjbhljb",
-        "participante": "Participante_2",
-        "fecha_hora": "2026-07-09 17:20:42",
+        "fecha_hora": "2026-07-10 12:09:26",
         "juez": "Judge_1",
         "detections": {
             "Rojo": 1,
@@ -901,219 +884,15 @@
         "distancia_checkpoint_m": 0.0
     },
     {
-        "filename": "captura_Participante_1_manual_1783639306.jpg",
-        "timestamp": 1783639306,
-        "device_id": "app-mre1x3xd-42f8w1j4",
-        "participante": "Participante_1",
-        "fecha_hora": "2026-07-09 17:21:46",
-        "juez": "Judge_3",
-        "detections": {
-            "Rojo": 0,
-            "Blanco": 1,
-            "Negro": 0
-        },
-        "checkpoint_id": 0,
-        "checkpoint_nombre": "Manual / Sin GPS",
-        "checkpoint_slug": "manual",
-        "distancia_checkpoint_m": 0.0
-    },
-    {
-        "filename": "captura_Participante_2_manual_1783639337.jpg",
-        "timestamp": 1783639337,
-        "device_id": "app-mre1x3xd-42f8w1j4",
-        "participante": "Participante_2",
-        "fecha_hora": "2026-07-09 17:22:17",
-        "juez": "Judge_3",
-        "detections": {
-            "Rojo": 0,
-            "Blanco": 1,
-            "Negro": 0
-        },
-        "checkpoint_id": 0,
-        "checkpoint_nombre": "Manual / Sin GPS",
-        "checkpoint_slug": "manual",
-        "distancia_checkpoint_m": 0.0
-    },
-    {
-        "filename": "captura_Participante_1_manual_1783639402.jpg",
-        "timestamp": 1783639402,
-        "device_id": "app-mre4d5l3-ov4yv0s1",
-        "participante": "Participante_1",
-        "fecha_hora": "2026-07-09 17:23:22",
-        "juez": "Judge_11",
-        "detections": {
-            "Rojo": 0,
-            "Blanco": 0,
-            "Negro": 1
-        },
-        "checkpoint_id": 0,
-        "checkpoint_nombre": "Manual / Sin GPS",
-        "checkpoint_slug": "manual",
-        "distancia_checkpoint_m": 0.0
-    },
-    {
-        "filename": "captura_Participante_2_manual_1783639460.jpg",
-        "timestamp": 1783639460,
-        "device_id": "app-mre4d5l3-ov4yv0s1",
-        "participante": "Participante_2",
-        "fecha_hora": "2026-07-09 17:24:20",
-        "juez": "Judge_11",
-        "detections": {
-            "Rojo": 1,
-            "Blanco": 0,
-            "Negro": 0
-        },
-        "checkpoint_id": 0,
-        "checkpoint_nombre": "Manual / Sin GPS",
-        "checkpoint_slug": "manual",
-        "distancia_checkpoint_m": 0.0
-    },
-    {
-        "filename": "captura_Participante_2_manual_1783639470.jpg",
-        "timestamp": 1783639470,
-        "device_id": "app-mre4d5l3-ov4yv0s1",
-        "participante": "Participante_2",
-        "fecha_hora": "2026-07-09 17:24:30",
-        "juez": "Judge_11",
-        "detections": {
-            "Rojo": 1,
-            "Blanco": 0,
-            "Negro": 0
-        },
-        "checkpoint_id": 0,
-        "checkpoint_nombre": "Manual / Sin GPS",
-        "checkpoint_slug": "manual",
-        "distancia_checkpoint_m": 0.0
-    },
-    {
-        "filename": "captura_Participante_1_manual_1783639492.jpg",
-        "timestamp": 1783639492,
-        "device_id": "app-mre20bx8-cvpflv8q",
-        "participante": "Participante_1",
-        "fecha_hora": "2026-07-09 17:24:52",
-        "juez": "Judge_7",
-        "detections": {
-            "Rojo": 0,
-            "Blanco": 1,
-            "Negro": 0
-        },
-        "checkpoint_id": 0,
-        "checkpoint_nombre": "Manual / Sin GPS",
-        "checkpoint_slug": "manual",
-        "distancia_checkpoint_m": 0.0
-    },
-    {
-        "filename": "captura_Participante_2_manual_1783639528.jpg",
-        "timestamp": 1783639528,
-        "device_id": "app-mre20bx8-cvpflv8q",
-        "participante": "Participante_2",
-        "fecha_hora": "2026-07-09 17:25:28",
-        "juez": "Judge_7",
-        "detections": {
-            "Rojo": 2,
-            "Blanco": 0,
-            "Negro": 0
-        },
-        "checkpoint_id": 0,
-        "checkpoint_nombre": "Manual / Sin GPS",
-        "checkpoint_slug": "manual",
-        "distancia_checkpoint_m": 0.0
-    },
-    {
-        "filename": "captura_Participante_2_manual_1783639539.jpg",
-        "timestamp": 1783639539,
-        "device_id": "app-mre20bx8-cvpflv8q",
-        "participante": "Participante_2",
-        "fecha_hora": "2026-07-09 17:25:39",
-        "juez": "Judge_7",
-        "detections": {
-            "Rojo": 1,
-            "Blanco": 0,
-            "Negro": 0
-        },
-        "checkpoint_id": 0,
-        "checkpoint_nombre": "Manual / Sin GPS",
-        "checkpoint_slug": "manual",
-        "distancia_checkpoint_m": 0.0
-    },
-    {
-        "filename": "captura_Participante_2_manual_1783639928.jpg",
-        "timestamp": 1783639928,
-        "device_id": "app-mre22u66-q17td4mk",
-        "participante": "Participante_2",
-        "fecha_hora": "2026-07-09 17:32:08",
-        "juez": "Judge_8",
-        "detections": {
-            "Rojo": 0,
-            "Blanco": 1,
-            "Negro": 0
-        },
-        "checkpoint_id": 0,
-        "checkpoint_nombre": "Manual / Sin GPS",
-        "checkpoint_slug": "manual",
-        "distancia_checkpoint_m": 0.0
-    },
-    {
-        "filename": "captura_Participante_1_manual_1783639953.jpg",
-        "timestamp": 1783639953,
-        "device_id": "app-mre22u66-q17td4mk",
-        "participante": "Participante_1",
-        "fecha_hora": "2026-07-09 17:32:33",
-        "juez": "Judge_8",
-        "detections": {
-            "Rojo": 0,
-            "Blanco": 1,
-            "Negro": 0
-        },
-        "checkpoint_id": 0,
-        "checkpoint_nombre": "Manual / Sin GPS",
-        "checkpoint_slug": "manual",
-        "distancia_checkpoint_m": 0.0
-    },
-    {
-        "filename": "captura_Desconocido_manual_1783639969.jpg",
-        "timestamp": 1783639969,
-        "device_id": "app-mre2sxs2-xnfamhjo",
-        "participante": "Desconocido",
-        "fecha_hora": "2026-07-09 17:32:49",
-        "juez": "Judge_10",
-        "detections": {
-            "Rojo": 0,
-            "Blanco": 0,
-            "Negro": 1
-        },
-        "checkpoint_id": 0,
-        "checkpoint_nombre": "Manual / Sin GPS",
-        "checkpoint_slug": "manual",
-        "distancia_checkpoint_m": 0.0
-    },
-    {
-        "filename": "captura_Participante_2_manual_1783640057.jpg",
-        "timestamp": 1783640057,
-        "device_id": "app-mre23pne-c1hb183s",
-        "participante": "Participante_2",
-        "fecha_hora": "2026-07-09 17:34:17",
-        "juez": "Judge_9",
-        "detections": {
-            "Rojo": 1,
-            "Blanco": 0,
-            "Negro": 0
-        },
-        "checkpoint_id": 0,
-        "checkpoint_nombre": "Manual / Sin GPS",
-        "checkpoint_slug": "manual",
-        "distancia_checkpoint_m": 0.0
-    },
-    {
-        "filename": "captura_Participante_1_checkpoint_1_1783699225.jpg",
-        "timestamp": 1783699225,
-        "device_id": "app-mrf3jwzi-5n0ogctx",
-        "participante": "Participante_1",
-        "fecha_hora": "2026-07-10 10:00:25",
+        "filename": "captura_Participante_3_checkpoint_1_1783707162.jpg",
+        "timestamp": 1783707162,
+        "device_id": "app-mrf8u77g-sqzitdcc",
+        "participante": "Participante_3",
+        "fecha_hora": "2026-07-10 12:12:42",
         "juez": "Judge_1",
         "detections": {
-            "Rojo": 2,
-            "Blanco": 0,
+            "Rojo": 0,
+            "Blanco": 2,
             "Negro": 0
         },
         "checkpoint_id": 1,
@@ -1122,11 +901,28 @@
         "distancia_checkpoint_m": 0.0
     },
     {
-        "filename": "captura_Participante_2_checkpoint_2_1783699245.jpg",
-        "timestamp": 1783699245,
-        "device_id": "app-mrf3kdry-mbgrbbpe",
-        "participante": "Participante_2",
-        "fecha_hora": "2026-07-10 10:00:45",
+        "filename": "captura_Participante_3_checkpoint_1_1783707173.jpg",
+        "timestamp": 1783707173,
+        "device_id": "app-mrf8u77g-sqzitdcc",
+        "participante": "Participante_3",
+        "fecha_hora": "2026-07-10 12:12:53",
+        "juez": "Judge_1",
+        "detections": {
+            "Rojo": 1,
+            "Blanco": 1,
+            "Negro": 0
+        },
+        "checkpoint_id": 1,
+        "checkpoint_nombre": "Biotecnologia-Centrales",
+        "checkpoint_slug": "checkpoint_1",
+        "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_3_checkpoint_2_1783707296.jpg",
+        "timestamp": 1783707296,
+        "device_id": "app-mrf8udti-kiwqq8tf",
+        "participante": "Participante_3",
+        "fecha_hora": "2026-07-10 12:14:56",
         "juez": "Judge_2",
         "detections": {
             "Rojo": 0,
@@ -1136,74 +932,6 @@
         "checkpoint_id": 2,
         "checkpoint_nombre": "Bilio-Aulas4",
         "checkpoint_slug": "checkpoint_2",
-        "distancia_checkpoint_m": 0.0
-    },
-    {
-        "filename": "captura_Participante_1_checkpoint_2_1783699263.jpg",
-        "timestamp": 1783699263,
-        "device_id": "app-mrf3kdry-mbgrbbpe",
-        "participante": "Participante_1",
-        "fecha_hora": "2026-07-10 10:01:03",
-        "juez": "Judge_2",
-        "detections": {
-            "Rojo": 0,
-            "Blanco": 1,
-            "Negro": 0
-        },
-        "checkpoint_id": 2,
-        "checkpoint_nombre": "Bilio-Aulas4",
-        "checkpoint_slug": "checkpoint_2",
-        "distancia_checkpoint_m": 0.0
-    },
-    {
-        "filename": "captura_Participante_2_checkpoint_1_1783699264.jpg",
-        "timestamp": 1783699264,
-        "device_id": "app-mrf3jwzi-5n0ogctx",
-        "participante": "Participante_2",
-        "fecha_hora": "2026-07-10 10:01:04",
-        "juez": "Judge_1",
-        "detections": {
-            "Rojo": 1,
-            "Blanco": 0,
-            "Negro": 0
-        },
-        "checkpoint_id": 1,
-        "checkpoint_nombre": "Biotecnologia-Centrales",
-        "checkpoint_slug": "checkpoint_1",
-        "distancia_checkpoint_m": 0.0
-    },
-    {
-        "filename": "captura_Participante_2_manual_1783699306.jpg",
-        "timestamp": 1783699306,
-        "device_id": "app-mrf3kawh-nn9iu7or",
-        "participante": "Participante_2",
-        "fecha_hora": "2026-07-10 10:01:46",
-        "juez": "Judge_3",
-        "detections": {
-            "Rojo": 0,
-            "Blanco": 1,
-            "Negro": 0
-        },
-        "checkpoint_id": 0,
-        "checkpoint_nombre": "Manual / Sin GPS",
-        "checkpoint_slug": "manual",
-        "distancia_checkpoint_m": 0.0
-    },
-    {
-        "filename": "captura_Participante_1_manual_1783699331.jpg",
-        "timestamp": 1783699331,
-        "device_id": "app-mrf3kawh-nn9iu7or",
-        "participante": "Participante_1",
-        "fecha_hora": "2026-07-10 10:02:11",
-        "juez": "Judge_3",
-        "detections": {
-            "Rojo": 0,
-            "Blanco": 0,
-            "Negro": 1
-        },
-        "checkpoint_id": 0,
-        "checkpoint_nombre": "Manual / Sin GPS",
-        "checkpoint_slug": "manual",
         "distancia_checkpoint_m": 0.0
     }
 ]

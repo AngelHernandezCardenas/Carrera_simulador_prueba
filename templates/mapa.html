@@ -50,6 +50,12 @@
 
         /* Interfaz tipo Glassmorphism - Panel Lateral Animado */
         .dashboard {
+            /* Local overrides for light mode */
+            --panel-bg: rgba(255, 255, 255, 0.96);
+            --border-color: rgba(15, 23, 42, 0.12);
+            --text-main: #0f172a;
+            --text-muted: #475569;
+
             position: absolute;
             top: 20px;
             left: 20px;
@@ -64,10 +70,11 @@
             border-radius: 16px;
             display: flex;
             flex-direction: column;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
             overflow: hidden;
             transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             cursor: pointer;
+            color: var(--text-main);
         }
 
         .dashboard.collapsed {
@@ -76,7 +83,7 @@
         }
 
         .dashboard.expanded {
-            width: 60vw;
+            width: 85vw;
             cursor: default;
         }
 
@@ -95,7 +102,7 @@
         .dashboard.expanded .runner-info {
             width: 100%;
             display: grid;
-            grid-template-columns: 50px 2fr 1fr 1.2fr 2fr;
+            grid-template-columns: 50px 1.5fr 1.2fr 1.5fr 1fr 1fr 1fr 1fr 1.2fr 1fr 1fr;
             align-items: center;
             gap: 12px;
         }
@@ -118,7 +125,7 @@
             font-weight: 800;
             letter-spacing: -0.5px;
             text-transform: uppercase;
-            color: #ffffff;
+            color: var(--text-main);
             display: flex;
             align-items: center;
             gap: 10px;
@@ -164,7 +171,7 @@
 
         .stat-box {
             flex: 1;
-            background: rgba(0, 0, 0, 0.3);
+            background: rgba(0, 0, 0, 0.03);
             border: 1px solid var(--border-color);
             border-radius: 8px;
             padding: 10px;
@@ -202,13 +209,13 @@
         }
 
         .runners-list::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.2);
+            background: rgba(0, 0, 0, 0.12);
             border-radius: 10px;
         }
 
         .runner-card {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            background: rgba(0, 0, 0, 0.02);
+            border: 1px solid rgba(0, 0, 0, 0.06);
             border-radius: 10px;
             padding: 14px;
             display: flex;
@@ -216,28 +223,29 @@
             align-items: center;
             transition: all 0.3s ease;
             cursor: pointer;
+            color: var(--text-main);
         }
 
         .runner-card:hover,
         .runner-card.active {
-            background: rgba(59, 130, 246, 0.1);
+            background: rgba(59, 130, 246, 0.06);
             border-color: var(--accent);
             transform: translateX(4px);
         }
 
         .runner-card.peso-green {
-            background: rgba(16, 185, 129, 0.14);
-            border-color: rgba(16, 185, 129, 0.35);
+            background: rgba(16, 185, 129, 0.08);
+            border-color: rgba(16, 185, 129, 0.25);
         }
 
         .runner-card.peso-yellow {
-            background: rgba(245, 158, 11, 0.18);
-            border-color: rgba(245, 158, 11, 0.45);
+            background: rgba(245, 158, 11, 0.08);
+            border-color: rgba(245, 158, 11, 0.3);
         }
 
         .runner-card.peso-red {
-            background: rgba(239, 68, 68, 0.18);
-            border-color: rgba(239, 68, 68, 0.5);
+            background: rgba(239, 68, 68, 0.08);
+            border-color: rgba(239, 68, 68, 0.35);
         }
 
         .runner-card.finished {
@@ -278,7 +286,7 @@
         .runner-name {
             font-size: 14px;
             font-weight: 600;
-            color: #ffffff;
+            color: var(--text-main);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -329,7 +337,7 @@
             }
         }
 
-        .runner-stat-col {
+         .runner-stat-col {
             display: flex;
             flex-direction: column;
             font-size: 13px;
@@ -355,6 +363,26 @@
             white-space: normal;
             overflow-wrap: anywhere;
             line-height: 1.25;
+        }
+
+        /* Overrides specific to the light dashboard drawer */
+        .dashboard .runner-stat-col span {
+            color: var(--text-main);
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        .dashboard .runner-stat-col .status-blocked {
+            color: #dc2626;
+        }
+
+        .dashboard .runner-stat-col .status-ok {
+            color: #16a34a;
+        }
+
+        .dashboard .runner-stat-col .checkpoint-list {
+            color: #1d4ed8;
+            font-size: 12px;
         }
 
         .timer-cell {
@@ -417,7 +445,7 @@
         .table-header {
             display: none;
             padding: 10px 14px 0 14px;
-            grid-template-columns: 50px 2fr 1fr 1.2fr 2fr;
+            grid-template-columns: 50px 1.5fr 1.2fr 1.5fr 1fr 1fr 1fr 1fr 1.2fr 1fr 1fr;
             gap: 12px;
             font-size: 11px;
             color: var(--text-muted);
@@ -429,6 +457,46 @@
 
         .dashboard.expanded .table-header {
             display: grid;
+        }
+
+        .runner-stat-label {
+            display: inline;
+            font-weight: 500;
+            color: var(--text-muted);
+            margin-right: 4px;
+        }
+
+        .dashboard.expanded .runner-stat-label {
+            display: none;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 700;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            text-align: center;
+        }
+
+        .status-ok {
+            background-color: #dcfce7;
+            color: #15803d;
+            border: 1px solid #bbf7d0;
+        }
+
+        .status-warning, .status-alert {
+            background-color: #fef3c7;
+            color: #b45309;
+            border: 1px solid #fde68a;
+        }
+
+        .status-error, .status-fail, .status-danger {
+            background-color: #fee2e2;
+            color: #b91c1c;
+            border: 1px solid #fecaca;
         }
 
         /* MapLibre custom marker */
@@ -756,6 +824,21 @@
                 opacity: 0;
             }
         }
+
+        /* Light Mode buttons overrides */
+        .dashboard .btn-3d {
+            background: rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            color: var(--text-main);
+        }
+        .dashboard .btn-3d:hover {
+            background: rgba(0, 0, 0, 0.08);
+        }
+        .dashboard .btn-3d.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
     </style>
 </head>
 
@@ -787,10 +870,16 @@
         </div>
         <div class="table-header">
             <div>Pos</div>
-            <div>Runner</div>
-            <div>Time</div>
+            <div>Participante</div>
             <div>Visited</div>
             <div>Checkpoint</div>
+            <div>Home Load</div>
+            <div>Curr Load</div>
+            <div>Target</div>
+            <div>Status</div>
+            <div>Energy Time</div>
+            <div>Energy Wh</div>
+            <div>Energy %</div>
         </div>
         <div class="runners-list" id="runners-list">
         </div>
@@ -1230,34 +1319,126 @@
 
         const socket = io({
             path: '/socket.io',
-            transports: ['polling', 'websocket']
+            transports: ['websocket']
         });
 
         socket.on('connect', () => console.log('Conectado al servidor de telemetria.'));
         refreshPhotoGallery();
         setInterval(refreshPhotoGallery, 5000);
 
-        fetch('/api/race/state')
+        // Cargar estado inicial de corredores desde el servidor
+        fetch('/estado_mapa')
+            .then(res => res.json())
+            .then(payload => {
+                if (payload.runners) {
+                    Object.entries(payload.runners).forEach(([id, runnerData]) => {
+                        const loads = payload.loads ? payload.loads[id] : null;
+                        const energy = payload.energy ? payload.energy[id] : null;
+                        
+                        const fullData = {
+                            participante: id,
+                            device_label: runnerData.device_label || id,
+                            team_name: runnerData.team_name || id,
+                            latitude: runnerData.latitude,
+                            longitude: runnerData.longitude,
+                            velocidad: runnerData.speed_kmh || 0.0,
+                            distancia_km: runnerData.distancia_km || 0.0,
+                            max_speed: runnerData.max_speed || 0.0,
+                            nivel_bateria: runnerData.nivel_bateria || 100.0,
+                            posicion: runnerData.posicion || '--',
+                            puntaje_retos: runnerData.puntaje_retos || 0.0,
+                            estado: runnerData.estado || 'corriendo',
+                            peso_kg: runnerData.peso_kg || 0.0,
+                            peso_entregado_kg: runnerData.peso_entregado_kg || 0.0,
+                            peso_descargado_kg: runnerData.peso_descargado_kg || 0.0,
+                            checkpoints_visitados: runnerData.cantidad_checkpoints_visitados || 0,
+                            checkpoints_visitados_lista: runnerData.checkpoints_visitados || [],
+                            checkpoint_descarga_visitado: runnerData.checkpoint_descarga_visitado || false,
+                            blocked_by_challenge: runnerData.blocked_by_challenge || false,
+                            checkpoint_pendiente_mas_cercano: runnerData.checkpoint_pendiente_mas_cercano,
+                            distancia_checkpoint_pendiente_mas_cercano_m: runnerData.distancia_checkpoint_pendiente_mas_cercano_m,
+                            checkpoint_mas_cercano: runnerData.checkpoint_mas_cercano,
+                            distancia_checkpoint_mas_cercano_m: runnerData.distancia_checkpoint_mas_cercano_m,
+                            loads: loads,
+                            energy: energy,
+                            conteo_colores: runnerData.conteo_colores || {},
+                            color_detectado: runnerData.color_detectado || [],
+                            scores_dict: runnerData.scores_dict || {},
+                            voltaje: runnerData.voltaje,
+                            corriente: runnerData.corriente,
+                            potencia: runnerData.potencia,
+                            soc: runnerData.soc,
+                            ttg_min: runnerData.ttg_min,
+                            ah_consumidos: runnerData.ah_consumidos,
+                            motor_voltaje: runnerData.motor_voltaje,
+                            motor_corriente: runnerData.motor_corriente,
+                            motor_potencia: runnerData.motor_potencia,
+                            motor_rpm: runnerData.motor_rpm,
+                            motor_temp: runnerData.motor_temp
+                        };
+                        procesarPosicionRunner(fullData);
+                    });
+                }
+            })
+            .then(() => {
+                // Después de cargar corredores, cargar el estado de sus cronómetros
+                return fetch('/api/race/state');
+            })
             .then(res => res.json())
             .then(states => {
                 Object.entries(states).forEach(([id, raceState]) => {
                     if (raceState.running) {
                         const startTimeMs = Date.now() - raceState.elapsed_ms;
-                        if (!window.state.runners) window.state.runners = {}; 
-                        if (!window.state.runners[id]) window.state.runners[id] = { elapsedMs: 0, timerRunning: false, timerFinished: false };
+                        if (!state.runners[id]) state.runners[id] = { elapsedMs: 0, timerRunning: false, timerFinished: false };
                         startRunnerTimer(id, startTimeMs);
                     } else if (raceState.elapsed_ms > 0) {
-                        if (!window.state.runners[id]) window.state.runners[id] = { elapsedMs: raceState.elapsed_ms, timerRunning: false, timerFinished: true };
-                        else window.state.runners[id].elapsedMs = raceState.elapsed_ms;
+                        if (!state.runners[id]) state.runners[id] = { elapsedMs: raceState.elapsed_ms, timerRunning: false, timerFinished: true };
+                        else state.runners[id].elapsedMs = raceState.elapsed_ms;
                         updateRunnerTimerDisplay(id);
                     }
                 });
             })
-            .catch(err => console.error("Error fetching initial race state:", err));
+            .catch(err => console.error("Error loading initial telemetry state:", err));
 
         function formatNullable(value, decimals = 2, fallback = '--') {
             const number = Number(value);
             return Number.isFinite(number) ? number.toFixed(decimals) : fallback;
+        }
+
+        function updateRunnerLoadsDOM(id, loads) {
+            if (!loads) return;
+            const homeLoadEl = document.getElementById(`home-load-${id}`);
+            if (homeLoadEl) homeLoadEl.textContent = formatNullable(loads.load_at_home, 1, '0.0');
+
+            const currLoadEl = document.getElementById(`curr-load-${id}`);
+            if (currLoadEl) currLoadEl.textContent = formatNullable(loads.current_load, 1, '0.0');
+
+            const targetEl = document.getElementById(`target-${id}`);
+            if (targetEl) {
+                const targetVal = Number(loads.target);
+                targetEl.textContent = Number.isFinite(targetVal) ? (targetVal * 100.0).toFixed(2) + '%' : '--';
+            }
+
+            const statusEl = document.getElementById(`status-${id}`);
+            if (statusEl) {
+                statusEl.textContent = loads.status || 'unknown';
+                statusEl.className = `status-badge status-${String(loads.status || '').toLowerCase()}`;
+            }
+        }
+
+        function updateRunnerEnergyDOM(id, energy) {
+            if (!energy) return;
+            const energyTimeEl = document.getElementById(`energy-time-${id}`);
+            if (energyTimeEl) energyTimeEl.textContent = energy.energy_time || '--';
+
+            const energyWhEl = document.getElementById(`energy-wh-${id}`);
+            if (energyWhEl) energyWhEl.textContent = formatNullable(energy.energy_val, 1, '0.0');
+
+            const energyPercentEl = document.getElementById(`energy-percent-${id}`);
+            if (energyPercentEl) {
+                const pct = Number(energy.energy_percent);
+                energyPercentEl.textContent = Number.isFinite(pct) ? `${pct.toFixed(1)}%` : '--';
+            }
         }
 
         function getPendingCheckpointLabel(data) {
@@ -1512,7 +1693,7 @@
             const es = energiaStats || {};
 
             return `
-                <div class="popup-title" style="color: ${color};">${id}</div>
+                <div class="popup-title" style="color: ${color};">${data.team_name || id}</div>
                 <div class="popup-stat">Speed: <b id="popup-speed-${id}">${speed.toFixed(1)}</b> km/h</div>
                 <div class="popup-stat">Position: <b>${data.posicion ?? '--'}</b></div>
                 <div class="popup-stat">Visited checkpoints: <b>${data.checkpoints_visitados ?? 0}</b></div>
@@ -1545,6 +1726,19 @@
                 <div class="popup-stat">Voltage/Curr: <b>${formatNullable(data.motor_voltaje, 2)}V / ${formatNullable(data.motor_corriente, 2)}A</b></div>
                 <div class="popup-stat">Power/Ah: <b>${formatNullable(data.motor_potencia, 1)}W / ${formatNullable(data.ah_consumidos, 2)}Ah</b></div>
                 <div class="popup-stat">RPM/Temp: <b>${data.motor_rpm ?? '--'} / ${data.motor_temp ?? '--'}°C</b></div>                ` : ''}
+                ${data.loads ? `
+                <div class="popup-stat" style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.1);color:#38bdf8;"><b>Excel Loads</b></div>
+                <div class="popup-stat">Home Load: <b>${formatNullable(data.loads.load_at_home, 1, '0.0')}</b></div>
+                <div class="popup-stat">Current Load: <b>${formatNullable(data.loads.current_load, 1, '0.0')}</b></div>
+                <div class="popup-stat">Target: <b>${data.loads.target != null && !isNaN(Number(data.loads.target)) ? (Number(data.loads.target) * 100.0).toFixed(2) + '%' : '--'}</b></div>
+                <div class="popup-stat">Status: <b><span class="status-badge status-${String(data.loads.status).toLowerCase()}">${data.loads.status || 'unknown'}</span></b></div>
+                ` : ''}
+                ${data.energy ? `
+                <div class="popup-stat" style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.1);color:#10b981;"><b>Excel Energy</b></div>
+                <div class="popup-stat">Energy Time: <b>${data.energy.energy_time || '--'}</b></div>
+                <div class="popup-stat">Energy Wh: <b>${formatNullable(data.energy.energy_val, 1, '0.0')}</b></div>
+                <div class="popup-stat">Energy %: <b>${formatNullable(data.energy.energy_percent, 1, '0.0')}%</b></div>
+                ` : ''}
             `;
         }
 
@@ -1556,7 +1750,7 @@
             }
         });
 
-        socket.on('nueva_posicion', function (data) {
+        function procesarPosicionRunner(data) {
             const id = data.participante;
             rememberParticipant(id);
             const lngLat = [data.longitude, data.latitude]; // MapLibre usa [Lng, Lat]
@@ -1628,16 +1822,18 @@
 
                 card.innerHTML = `
                     <div class="runner-info">
-                        <div class="runner-avatar" id="posicion-${id}" style="background: linear-gradient(135deg, ${assignedColor}, #000); box-shadow: 0 4px 12px ${assignedColor}60;">${posicion}</div>
+                        <div class="runner-avatar" id="posicion-${id}" style="background: ${assignedColor}; color: #fff; box-shadow: 0 2px 8px ${assignedColor}50;">${posicion}</div>
                         <div class="runner-details">
-                            <div class="runner-name">${id}</div>
-                            <div class="runner-stat-col timer-cell" style="display:flex; align-items:center; gap:8px;">
-                                <span id="timer-${id}">00:00:00</span>
-                                <button class="btn-3d" onclick="startRunnerTimerAPI(event, '${id}')" style="padding: 2px 6px; font-size: 10px; background: #2563eb; border-color: #3b82f6;">Start</button>
-                                <button class="btn-3d" onclick="stopRunnerTimerAPI(event, '${id}')" style="padding: 2px 6px; font-size: 10px; background: #dc2626; border-color: #ef4444;">Stop</button>
-                            </div>
-                            <div class="runner-stat-col">Visited: <span id="visitados-${id}" class="checkpoint-list">${visitedInfo.label}</span></div>
-                            <div class="runner-stat-col">Checkpoint: <div id="checkpoint-state-${id}">${getCheckpointStatusHtml(data, initialCheckpointRunner)}</div></div>
+                            <div class="runner-name" id="name-${id}">${data.team_name || id}</div>
+                            <div class="runner-stat-col"><span class="runner-stat-label">Visited: </span><span id="visitados-${id}" class="checkpoint-list">${visitedInfo.label}</span></div>
+                            <div class="runner-stat-col"><span class="runner-stat-label">Checkpoint: </span><div id="checkpoint-state-${id}">${getCheckpointStatusHtml(data, initialCheckpointRunner)}</div></div>
+                            <div class="runner-stat-col home-load-cell"><span class="runner-stat-label">Home Load: </span><span id="home-load-${id}">--</span></div>
+                            <div class="runner-stat-col curr-load-cell"><span class="runner-stat-label">Curr Load: </span><span id="curr-load-${id}">--</span></div>
+                            <div class="runner-stat-col target-cell"><span class="runner-stat-label">Target: </span><span id="target-${id}">--</span></div>
+                            <div class="runner-stat-col status-cell"><span class="runner-stat-label">Status: </span><span id="status-${id}">--</span></div>
+                            <div class="runner-stat-col energy-time-cell"><span class="runner-stat-label">E Time: </span><span id="energy-time-${id}">--</span></div>
+                            <div class="runner-stat-col energy-wh-cell"><span class="runner-stat-label">E Wh: </span><span id="energy-wh-${id}">--</span></div>
+                            <div class="runner-stat-col energy-percent-cell"><span class="runner-stat-label">E %: </span><span id="energy-percent-${id}">--</span></div>
                         </div>
                     </div>
                 `;
@@ -1730,6 +1926,8 @@
                 document.getElementById('visitados-' + id).textContent = visitedInfo.label;
                 document.getElementById('checkpoint-state-' + id).innerHTML = getCheckpointStatusHtml(data, runner);
                 document.getElementById(`posicion-${id}`).textContent = data.posicion ?? '--';
+                const nameEl = document.getElementById('name-' + id);
+                if (nameEl) nameEl.textContent = data.team_name || id;
                 applyWeightClass(runner.card, peso);
                 updateMarkerCargaColor(runner, peso);
                 
@@ -1762,7 +1960,16 @@
                     eAcum: runner.energiaAcumuladaWh,
                 };
                 runner.popup.setHTML(buildRunnerPopupHtml(id, runner.color, data, speed, energiaStats));
-                refreshOpenCheckpointPopups();            }
+                refreshOpenCheckpointPopups();
+            }
+
+            // Actualizar telemetría de cargas y energía en las celdas DOM
+            updateRunnerLoadsDOM(id, data.loads);
+            updateRunnerEnergyDOM(id, data.energy);
+        }
+
+        socket.on('nueva_posicion', function (data) {
+            procesarPosicionRunner(data);
         });
     </script>
 </body>

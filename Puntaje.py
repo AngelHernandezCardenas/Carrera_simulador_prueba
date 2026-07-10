@@ -18,14 +18,115 @@ energy_percent_cache: dict[str, float] = {}
 time_percent_cache: dict[str, float] = {}
 challenges_percent_cache: dict[str, float] = {}
 totales_retos_cache: dict[str, float] = {}
+scoreboard_rank_cache: dict[str, int] = {}
 nombres_equipos_cache: dict[str, str] = {}
 team_id_cache: dict[str, str] = {}
+team_name_to_participant_id: dict[str, str] = {}
+participant_id_to_team_name: dict[str, str] = {}
 puntajes_retos_lock = threading.Lock()
 ultima_actualizacion = 0.0
 
+def resolve_participant_by_name(team_name: str) -> str | None:
+    if not team_name:
+        return None
+    name_cleaned = str(team_name).strip().lower()
+    
+    with puntajes_retos_lock:
+        if name_cleaned in team_name_to_participant_id:
+            return team_name_to_participant_id[name_cleaned]
+        if name_cleaned.replace(" ", "") in team_name_to_participant_id:
+            return team_name_to_participant_id[name_cleaned.replace(" ", "")]
+            
+    import re
+    match = re.search(r"\d+", name_cleaned)
+    if match:
+        num = int(match.group())
+        return f"participante_{num:02d}"
+        
+    return None
+
+def build_team_name_mappings(df_teams: pd.DataFrame):
+    global team_name_to_participant_id, participant_id_to_team_name
+    if df_teams is None or df_teams.empty:
+        return
+        
+    header_idx = None
+    for idx, row in df_teams.iterrows():
+        row_vals = [str(x).strip().lower() for x in row.tolist() if pd.notna(x)]
+        if any('teamid' in x or 'team id' in x or 'equipoid' in x for x in row_vals) and any('team' in x or 'equipo' in x for x in row_vals):
+            header_idx = idx
+            break
+            
+    if header_idx is None:
+        header_idx = 10 if len(df_teams) > 10 else 0
+        
+    header_row = df_teams.iloc[header_idx].tolist()
+    col_id = 0
+    col_name = 1
+    for col_i, val in enumerate(header_row):
+        val_str = str(val).strip().lower()
+        if 'teamid' in val_str or 'team id' in val_str or 'equipoid' in val_str:
+            col_id = col_i
+        elif 'team' in val_str or 'equipo' in val_str:
+            col_name = col_i
+            
+    mappings = {}
+    rev_mappings = {}
+    import re
+    for idx in range(header_idx + 1, len(df_teams)):
+        row = df_teams.iloc[idx]
+        id_val = row[col_id]
+        name_val = row[col_name]
+        if pd.isna(id_val) or pd.isna(name_val):
+            continue
+            
+        match = re.search(r'\d+', str(id_val))
+        if not match:
+            continue
+            
+        num = int(match.group())
+        part_key = f"participante_{num:02d}"
+        
+        norm_name = str(name_val).strip().lower()
+        mappings[norm_name] = part_key
+        mappings[norm_name.replace(" ", "")] = part_key
+        
+        rev_mappings[part_key] = str(name_val).strip()
+        
+    with puntajes_retos_lock:
+        team_name_to_participant_id.update(mappings)
+        participant_id_to_team_name.update(rev_mappings)
+
+loads_cache: dict[str, dict] = {}
+loads_lock = threading.Lock()
+
+def get_loads_data() -> dict[str, dict]:
+    with loads_lock:
+        return dict(loads_cache)
+
+energy_cache: dict[str, dict] = {}
+energy_lock = threading.Lock()
+
+def get_energy_data() -> dict[str, dict]:
+    with energy_lock:
+        return dict(energy_cache)
+
 def get_team_name(participante: str) -> str:
     with puntajes_retos_lock:
-        return nombres_equipos_cache.get(participante, participante)
+        name = nombres_equipos_cache.get(participante, participante)
+    try:
+        import re
+        match = re.search(r"\d+", participante)
+        if match:
+            num = int(match.group())
+            if name.lower().startswith("participante_"):
+                return f"Team {num}"
+            if name.lower().replace(" ", "").startswith(f"team{num}"):
+                return name
+            return f"Team {num} - {name}"
+    except Exception:
+        pass
+    return name
 
 def get_team_id(participante: str) -> str:
     with puntajes_retos_lock:
@@ -126,19 +227,30 @@ def obtener_puntajes_por_participante(df: pd.DataFrame) -> dict[str, dict[str, f
                     except (ValueError, TypeError):
                         pass
             
-            match = re.search(r'\d+', equipo_id_str)
-            if match:
-                numero   = int(match.group())
+            part_key = resolve_participant_by_name(nombre_equipo)
+            if not part_key:
+                match = re.search(r'\d+', equipo_id_str)
+                if match:
+                    numero = int(match.group())
+                    part_key = f"participante_{numero:02d}"
+            
+            if part_key:
+                try:
+                    rank_val = int(float(str(row[df.columns[0]]).strip().split()[0]))
+                except Exception:
+                    rank_val = 99
+                    
                 puntaje  = float(puntaje_val)  if pd.notna(puntaje_val)  else 0.0
                 time_s   = float(time_val)     if (time_val is not None and pd.notna(time_val)) else 0.0
                 
-                resultados[f"participante_{numero:02d}"] = {
+                resultados[part_key] = {
                     "puntaje":         puntaje,
                     "activity_points": challenge_total,
                     "time_s":          time_s,
                     "total":           100.0,
                     "team_id":         equipo_id_str,
                     "team_name":       nombre_equipo,
+                    "scoreboard_rank": rank_val,
                     "load_percent": safe_float(row[col_load_percent]) if col_load_percent is not None else 0.0,
                     "energy_percent": safe_float(row[col_energy_percent]) if col_energy_percent is not None else 0.0,
                     "time_percent": safe_float(row[col_time_percent]) if col_time_percent is not None else 0.0,
@@ -192,8 +304,7 @@ def normalizar_dataframe_puntajes(df: pd.DataFrame) -> pd.DataFrame:
     return working
 
 
-def leer_hoja_puntajes() -> pd.DataFrame:
-    # URL_CSV is already a direct export URL
+def leer_hojas_excel() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     url_sin_cache = f"{URL_CSV}&_ts={time.time_ns()}"
     request = Request(
         url_sin_cache,
@@ -205,16 +316,183 @@ def leer_hoja_puntajes() -> pd.DataFrame:
         },
     )
 
-    try:
-        with urlopen(request, timeout=15) as response:
-            excel_bytes = response.read()
+    with urlopen(request, timeout=15) as response:
+        excel_bytes = response.read()
 
-        df = pd.read_excel(
-            BytesIO(excel_bytes),
-            sheet_name=NOMBRE_HOJA,
-            header=None,
-        )
-        return normalizar_dataframe_puntajes(df)
+    xl = pd.ExcelFile(BytesIO(excel_bytes))
+    
+    df_stream = pd.DataFrame()
+    if NOMBRE_HOJA in xl.sheet_names:
+        df_stream = xl.parse(NOMBRE_HOJA, header=None)
+        df_stream = normalizar_dataframe_puntajes(df_stream)
+    else:
+        print(f"Error: La hoja {NOMBRE_HOJA} no se encontró en el Excel.")
+
+    df_loads = pd.DataFrame()
+    if "Loads" in xl.sheet_names:
+        df_loads = xl.parse("Loads", header=None)
+    else:
+        print("Warning: La hoja Loads no se encontró en el Excel.")
+
+    df_energy = pd.DataFrame()
+    if "Energy" in xl.sheet_names:
+        df_energy = xl.parse("Energy", header=None)
+    else:
+        print("Warning: La hoja Energy no se encontró en el Excel.")
+
+    df_teams = pd.DataFrame()
+    if "Teams" in xl.sheet_names:
+        df_teams = xl.parse("Teams", header=None)
+    else:
+        print("Warning: La hoja Teams no se encontró en el Excel.")
+
+    return df_stream, df_loads, df_energy, df_teams
+
+
+def obtener_loads_por_participante_local(df: pd.DataFrame) -> dict[str, dict]:
+    import re
+    resultados = {}
+    if df.empty:
+        return resultados
+    
+    header_idx = None
+    for idx, row in df.iterrows():
+        row_vals = [str(x).strip().lower() for x in row.tolist() if pd.notna(x)]
+        if any('team' in x for x in row_vals) and any('load at home' in x or 'home' in x for x in row_vals):
+            header_idx = idx
+            break
+            
+    if header_idx is None:
+        header_idx = 12 if len(df) > 12 else 0
+
+    header_row = df.iloc[header_idx].tolist()
+    
+    col_team = 0
+    col_load_home = 1
+    col_curr_load = 2
+    col_target = 3
+    col_status = 4
+    
+    for col_i, val in enumerate(header_row):
+        val_str = str(val).strip().lower()
+        if 'team' in val_str:
+            col_team = col_i
+        elif 'home' in val_str:
+            col_load_home = col_i
+        elif 'current' in val_str:
+            col_curr_load = col_i
+        elif 'target' in val_str:
+            col_target = col_i
+        elif 'status' in val_str:
+            col_status = col_i
+
+    for idx in range(header_idx + 1, len(df)):
+        row = df.iloc[idx]
+        try:
+            team_val = row[col_team]
+            if pd.isna(team_val):
+                continue
+            
+            part_key = resolve_participant_by_name(team_val)
+            if not part_key:
+                continue
+            
+            load_home = safe_float(row[col_load_home])
+            curr_load = safe_float(row[col_curr_load])
+            target = safe_float(row[col_target])
+            status_val = str(row[col_status]).strip() if pd.notna(row[col_status]) else "unknown"
+            
+            resultados[part_key] = {
+                "load_at_home": load_home,
+                "current_load": curr_load,
+                "target": target,
+                "status": status_val
+            }
+        except Exception as e:
+            print(f"Error parsing loads row {idx}: {e}")
+            continue
+            
+    return resultados
+
+
+def obtener_energy_por_participante_local(df: pd.DataFrame) -> dict[str, dict]:
+    import re
+    resultados = {}
+    if df.empty:
+        return resultados
+        
+    header_idx = None
+    for idx, row in df.iterrows():
+        row_vals = [str(x).strip().lower() for x in row.tolist() if pd.notna(x)]
+        if any('teamid' in x or 'team id' in x for x in row_vals) and any('energy' in x for x in row_vals):
+            header_idx = idx
+            break
+            
+    if header_idx is None:
+        header_idx = 9 if len(df) > 9 else 0
+        
+    header_row = df.iloc[header_idx].tolist()
+    
+    col_team = 0
+    col_time = 2
+    col_energy = 3
+    
+    for col_i, val in enumerate(header_row):
+        val_str = str(val).strip().lower()
+        if 'teamid' in val_str or 'team id' in val_str:
+            col_team = col_i
+        elif 'time' in val_str or 'tiempo' in val_str:
+            col_time = col_i
+        elif 'energy' in val_str or 'energia' in val_str or 'energía' in val_str:
+            col_energy = col_i
+
+    for idx in range(header_idx + 1, len(df)):
+        row = df.iloc[idx]
+        try:
+            team_val = row[col_team]
+            if pd.isna(team_val):
+                continue
+                
+            energy_val = row[col_energy]
+            if str(energy_val).strip().lower() == 'wh':
+                continue
+                
+            part_key = resolve_participant_by_name(team_val)
+            if not part_key:
+                continue
+            
+            time_val = row[col_time]
+            import datetime
+            if pd.isna(time_val):
+                time_str = "--"
+            elif isinstance(time_val, (datetime.time, time)):
+                time_str = time_val.strftime("%H:%M:%S")
+            elif isinstance(time_val, datetime.datetime):
+                time_str = time_val.time().strftime("%H:%M:%S")
+            else:
+                time_str = str(time_val).strip()
+                
+            energy_num = safe_float(energy_val)
+            
+            percent_val = row[5] if len(row) > 5 else None
+            percent_num = safe_float(percent_val) * 100.0 if percent_val is not None else 0.0
+            
+            resultados[part_key] = {
+                "energy_time": time_str,
+                "energy_val": energy_num,
+                "energy_percent": percent_num
+            }
+        except Exception as e:
+            print(f"Error parsing energy row {idx}: {e}")
+            continue
+            
+    return resultados
+
+
+def leer_hoja_puntajes() -> pd.DataFrame:
+    try:
+        df_stream, _, _ = leer_hojas_excel()
+        return df_stream
     except Exception:
         # Devuelve un DataFrame simulado con los datos de la imagen si SharePoint bloquea
         mock_data = [
@@ -266,20 +544,50 @@ def set_puntajes_retos_cache(puntajes_por_participante: dict[str, dict[str, floa
                 nombres_equipos_cache[participante] = valores["team_name"]
             if "team_id" in valores:
                 team_id_cache[participante] = str(valores["team_id"]).strip().upper()
+            if "scoreboard_rank" in valores:
+                scoreboard_rank_cache[participante] = int(valores["scoreboard_rank"])
 
         ultima_actualizacion = now
         return _get_puntajes_retos_detalle_snapshot()
 
 
 def refrescar_puntajes_retos() -> dict[str, dict[str, float]]:
-    df = leer_hoja_puntajes()
-    puntajes_por_participante = obtener_puntajes_por_participante(df)
-    return set_puntajes_retos_cache(puntajes_por_participante)
+    try:
+        df_stream, df_loads, df_energy, df_teams = leer_hojas_excel()
+        build_team_name_mappings(df_teams)
+    except Exception as e:
+        print("Error downloading/reading Excel workbook:", e)
+        df_stream = leer_hoja_puntajes()
+        df_loads = pd.DataFrame()
+        df_energy = pd.DataFrame()
+        df_teams = pd.DataFrame()
+
+    if not df_stream.empty:
+        puntajes_por_participante = obtener_puntajes_por_participante(df_stream)
+        set_puntajes_retos_cache(puntajes_por_participante)
+
+    if not df_loads.empty:
+        parsed_loads = obtener_loads_por_participante_local(df_loads)
+        with loads_lock:
+            global loads_cache
+            loads_cache = parsed_loads
+
+    if not df_energy.empty:
+        parsed_energy = obtener_energy_por_participante_local(df_energy)
+        with energy_lock:
+            global energy_cache
+            energy_cache = parsed_energy
+
+    return _get_puntajes_retos_detalle_snapshot()
 
 
 def get_puntaje_retos(participante: str) -> float:
     with puntajes_retos_lock:
         return float(puntajes_retos_cache.get(participante, 0.0))
+
+def get_scoreboard_rank(participante: str) -> int:
+    with puntajes_retos_lock:
+        return scoreboard_rank_cache.get(participante, 99)
 
 def get_activity_points(participante: str) -> float:
     with puntajes_retos_lock:
@@ -330,7 +638,7 @@ def get_puntaje_retos_detalle(participante: str) -> dict:
     }
 
 
-def sincronizar_puntajes(intervalo_segundos: float = 1.0) -> None:
+def sincronizar_puntajes(intervalo_segundos: float = 15.0) -> None:
     global ultimo_estado
 
     while True:

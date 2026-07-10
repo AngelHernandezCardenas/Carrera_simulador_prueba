@@ -49,6 +49,28 @@ except Exception as e:
     print("No se pudieron cargar puntajes_retos al iniciar:", e)
 threading.Thread(target=sincronizar_puntajes, daemon=True).start()
 
+last_save_time = 0.0
+save_lock = threading.Lock()
+
+def _async_save(participants_copy):
+    with save_lock:
+        try:
+            save_participants(participants_copy)
+        except Exception as e:
+            print("Error saving participants asynchronously:", e)
+
+def save_participants_throttled(participants: dict):
+    global last_save_time
+    now = time.time()
+    if now - last_save_time > 5.0:
+        last_save_time = now
+        import copy
+        try:
+            participants_copy = copy.deepcopy(participants)
+        except Exception:
+            participants_copy = dict(participants)
+        threading.Thread(target=_async_save, args=(participants_copy,), daemon=True).start()
+
 inicio = time.time()
 runners_stats: dict[str, dict] = {}
 _battery_levels_by_device: dict[str, float] = {}
@@ -797,14 +819,46 @@ def fotos_checkpoints():
 
 @app.route("/estado_mapa", methods=["GET"])
 def estado_mapa():
+    from Puntaje import get_loads_data, get_energy_data
+    loads_data = get_loads_data()
+    energy_data = get_energy_data()
+    
     scoreboard_data = get_scoreboard_data()
     runners_snapshot = {}
+    from Puntaje import get_team_name
     with participants_lock:
-        runners_snapshot = {
-            get_participant_name_for_device(dev_id): {**state, "device_id": dev_id}
-            for dev_id, state in participants_cache.items()
-            if isinstance(state, dict) and "last_coord" in state
+        runners_snapshot = {}
+        temp_snapshot = {
+            dev_id: {
+                **entry,
+                "device_id": dev_id,
+            }
+            for dev_id, entry in participants_cache.items()
+            if isinstance(entry, dict)
         }
+        for dev_id, state in participants_cache.items():
+            if isinstance(state, dict):
+                if "last_coord" not in state:
+                    if CHECKPOINTS:
+                        state["last_coord"] = (CHECKPOINTS[0]["lat"], CHECKPOINTS[0]["lon"])
+                    else:
+                        state["last_coord"] = (0.0, 0.0)
+                
+                name = state.get("nombre") or "Desconocido"
+                resolved_team_name = get_team_name(name)
+                if resolved_team_name in ("Unknown", "unknown", name, None):
+                    resolved_team_name = state.get("device_label") or name
+                
+                from Puntaje import get_scoreboard_rank
+                rank = get_scoreboard_rank(name)
+                
+                runners_snapshot[name] = {
+                    **state,
+                    "device_id": dev_id,
+                    "device_label": state.get("device_label") or name,
+                    "team_name": resolved_team_name,
+                    "posicion": rank if rank is not None and rank != 99 else "--"
+                }
         
         # Add latitude and longitude to match expected structure
         for state in runners_snapshot.values():
@@ -828,6 +882,8 @@ def estado_mapa():
         "galeria": load_gallery_items(),
         "runners": runners_snapshot,
         "scoreboard": scoreboard_data,
+        "loads": loads_data,
+        "energy": energy_data,
         "judges": judges_list
     })
 
@@ -979,14 +1035,12 @@ def gps():
 
     with participants_lock:
         if client_participante and ("Judge" in client_participante or "Juez" in client_participante):
-            from judges import judges_cache, save_judges
-            if device_id not in judges_cache:
-                judges_cache[device_id] = {"nombre": client_participante}
-                save_judges(judges_cache)
+            from judges import get_or_create_judge
+            nombre_juez = get_or_create_judge(device_id)
             # NO lo agregamos al participants_cache y retornamos temprano
             return jsonify({
                 "status": "ok", 
-                "participante": client_participante, 
+                "participante": nombre_juez, 
                 "msg": "GPS ignorado para jueces"
             })
         else:
@@ -1016,6 +1070,7 @@ def gps():
         participant_entry = participants_cache[device_id]
         participant_entry["device_id"] = device_id
         participant_entry["nombre"] = participante
+        participant_entry["device_label"] = data.get("device_label") or f"Dispositivo-{device_id[:8]}"
         participant_entry["last_coord"] = (latitude, longitude)
 
         estado_anterior = participant_entry.get("estado", "corriendo")
@@ -1075,7 +1130,7 @@ def gps():
                 nivel_bateria = get_next_battery_level(device_id)
 
         participant_entry["nivel_bateria"] = nivel_bateria
-        save_participants(participants_cache)
+        save_participants_throttled(participants_cache)
 
         checkpoint_state = {
             "checkpoints_visitados": participant_entry.get("checkpoints_visitados", []),
@@ -1105,10 +1160,14 @@ def gps():
             for runner_device_id, entry in participants_cache.items()
             if isinstance(entry, dict)
         }
+        from Puntaje import get_scoreboard_rank
+        posicion = get_scoreboard_rank(participante)
+        if posicion == 99 or posicion is None:
+            posicion = "--"
+        posicion_checkpoints = posicion
+        participant_entry["posicion"] = posicion
 
-    posicion_checkpoints = get_checkpoint_rank_from_snapshot(device_id, runners_snapshot)
     puntaje_retos = safe_float(checkpoint_state["puntaje_retos"])
-    posicion = posicion_checkpoints
     runner_stats = update_runner_stats(participante, latitude, longitude, data.get("speed_kmh"))
 
     feature = {
@@ -1195,13 +1254,27 @@ def gps():
         f"puntaje_retos={puntaje_retos:.2f}"
     )
 
+    from Puntaje import get_loads_data, get_energy_data, get_team_name
+    loads_data = get_loads_data()
+    energy_data = get_energy_data()
+    part_loads = loads_data.get(participante, {})
+    part_energy = energy_data.get(participante, {})
+
+    resolved_team_name = get_team_name(participante)
+    if resolved_team_name in ("Unknown", "unknown", participante, None):
+        resolved_team_name = data.get("device_label") or participante
+
     socketio.emit("nueva_posicion", {
         "participante": participante,
+        "team_name": resolved_team_name,
+        "device_label": data.get("device_label") or f"Dispositivo-{device_id[:8]}",
         "latitude": latitude,
         "longitude": longitude,
         "velocidad": float(data.get("speed_kmh")) if data.get("speed_kmh") is not None else 0.0,
         "distancia_km": runner_stats["distancia_km"],
         "max_speed": runner_stats["max_speed"],
+        "loads": part_loads,
+        "energy": part_energy,
         "nivel_bateria": nivel_bateria,
         "posicion": posicion,
         "puntaje_retos": puntaje_retos,

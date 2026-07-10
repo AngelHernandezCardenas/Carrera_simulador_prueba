@@ -1,14 +1,10 @@
 {
-  "app-mrdpqoal-cp0unduj": {
+  "app-mrf8u77g-sqzitdcc": {
     "nombre": "Judge_1",
-    "checkpoint_id": 4
+    "checkpoint_id": 1
   },
-  "app-mrdt6ozq-h7chz27v": {
+  "app-mrf8udti-kiwqq8tf": {
     "nombre": "Judge_2",
     "checkpoint_id": 2
-  },
-  "app-mrdtawzu-h3nkege4": {
-    "nombre": "Judge_3",
-    "checkpoint_id": 4
   }
 }

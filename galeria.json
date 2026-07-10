@@ -814,5 +814,124 @@
         "checkpoint_nombre": "Biotecnologia-Centrales",
         "checkpoint_slug": "checkpoint_1",
         "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Desconocido_checkpoint_2_1783706832.jpg",
+        "timestamp": 1783706832,
+        "device_id": "app-mrf8udti-kiwqq8tf",
+        "participante": "Desconocido",
+        "fecha_hora": "2026-07-10 12:07:12",
+        "juez": "Judge_2",
+        "detections": {
+            "Rojo": 1,
+            "Blanco": 0,
+            "Negro": 0
+        },
+        "checkpoint_id": 2,
+        "checkpoint_nombre": "Bilio-Aulas4",
+        "checkpoint_slug": "checkpoint_2",
+        "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_2_checkpoint_2_1783706858.jpg",
+        "timestamp": 1783706858,
+        "device_id": "app-mrf8udti-kiwqq8tf",
+        "participante": "Participante_2",
+        "fecha_hora": "2026-07-10 12:07:38",
+        "juez": "Judge_2",
+        "detections": {
+            "Rojo": 0,
+            "Blanco": 0,
+            "Negro": 1
+        },
+        "checkpoint_id": 2,
+        "checkpoint_nombre": "Bilio-Aulas4",
+        "checkpoint_slug": "checkpoint_2",
+        "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_1_checkpoint_1_1783706928.jpg",
+        "timestamp": 1783706928,
+        "device_id": "app-mrf8u77g-sqzitdcc",
+        "participante": "Participante_1",
+        "fecha_hora": "2026-07-10 12:08:48",
+        "juez": "Judge_1",
+        "detections": {
+            "Rojo": 0,
+            "Blanco": 0,
+            "Negro": 1
+        },
+        "checkpoint_id": 1,
+        "checkpoint_nombre": "Biotecnologia-Centrales",
+        "checkpoint_slug": "checkpoint_1",
+        "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_2_checkpoint_1_1783706966.jpg",
+        "timestamp": 1783706966,
+        "device_id": "app-mrf8u77g-sqzitdcc",
+        "participante": "Participante_2",
+        "fecha_hora": "2026-07-10 12:09:26",
+        "juez": "Judge_1",
+        "detections": {
+            "Rojo": 1,
+            "Blanco": 0,
+            "Negro": 0
+        },
+        "checkpoint_id": 1,
+        "checkpoint_nombre": "Biotecnologia-Centrales",
+        "checkpoint_slug": "checkpoint_1",
+        "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_3_checkpoint_1_1783707162.jpg",
+        "timestamp": 1783707162,
+        "device_id": "app-mrf8u77g-sqzitdcc",
+        "participante": "Participante_3",
+        "fecha_hora": "2026-07-10 12:12:42",
+        "juez": "Judge_1",
+        "detections": {
+            "Rojo": 0,
+            "Blanco": 2,
+            "Negro": 0
+        },
+        "checkpoint_id": 1,
+        "checkpoint_nombre": "Biotecnologia-Centrales",
+        "checkpoint_slug": "checkpoint_1",
+        "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_3_checkpoint_1_1783707173.jpg",
+        "timestamp": 1783707173,
+        "device_id": "app-mrf8u77g-sqzitdcc",
+        "participante": "Participante_3",
+        "fecha_hora": "2026-07-10 12:12:53",
+        "juez": "Judge_1",
+        "detections": {
+            "Rojo": 1,
+            "Blanco": 1,
+            "Negro": 0
+        },
+        "checkpoint_id": 1,
+        "checkpoint_nombre": "Biotecnologia-Centrales",
+        "checkpoint_slug": "checkpoint_1",
+        "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_3_checkpoint_2_1783707296.jpg",
+        "timestamp": 1783707296,
+        "device_id": "app-mrf8udti-kiwqq8tf",
+        "participante": "Participante_3",
+        "fecha_hora": "2026-07-10 12:14:56",
+        "juez": "Judge_2",
+        "detections": {
+            "Rojo": 0,
+            "Blanco": 1,
+            "Negro": 0
+        },
+        "checkpoint_id": 2,
+        "checkpoint_nombre": "Bilio-Aulas4",
+        "checkpoint_slug": "checkpoint_2",
+        "distancia_checkpoint_m": 0.0
     }
 ]

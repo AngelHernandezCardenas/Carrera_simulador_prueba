@@ -441,6 +441,12 @@ export default function App() {
           finalCheckpoint = "";
         }
       }
+
+      const isHomeBase = finalCheckpoint && (finalCheckpoint.toString() === '4' || finalCheckpoint.toString().toLowerCase().includes('home'));
+      if (isHomeBase && pts === 0) {
+        return; // Prevent saving if Home-Base and no points are scanned
+      }
+
       await NetworkService.saveWeight(globalServerUrl, targetScanParticipant, pts, currentMax, globalParticipante, finalCheckpoint);
       setLog(`Saved manually: ${pts} kg for ${targetScanParticipant}`, 'success');
       setScanResultMessage(`${targetScanParticipant.replace(/Participante_/i, 'Team ')} registered with ${pts} pts`);
@@ -500,10 +506,10 @@ export default function App() {
             
             let cpName = checkpointInfo.id ? getCheckpointLabel(checkpointInfo.id) : (checkpointInfo.label !== 'Not selected' ? checkpointInfo.label : null);
             if (cpName) {
-              scannerStatusText += `, Checkpoint: ${cpName}`;
+              scannerStatusText += `, Checkpoint: ${cpName.replace('Checkpoint ', '')}`;
             }
             if (targetScanParticipant && targetScanParticipant !== "Desconocido") {
-              const cleanTeam = targetScanParticipant.replace('Participante_', 'Team ');
+              const cleanTeam = targetScanParticipant.replace('Participante_', '');
               scannerStatusText += `, Team: ${cleanTeam}`;
             }
           }
@@ -519,15 +525,30 @@ export default function App() {
               </View>
 
               <Text style={styles.label}>WARNING ZONE</Text>
-              {scanResultMessage ? (
-                <View style={{ padding: 10, backgroundColor: '#dbeafe', borderRadius: 8, borderWidth: 1, borderColor: '#bfdbfe', alignItems: 'center' }}>
-                  <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1e40af' }}>{scanResultMessage}</Text>
-                </View>
-              ) : (
-                <View style={{ padding: 10, backgroundColor: '#f1f5f9', borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', alignItems: 'center' }}>
-                  <Text style={{ fontSize: 14, color: '#64748b' }}>No warnings</Text>
-                </View>
-              )}
+              {(() => {
+                const isHomeBase = checkpointInfo.id === 4 || checkpointInfo.id === "4" || (checkpointInfo.label && checkpointInfo.label.toLowerCase().includes('home'));
+                const isNoPointsHomeBase = isHomeBase && totalPts === 0 && targetScanParticipant !== "Desconocido";
+                
+                if (isNoPointsHomeBase) {
+                  return (
+                    <View style={{ padding: 10, backgroundColor: '#fee2e2', borderRadius: 8, borderWidth: 1, borderColor: '#fecaca', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#dc2626' }}>No points</Text>
+                    </View>
+                  );
+                } else if (scanResultMessage) {
+                  return (
+                    <View style={{ padding: 10, backgroundColor: '#dbeafe', borderRadius: 8, borderWidth: 1, borderColor: '#bfdbfe', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1e40af' }}>{scanResultMessage}</Text>
+                    </View>
+                  );
+                } else {
+                  return (
+                    <View style={{ padding: 10, backgroundColor: '#f1f5f9', borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 14, color: '#64748b' }}>No warnings</Text>
+                    </View>
+                  );
+                }
+              })()}
 
               {totalPts === 10 && (
                  <View style={{ marginTop: 15, padding: 10, backgroundColor: '#fef3c7', borderRadius: 8, borderWidth: 1, borderColor: '#fde68a', alignItems: 'center' }}>
@@ -700,9 +721,19 @@ export default function App() {
                 <TouchableOpacity style={[styles.button, styles.dangerButton, { flex: 1, marginRight: 5, marginBottom: 0 }]} onPress={reiniciarEscaneo}>
                   <Text style={styles.buttonText}>Reset</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.button, { flex: 1, backgroundColor: '#059669', marginLeft: 5, alignItems: 'center', marginBottom: 0 }]} onPress={handleSaveScore}>
-                  <Text style={styles.buttonText}>Save Score</Text>
-                </TouchableOpacity>
+                {(() => {
+                  const isHomeBase = checkpointInfo.id === 4 || checkpointInfo.id === "4" || (checkpointInfo.label && checkpointInfo.label.toLowerCase().includes('home'));
+                  const disabledSave = totalPts === 0;
+                  return (
+                    <TouchableOpacity 
+                      style={[styles.button, { flex: 1, backgroundColor: disabledSave ? '#9ca3af' : '#059669', marginLeft: 5, alignItems: 'center', marginBottom: 0 }]} 
+                      onPress={disabledSave ? null : handleSaveScore}
+                      activeOpacity={disabledSave ? 1 : 0.2}
+                    >
+                      <Text style={styles.buttonText}>Save Score</Text>
+                    </TouchableOpacity>
+                  );
+                })()}
               </View>
 
               <Text style={styles.label}>Select Checkpoint</Text>
@@ -726,7 +757,7 @@ export default function App() {
                 disabled={checkpointConfirmado}
               >
                 <option value="">-- Select Checkpoint --</option>
-                <option value="Home-Base">Home-Base (Descarga)</option>
+                <option value="Home-Base">Home-Base</option>
                 <option value="1">Checkpoint 1</option>
                 <option value="2">Checkpoint 2</option>
                 <option value="3">Checkpoint 3</option>

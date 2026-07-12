@@ -1,94 +1,111 @@
+// Google Apps Script - Code.gs
+// Webhook Definitivo para WonWheels
+// Corregido: ahora enruta por "action" (update_home_base / update_loads)
+// en lugar de por "checkpoint", ya que el backend envía checkpoint=99
+// cuando el juez es Home-Base.
+
 function doPost(e) {
   try {
     if (!e || !e.postData || !e.postData.contents) {
       return ContentService.createTextOutput(JSON.stringify({status: "error", message: "No data received"})).setMimeType(ContentService.MimeType.JSON);
     }
-    
-    var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-    
-    // INTENTAMOS ENCONTRAR LA PESTAÑA CORRECTA PARA GUARDAR LOS ESCANEOS
-    // Cambia "Loading" por el nombre exacto de tu pestaña donde se guardan las pelotas
-    var sheetNameForScans = "Loading"; 
-    var sheet = spreadsheet.getSheetByName(sheetNameForScans);
-    
-    // Si no existe la pestaña "Loading", buscamos una que NO sea el Scoreboard
-    if (!sheet) {
-      var allSheets = spreadsheet.getSheets();
+
+    var data = JSON.parse(e.postData.contents);
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    // 1. Calculamos el totalScore del escaneo
+    var blanca = Number(data.blanca) || 0;
+    var roja   = Number(data.roja) || 0;
+    var negra  = Number(data.negra) || 0;
+    var totalScore = (blanca * 1) + (roja * 3) + (negra * 5);
+
+    // 2. Actualizamos "Load at home" y "Current load" en la hoja Loads
+    var sheetLoads = ss.getSheetByName("Loads");
+    if (sheetLoads) {
+      var teamNumber = Number(data.team_number);
+      if (teamNumber >= 1 && teamNumber <= 15) {
+        var targetRow = 13 + teamNumber;
+
+        var loadAtHomeCol = 2;  // Columna B
+        var currentLoadCol = 3; // Columna C
+
+        // === JUEZ HOME-BASE (checkpoint ID 4, "Rectoria-Descarga") ===
+        if (data.action === "update_home_base") {
+          // Usamos directamente los valores calculados por el servidor de Python (app.py)
+          var newLoadAtHome = data.load_at_home !== undefined ? Number(data.load_at_home) : 0;
+          var newCurrentLoad = data.current_load !== undefined ? Number(data.current_load) : 0;
+
+          sheetLoads.getRange(targetRow, loadAtHomeCol).setValue(newLoadAtHome);
+          sheetLoads.getRange(targetRow, currentLoadCol).setValue(newCurrentLoad);
+        }
+
+        // === JUEZ NORMAL (checkpoints 1-10, excepto Home-Base) ===
+        if (data.action === "update_loads") {
+          var currentValue = Number(sheetLoads.getRange(targetRow, currentLoadCol).getValue()) || 0;
+
+          // Sumamos el puntaje del escaneo a "Current load"
+          sheetLoads.getRange(targetRow, currentLoadCol).setValue(currentValue + totalScore);
+        }
+      }
+    }
+
+    // 3. Historial en "Loading" (AMBOS JUECES se guardan aquí)
+    var sheetLoading = ss.getSheetByName("Loading");
+
+    // Si no existe una pestaña llamada exactamente "Loading", buscamos una alterna
+    // que no sea el Scoreboard ni la hoja de Puntaje, para no perder el historial.
+    if (!sheetLoading) {
+      var allSheets = ss.getSheets();
       for (var i = 0; i < allSheets.length; i++) {
         var tempName = allSheets[i].getName().toLowerCase();
-        // Evitamos guardar en el Scoreboard accidentalmente
-        if (!tempName.includes("scoreboard") && !tempName.includes("puntaje")) {
-          sheet = allSheets[i];
+        if (!tempName.includes("scoreboard") && !tempName.includes("puntaje") &&
+            !tempName.includes("loads") && !tempName.includes("teams") &&
+            !tempName.includes("jury") && !tempName.includes("stream") &&
+            !tempName.includes("results") && !tempName.includes("challenges") &&
+            tempName.indexOf("ch") !== 0) {
+          sheetLoading = allSheets[i];
           break;
         }
       }
     }
-    
-    // Si de plano no encontramos ninguna otra, usamos la primera por defecto
-    if (!sheet) {
-      sheet = spreadsheet.getSheets()[0];
+
+    if (sheetLoading) {
+      sheetLoading.appendRow([
+        data.hora || "",
+        data.juez || "",
+        data.checkpoint || "",
+        data.equipo || "",
+        blanca,
+        roja,
+        negra,
+        totalScore
+      ]);
     }
-    
-    var data = JSON.parse(e.postData.contents);
-    
-    var hora = data.hora || "";
-    var juez = String(data.juez || "");
-    var checkpoint = String(data.checkpoint || "");
-    var equipo = String(data.equipo || "");
-    var blanca = data.blanca || 0;
-    var roja = data.roja || 0;
-    var negra = data.negra || 0;
-    
-    var score = blanca * 1 + roja * 3 + negra * 5;
-    
-    // Si el juez es de Home-Base, actualizamos la tabla Loads (celdas B14:B28 y C14:C28)
-    if (checkpoint === "4" || checkpoint === "Home-Base") {
-      var loadsSheet = spreadsheet.getSheets().filter(function(s) { return s.getSheetId() == 572975250; })[0];
-      if (loadsSheet) {
-        var teamNum = parseInt(equipo.replace("Participante_", "")) || 0;
-        if (teamNum >= 1 && teamNum <= 15) {
-          var rowIndex = 13 + teamNum;
-          var currentB = Number(loadsSheet.getRange(rowIndex, 2).getValue()) || 0;
-          var currentC = Number(loadsSheet.getRange(rowIndex, 3).getValue()) || 0;
-          
-          var newB = currentB + score;
-          var newC = Math.max(0, currentC - score);
-          
-          loadsSheet.getRange(rowIndex, 2).setValue(newB);
-          loadsSheet.getRange(rowIndex, 3).setValue(newC);
-        }
-      }
-      
-      return ContentService.createTextOutput(JSON.stringify({status: "success", msg: "Home-Base load saved"})).setMimeType(ContentService.MimeType.JSON);
-    }
-    
-    // Si es un juez NORMAL, guarda el escaneo como siempre
-    sheet.appendRow([hora, juez, checkpoint, equipo, blanca, roja, negra, score]);
-    
-    return ContentService.createTextOutput(JSON.stringify({status: "success"})).setMimeType(ContentService.MimeType.JSON);
-                         
-  } catch (error) {
-    return ContentService.createTextOutput(JSON.stringify({status: "error", message: error.toString()})).setMimeType(ContentService.MimeType.JSON);
+
+    return ContentService.createTextOutput(JSON.stringify({ status: "ok", action: data.action })).setMimeType(ContentService.MimeType.JSON);
+
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() })).setMimeType(ContentService.MimeType.JSON);
   }
 }
 
 function doGet(e) {
-  var action = e.parameter.action;
-  
+  var action = e && e.parameter ? e.parameter.action : null;
+
   if (action === "getScoreboard") {
     try {
       var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
       var sheets = spreadsheet.getSheets();
-      
+
       var data = null;
       var headerRowIndex = -1;
       var targetSheet = null;
-      
+
       // Buscar en TODAS las pestañas cuál es la que tiene el Scoreboard (buscando "Rank" y "Team")
       for (var s = 0; s < sheets.length; s++) {
         var tempSheet = sheets[s];
         var tempData = tempSheet.getDataRange().getDisplayValues();
-        
+
         for (var i = 0; i < tempData.length; i++) {
           var rowStr = tempData[i].join("").toLowerCase();
           if (rowStr.includes("rank") && rowStr.includes("team")) {
@@ -99,17 +116,17 @@ function doGet(e) {
           }
         }
         if (headerRowIndex !== -1) {
-          break; // Ya encontramos la hoja correcta
+          break;
         }
       }
-      
+
       if (headerRowIndex === -1) {
         return ContentService.createTextOutput(JSON.stringify({error: "No se encontraron los encabezados Rank y Team en ninguna pestaña"})).setMimeType(ContentService.MimeType.JSON);
       }
-      
+
       var result = [];
       var headers = data[headerRowIndex];
-      
+
       for (var i = headerRowIndex + 1; i < data.length; i++) {
         var row = data[i];
         var obj = {};
@@ -120,15 +137,15 @@ function doGet(e) {
           }
         }
         if (obj["Team"] || obj["Equipo"]) {
-           result.push(obj);
+          result.push(obj);
         }
       }
-      
+
       return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
     } catch (err) {
       return ContentService.createTextOutput(JSON.stringify({error: err.toString()})).setMimeType(ContentService.MimeType.JSON);
     }
   }
-  
+
   return ContentService.createTextOutput(JSON.stringify({status: "ok", msg: "App is running"})).setMimeType(ContentService.MimeType.JSON);
 }

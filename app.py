@@ -751,12 +751,13 @@ def registrar_peso():
             peso_entregado_previo = participant_entry.get("peso_entregado_kg", 0.0)
             
             if is_home_base:
-                # Juez de Home-Base: Suma TODO (Current load + escaneado actual) a "Load at Home"
-                nuevo_peso_entregado = peso_entregado_previo + peso_previo + peso_agregado
+                # Juez de Home-Base: Resta lo escaneado a "Current load" y lo suma a "Load at home"
+                puntos_transferir = min(peso_previo, peso_agregado) # No restar más de lo que tienen
+                nuevo_peso_entregado = peso_entregado_previo + puntos_transferir
                 participant_entry["peso_entregado_kg"] = nuevo_peso_entregado
                 
-                # REINICIAR (vaciar) Current Load
-                nuevo_peso_total = 0.0
+                # Restar del Current Load
+                nuevo_peso_total = max(0.0, peso_previo - puntos_transferir)
                 participant_entry["peso_kg"] = nuevo_peso_total
                 participant_entry["carga_kg"] = nuevo_peso_total
                 

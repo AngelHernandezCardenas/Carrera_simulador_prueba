@@ -1,30 +1,18 @@
 {
-  "app-mrg1t834-io7msifq": {
+  "app-mrh4pt34-rsc25oop": {
     "nombre": "Home-Base",
     "checkpoint_id": "Home-Base"
   },
-  "app-mrg37zam-x89kdonj": {
+  "app-mrh4qb72-3az1p84b": {
     "nombre": "Judge_2",
     "checkpoint_id": 1
   },
-  "app-mrg70cct-o3t06trv": {
+  "app-mrh6617o-ts3ewj1v": {
     "nombre": "Home-Base",
     "checkpoint_id": "Home-Base"
   },
-  "app-mrg749uh-6df4tcwv": {
-    "nombre": "Judge_4",
-    "checkpoint_id": 5
-  },
-  "app-mrg7zkbm-s9xibgin": {
-    "nombre": "Judge_5",
-    "checkpoint_id": 10
-  },
-  "app-mrgy7q46-r86p6fjv": {
+  "app-mrh66c2j-c26utuhe": {
     "nombre": "Home-Base",
     "checkpoint_id": "Home-Base"
-  },
-  "app-mrgyem55-ohk7a5fg": {
-    "nombre": "Judge_7",
-    "checkpoint_id": 5
   }
 }

@@ -1,0 +1,20 @@
+fix: corrección definitiva de sumatorias duplicadas en Google Sheets y lógica de descarga en Home-Base
+
+Se resolvió el bug crítico donde el escáner de Home-Base sumaba puntos infinitamente al 'Current load' en Google Sheets y no actualizaba correctamente el 'Load at home'.
+
+Cambios principales:
+1. Refactorización del Webhook (webhook_google_sheets.js):
+   - Se dividió la lógica en dos acciones explícitas: "update_loads" (Jueces normales) y "update_home_base" (Juez de descarga).
+   - Jueces normales: Siguen sumando el totalScore de las pelotas al 'Current load' de Google Sheets.
+   - Home-Base: Ahora sobrescribe los valores de 'Current load' y 'Load at home' usando exactamente la matemática calculada y enviada por app.py, evitando la doble suma.
+   - Se garantizó que ambas acciones registren correctamente el historial de pelotas escaneadas en la pestaña "Loading".
+
+2. Corrección de lógica en el Backend (app.py):
+   - Se arregló la variable 'is_home_base' para detectar de forma confiable el Checkpoint 4 o la palabra "home".
+   - Se implementó la lógica de seguridad 'min(peso_previo, peso_agregado)' para garantizar que un equipo no pueda descargar más puntos de los que tiene acumulados.
+   - Se revirtió un parche temporal que enviaba las pelotas en ceros ('0 if is_home_base') para asegurar que la pestaña 'Loading' del Excel reciba el conteo real de pelotas (blanca, roja, negra) al hacer una descarga.
+   - Se actualizó el payload para enviar las variables 'action', 'current_load' y 'load_at_home' al webhook.
+
+3. Actualización de URL y Entorno (config.py & judges.json):
+   - Se actualizó la variable GOOGLE_APPS_SCRIPT_WEBHOOK_URL apuntando a la nueva versión desplegada del script de Google.
+   - Se reestructuró la asignación de dispositivos de prueba a 'Home-Base' en judges.json para facilitar el QA.

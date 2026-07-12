@@ -16,8 +16,8 @@ CHECKPOINTS = [
 ]
 
 MAX_PERSONAS_POR_CHECKPOINT = 4
-UNLIMITED_OCCUPANCY_CHECKPOINT_IDS = {"Home-Base"}
-CHECKPOINT_DESCARGA_ID = "Home-Base"
+UNLIMITED_OCCUPANCY_CHECKPOINT_IDS = {99, "Home-Base"}
+CHECKPOINT_DESCARGA_ID = 99
 
 def haversine_distance_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Calcula distancia entre dos coordenadas GPS usando Haversine."""
@@ -37,7 +37,10 @@ def haversine_distance_m(lat1: float, lon1: float, lat2: float, lon2: float) -> 
 
 
 def _checkpoint_id(checkpoint: dict) -> int:
-    return int(checkpoint["id"])
+    cid = checkpoint["id"]
+    if str(cid).lower() == "home-base" or "home" in str(cid).lower():
+        return 99
+    return int(cid)
 
 
 def _checkpoint_name(checkpoint: dict) -> str:
@@ -46,7 +49,11 @@ def _checkpoint_name(checkpoint: dict) -> str:
 
 
 def _sorted_checkpoint_ids(checkpoint_ids) -> list[int]:
-    return sorted(int(checkpoint_id) for checkpoint_id in checkpoint_ids)
+    def safe_int(cid):
+        if str(cid).lower() == "home-base" or "home" in str(cid).lower():
+            return 99
+        return int(cid)
+    return sorted(safe_int(checkpoint_id) for checkpoint_id in checkpoint_ids)
 
 
 def _nearest_checkpoint(lat: float, lon: float, checkpoints: list[dict]) -> tuple[dict | None, float]:

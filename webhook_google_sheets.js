@@ -7,7 +7,7 @@
 function doPost(e) {
   try {
     if (!e || !e.postData || !e.postData.contents) {
-      return ContentService.createTextOutput(JSON.stringify({status: "error", message: "No data received"})).setMimeType(ContentService.MimeType.JSON);
+      return ContentService.createTextOutput(JSON.stringify({ status: "error", message: "No data received" })).setMimeType(ContentService.MimeType.JSON);
     }
 
     var data = JSON.parse(e.postData.contents);
@@ -15,8 +15,8 @@ function doPost(e) {
 
     // 1. Calculamos el totalScore del escaneo
     var blanca = Number(data.blanca) || 0;
-    var roja   = Number(data.roja) || 0;
-    var negra  = Number(data.negra) || 0;
+    var roja = Number(data.roja) || 0;
+    var negra = Number(data.negra) || 0;
     var totalScore = (blanca * 1) + (roja * 3) + (negra * 5);
 
     // 2. Actualizamos "Load at home" y "Current load" en la hoja Loads
@@ -31,20 +31,32 @@ function doPost(e) {
 
         // === JUEZ HOME-BASE (checkpoint ID 4, "Rectoria-Descarga") ===
         if (data.action === "update_home_base") {
-          // Usamos directamente los valores calculados por el servidor de Python (app.py)
-          var newLoadAtHome = data.load_at_home !== undefined ? Number(data.load_at_home) : 0;
-          var newCurrentLoad = data.current_load !== undefined ? Number(data.current_load) : 0;
+          var currentLoadAtHome = Number(sheetLoads.getRange(targetRow, loadAtHomeCol).getValue()) || 0;
+          var currentCurrentLoad = Number(sheetLoads.getRange(targetRow, currentLoadCol).getValue()) || 0;
+          
+          var transfer = data.puntos_transferir !== undefined ? Number(data.puntos_transferir) : Math.min(currentCurrentLoad, totalScore);
 
-          sheetLoads.getRange(targetRow, loadAtHomeCol).setValue(newLoadAtHome);
-          sheetLoads.getRange(targetRow, currentLoadCol).setValue(newCurrentLoad);
+          sheetLoads.getRange(targetRow, loadAtHomeCol).setValue(currentLoadAtHome + transfer);
+          sheetLoads.getRange(targetRow, currentLoadCol).setValue(data.current_load !== undefined ? Number(data.current_load) : Math.max(0, currentCurrentLoad - transfer));
         }
 
         // === JUEZ NORMAL (checkpoints 1-10, excepto Home-Base) ===
         if (data.action === "update_loads") {
           var currentValue = Number(sheetLoads.getRange(targetRow, currentLoadCol).getValue()) || 0;
 
-          // Sumamos el puntaje del escaneo a "Current load"
-          sheetLoads.getRange(targetRow, currentLoadCol).setValue(currentValue + totalScore);
+          // Sumamos el puntaje del escaneo a "Current load" sin tope forzoso
+          sheetLoads.getRange(targetRow, currentLoadCol).setValue(data.current_load !== undefined ? Number(data.current_load) : (currentValue + totalScore));
+        }
+
+        // === CAMBIO DE COLOR DINÁMICO EN "CURRENT LOAD" ===
+        var finalCurrentLoad = Number(sheetLoads.getRange(targetRow, currentLoadCol).getValue()) || 0;
+        var currentLoadCell = sheetLoads.getRange(targetRow, currentLoadCol);
+        if (finalCurrentLoad > 10) {
+          currentLoadCell.setBackground("#ff0000"); // Rojo
+        } else if (finalCurrentLoad === 10) {
+          currentLoadCell.setBackground("#ffff00"); // Amarillo
+        } else {
+          currentLoadCell.setBackground(null); // Blanco (sin fondo)
         }
       }
     }
@@ -59,10 +71,10 @@ function doPost(e) {
       for (var i = 0; i < allSheets.length; i++) {
         var tempName = allSheets[i].getName().toLowerCase();
         if (!tempName.includes("scoreboard") && !tempName.includes("puntaje") &&
-            !tempName.includes("loads") && !tempName.includes("teams") &&
-            !tempName.includes("jury") && !tempName.includes("stream") &&
-            !tempName.includes("results") && !tempName.includes("challenges") &&
-            tempName.indexOf("ch") !== 0) {
+          !tempName.includes("loads") && !tempName.includes("teams") &&
+          !tempName.includes("jury") && !tempName.includes("stream") &&
+          !tempName.includes("results") && !tempName.includes("challenges") &&
+          tempName.indexOf("ch") !== 0) {
           sheetLoading = allSheets[i];
           break;
         }
@@ -121,7 +133,7 @@ function doGet(e) {
       }
 
       if (headerRowIndex === -1) {
-        return ContentService.createTextOutput(JSON.stringify({error: "No se encontraron los encabezados Rank y Team en ninguna pestaña"})).setMimeType(ContentService.MimeType.JSON);
+        return ContentService.createTextOutput(JSON.stringify({ error: "No se encontraron los encabezados Rank y Team en ninguna pestaña" })).setMimeType(ContentService.MimeType.JSON);
       }
 
       var result = [];
@@ -143,9 +155,9 @@ function doGet(e) {
 
       return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
     } catch (err) {
-      return ContentService.createTextOutput(JSON.stringify({error: err.toString()})).setMimeType(ContentService.MimeType.JSON);
+      return ContentService.createTextOutput(JSON.stringify({ error: err.toString() })).setMimeType(ContentService.MimeType.JSON);
     }
   }
 
-  return ContentService.createTextOutput(JSON.stringify({status: "ok", msg: "App is running"})).setMimeType(ContentService.MimeType.JSON);
+  return ContentService.createTextOutput(JSON.stringify({ status: "ok", msg: "App is running" })).setMimeType(ContentService.MimeType.JSON);
 }

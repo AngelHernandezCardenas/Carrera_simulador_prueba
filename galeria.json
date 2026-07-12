@@ -1103,5 +1103,22 @@
         "checkpoint_nombre": "Rectoria-Descarga",
         "checkpoint_slug": "checkpoint_4",
         "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Desconocido_manual_1783890151.jpg",
+        "timestamp": 1783890151,
+        "device_id": "app-mria3st9-570njfq9",
+        "participante": "Desconocido",
+        "fecha_hora": "2026-07-12 15:02:31",
+        "juez": "Judge_3",
+        "detections": {
+            "Rojo": 0,
+            "Blanco": 1,
+            "Negro": 0
+        },
+        "checkpoint_id": 0,
+        "checkpoint_nombre": "Manual / Sin GPS",
+        "checkpoint_slug": "manual",
+        "distancia_checkpoint_m": 0.0
     }
 ]

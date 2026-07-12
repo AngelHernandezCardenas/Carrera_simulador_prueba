@@ -517,7 +517,30 @@ export default function App() {
 
         return (
           <>
-            {/* BLOCK 1: WAITING / WARNING ZONE */}
+            {/* BLOCK 2: CAMERA AND YOLO */}
+            <View style={styles.connectionPanel}>
+              <Text style={[styles.label, { fontSize: 16, textAlign: 'center', marginBottom: 15 }]}>CAMERA</Text>
+              {!permission ? (
+                <Text>Loading camera permissions...</Text>
+              ) : !permission.granted ? (
+                <>
+                  <Text style={{ marginBottom: 10 }}>We need permission to use the camera</Text>
+                  <TouchableOpacity style={[styles.button, styles.secondaryButton]} onPress={requestPermission}>
+                    <Text style={styles.buttonText}>Grant Permission</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <ScannerCamera
+                  cameraRef={cameraRef}
+                  contandoActivo={contandoActivo}
+                  detectedBalls={detectedBalls}
+                  onScanOnce={escanearUnaVez}
+                  onOpenGallery={abrirGaleria}
+                />
+              )}
+            </View>
+
+            {/* BLOCK 1: WAITING / WARNING ZONE (Moved here) */}
             <View style={styles.connectionPanel}>
               <Text style={styles.label}>WAITING ZONE</Text>
               <View style={{ padding: 10, backgroundColor: '#f0fdf4', borderRadius: 8, borderWidth: 1, borderColor: '#bbf7d0', alignItems: 'center', marginBottom: 15 }}>
@@ -560,29 +583,6 @@ export default function App() {
                  <View style={{ marginTop: 15, padding: 10, backgroundColor: '#fee2e2', borderRadius: 8, borderWidth: 1, borderColor: '#fecaca', alignItems: 'center' }}>
                    <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#dc2626' }}>Limit exceeded ({totalPts} pts)</Text>
                  </View>
-              )}
-            </View>
-
-            {/* BLOCK 2: CAMERA AND YOLO */}
-            <View style={styles.connectionPanel}>
-              <Text style={[styles.label, { fontSize: 16, textAlign: 'center', marginBottom: 15 }]}>CAMERA</Text>
-              {!permission ? (
-                <Text>Loading camera permissions...</Text>
-              ) : !permission.granted ? (
-                <>
-                  <Text style={{ marginBottom: 10 }}>We need permission to use the camera</Text>
-                  <TouchableOpacity style={[styles.button, styles.secondaryButton]} onPress={requestPermission}>
-                    <Text style={styles.buttonText}>Grant Permission</Text>
-                  </TouchableOpacity>
-                </>
-              ) : (
-                <ScannerCamera
-                  cameraRef={cameraRef}
-                  contandoActivo={contandoActivo}
-                  detectedBalls={detectedBalls}
-                  onScanOnce={escanearUnaVez}
-                  onOpenGallery={abrirGaleria}
-                />
               )}
             </View>
 
@@ -653,12 +653,14 @@ export default function App() {
               </View>
             </View>
 
+            {/* Original WAITING / WARNING ZONE code was here, now moved above */}
+
             {/* BLOCK 4: PARTICIPANT TO SCAN, RESET, SAVE SCORE, SELECT CHECKPOINT */}
             <View style={styles.connectionPanel}>
               <Text style={styles.label}>Participant to scan</Text>
               <View style={{ marginBottom: 15, padding: 10, backgroundColor: '#f8fafc', borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#334155' }}>
-                  {targetScanParticipant !== "Desconocido" ? targetScanParticipant.replace(/Participante_/i, 'Team ') : "000 000 00 00 ..."}
+                  {targetScanParticipant !== "Desconocido" ? targetScanParticipant.replace(/Participante_/i, 'Team ') : "Select a team..."}
                 </Text>
                 <TouchableOpacity onPress={() => setTargetScanParticipant("Desconocido")} style={{ padding: 5 }}>
                   <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#94a3b8' }}>ⓧ</Text>
@@ -723,11 +725,12 @@ export default function App() {
                 </TouchableOpacity>
                 {(() => {
                   const isHomeBase = checkpointInfo.id === 4 || checkpointInfo.id === "4" || (checkpointInfo.label && checkpointInfo.label.toLowerCase().includes('home'));
-                  const disabledSave = totalPts === 0;
+                  const disabledSave = totalPts === 0 || !targetScanParticipant || targetScanParticipant === "Desconocido";
                   return (
                     <TouchableOpacity 
                       style={[styles.button, { flex: 1, backgroundColor: disabledSave ? '#9ca3af' : '#059669', marginLeft: 5, alignItems: 'center', marginBottom: 0 }]} 
-                      onPress={disabledSave ? null : handleSaveScore}
+                      onPress={handleSaveScore}
+                      disabled={disabledSave}
                       activeOpacity={disabledSave ? 1 : 0.2}
                     >
                       <Text style={styles.buttonText}>Save Score</Text>

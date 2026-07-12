@@ -723,7 +723,9 @@ def registrar_peso():
     checkpoint_id = str(data.get("checkpoint", ""))
     checkpoint_num_match = re.search(r'\d+', checkpoint_id)
     checkpoint_num = checkpoint_num_match.group() if checkpoint_num_match else None
-    is_home_base = (checkpoint_num == "4" or "home" in checkpoint_id.lower())
+    
+    juez_nombre = data.get("juez", "")
+    is_home_base = (checkpoint_num == "4" or "home" in checkpoint_id.lower() or "home" in juez_nombre.lower())
     print(f"DEBUG: checkpoint_id='{checkpoint_id}', checkpoint_num='{checkpoint_num}', is_home_base={is_home_base}, data={data}")
     
     with participants_lock:
@@ -763,7 +765,7 @@ def registrar_peso():
                 
                 action_name = "update_home_base"
             else:
-                # Juez normal: SOLO suma a "Current load"
+                # Juez normal: Suma a "Current load" sin tope forzoso para permitir el estado excedido (rojo)
                 nuevo_peso_total = peso_previo + peso_agregado
                 participant_entry["peso_kg"] = nuevo_peso_total
                 participant_entry["carga_kg"] = nuevo_peso_total
@@ -814,6 +816,7 @@ def registrar_peso():
                 "action": action_name,
                 "team_number": team_number,
                 "added_points": peso_agregado,
+                "puntos_transferir": puntos_transferir if is_home_base else 0,
                 "current_load": nuevo_peso_total,
                 "load_at_home": nuevo_peso_entregado
             }

@@ -1127,7 +1127,7 @@
         }
 
         function buildCheckpointPopupHtml(checkpoint, isNonScoring) {
-            const checkpointId = Number(checkpoint.id);
+            const checkpointId = checkpoint.id;
             const participants = getCheckpointParticipants(checkpointId);
             const participantRows = participants.length
                 ? participants.map((participant) => `
@@ -1137,7 +1137,7 @@
                 `).join('')
                 : '<div class="popup-stat" style="margin-top: 8px; color: #fca5a5;">No hay participantes en este checkpoint.</div>';
 
-            const judgesEnCheckpoint = judgesList.filter(j => j.checkpoint_id === checkpointId).map(j => escapeHtml(j.nombre));
+            const judgesEnCheckpoint = judgesList.filter(j => String(j.checkpoint_id) === String(checkpointId)).map(j => escapeHtml(j.nombre));
             const judgesText = judgesEnCheckpoint.length > 0 ? judgesEnCheckpoint.join(', ') : 'None';
 
             return `

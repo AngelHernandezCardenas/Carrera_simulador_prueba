@@ -933,5 +933,175 @@
         "checkpoint_nombre": "Bilio-Aulas4",
         "checkpoint_slug": "checkpoint_2",
         "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_3_checkpoint_2_1783722956.jpg",
+        "timestamp": 1783722956,
+        "device_id": "app-mrfh4tv6-t6rlfi7m",
+        "participante": "Participante_3",
+        "fecha_hora": "2026-07-10 16:35:56",
+        "juez": "Judge_3",
+        "detections": {
+            "Rojo": 0,
+            "Blanco": 0,
+            "Negro": 1
+        },
+        "checkpoint_id": 2,
+        "checkpoint_nombre": "Bilio-Aulas4",
+        "checkpoint_slug": "checkpoint_2",
+        "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_3_checkpoint_2_1783722984.jpg",
+        "timestamp": 1783722984,
+        "device_id": "app-mrfh4tv6-t6rlfi7m",
+        "participante": "Participante_3",
+        "fecha_hora": "2026-07-10 16:36:24",
+        "juez": "Judge_3",
+        "detections": {
+            "Rojo": 0,
+            "Blanco": 0,
+            "Negro": 1
+        },
+        "checkpoint_id": 2,
+        "checkpoint_nombre": "Bilio-Aulas4",
+        "checkpoint_slug": "checkpoint_2",
+        "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_1_checkpoint_2_1783723644.jpg",
+        "timestamp": 1783723644,
+        "device_id": "app-mrfhztq1-89lu0c3u",
+        "participante": "Participante_1",
+        "fecha_hora": "2026-07-10 16:47:24",
+        "juez": "Judge_5",
+        "detections": {
+            "Rojo": 0,
+            "Blanco": 0,
+            "Negro": 1
+        },
+        "checkpoint_id": 2,
+        "checkpoint_nombre": "Bilio-Aulas4",
+        "checkpoint_slug": "checkpoint_2",
+        "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_2_checkpoint_1_1783723648.jpg",
+        "timestamp": 1783723648,
+        "device_id": "app-mrfhmox5-4ta5w2d9",
+        "participante": "Participante_2",
+        "fecha_hora": "2026-07-10 16:47:28",
+        "juez": "Judge_4",
+        "detections": {
+            "Rojo": 1,
+            "Blanco": 0,
+            "Negro": 0
+        },
+        "checkpoint_id": 1,
+        "checkpoint_nombre": "Biotecnologia-Centrales",
+        "checkpoint_slug": "checkpoint_1",
+        "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_2_checkpoint_1_1783723657.jpg",
+        "timestamp": 1783723657,
+        "device_id": "app-mrfhmox5-4ta5w2d9",
+        "participante": "Participante_2",
+        "fecha_hora": "2026-07-10 16:47:37",
+        "juez": "Judge_4",
+        "detections": {
+            "Rojo": 1,
+            "Blanco": 0,
+            "Negro": 0
+        },
+        "checkpoint_id": 1,
+        "checkpoint_nombre": "Biotecnologia-Centrales",
+        "checkpoint_slug": "checkpoint_1",
+        "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_2_checkpoint_2_1783723678.jpg",
+        "timestamp": 1783723678,
+        "device_id": "app-mrfhztq1-89lu0c3u",
+        "participante": "Participante_2",
+        "fecha_hora": "2026-07-10 16:47:58",
+        "juez": "Judge_5",
+        "detections": {
+            "Rojo": 1,
+            "Blanco": 0,
+            "Negro": 0
+        },
+        "checkpoint_id": 2,
+        "checkpoint_nombre": "Bilio-Aulas4",
+        "checkpoint_slug": "checkpoint_2",
+        "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_1_checkpoint_1_1783723684.jpg",
+        "timestamp": 1783723684,
+        "device_id": "app-mrfhmox5-4ta5w2d9",
+        "participante": "Participante_1",
+        "fecha_hora": "2026-07-10 16:48:04",
+        "juez": "Judge_4",
+        "detections": {
+            "Rojo": 1,
+            "Blanco": 0,
+            "Negro": 0
+        },
+        "checkpoint_id": 1,
+        "checkpoint_nombre": "Biotecnologia-Centrales",
+        "checkpoint_slug": "checkpoint_1",
+        "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_3_checkpoint_1_1783723719.jpg",
+        "timestamp": 1783723719,
+        "device_id": "app-mrfhmox5-4ta5w2d9",
+        "participante": "Participante_3",
+        "fecha_hora": "2026-07-10 16:48:39",
+        "juez": "Judge_4",
+        "detections": {
+            "Rojo": 1,
+            "Blanco": 1,
+            "Negro": 0
+        },
+        "checkpoint_id": 1,
+        "checkpoint_nombre": "Biotecnologia-Centrales",
+        "checkpoint_slug": "checkpoint_1",
+        "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_2_checkpoint_2_1783723757.jpg",
+        "timestamp": 1783723757,
+        "device_id": "app-mrfhztq1-89lu0c3u",
+        "participante": "Participante_2",
+        "fecha_hora": "2026-07-10 16:49:17",
+        "juez": "Judge_5",
+        "detections": {
+            "Rojo": 0,
+            "Blanco": 1,
+            "Negro": 0
+        },
+        "checkpoint_id": 2,
+        "checkpoint_nombre": "Bilio-Aulas4",
+        "checkpoint_slug": "checkpoint_2",
+        "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_2_checkpoint_4_1783724037.jpg",
+        "timestamp": 1783724037,
+        "device_id": "app-mrfg765k-0o70ing3",
+        "participante": "Participante_2",
+        "fecha_hora": "2026-07-10 16:53:57",
+        "juez": "Judge_2",
+        "detections": {
+            "Rojo": 0,
+            "Blanco": 0,
+            "Negro": 2
+        },
+        "checkpoint_id": 4,
+        "checkpoint_nombre": "Rectoria-Descarga",
+        "checkpoint_slug": "checkpoint_4",
+        "distancia_checkpoint_m": 0.0
     }
 ]

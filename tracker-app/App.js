@@ -101,9 +101,22 @@ export default function App() {
   const [deviceId, setDeviceId] = useState('');
   const [status, setStatus] = useState({ text: 'Waiting...', tone: 'neutral' });
   const [checkpointConfirmado, setCheckpointConfirmado] = useState(false);
+  const [showCheckpointConfirmMessage, setShowCheckpointConfirmMessage] = useState(false);
   
   const [galeriaVisible, setGaleriaVisible] = useState(false);
   const [galeriaImagenes, setGaleriaImagenes] = useState([]);
+  
+  useEffect(() => {
+    if (checkpointConfirmado) {
+      setShowCheckpointConfirmMessage(true);
+      const timer = setTimeout(() => {
+        setShowCheckpointConfirmMessage(false);
+      }, 5000);
+      return () => clearTimeout(timer);
+    } else {
+      setShowCheckpointConfirmMessage(false);
+    }
+  }, [checkpointConfirmado]);
   
   const [location, setLocation] = useState(null);
   const [speedInfo, setSpeedInfo] = useState({
@@ -418,7 +431,17 @@ export default function App() {
     const currentMax = maxCounts; // since we might have manually edited maxCounts
     const pts = (currentMax.Rojo * 3) + (currentMax.Blanco * 1) + (currentMax.Negro * 5);
     try {
-      await NetworkService.saveWeight(globalServerUrl, targetScanParticipant, pts, currentMax, globalParticipante, globalCheckpoint);
+      let finalCheckpoint = globalCheckpoint;
+      if (!finalCheckpoint) {
+        if (checkpointInfo.id) {
+          finalCheckpoint = checkpointInfo.id;
+        } else if (checkpointInfo.label && checkpointInfo.label !== '--' && checkpointInfo.label !== 'Not selected') {
+          finalCheckpoint = checkpointInfo.label;
+        } else {
+          finalCheckpoint = "";
+        }
+      }
+      await NetworkService.saveWeight(globalServerUrl, targetScanParticipant, pts, currentMax, globalParticipante, finalCheckpoint);
       setLog(`Saved manually: ${pts} kg for ${targetScanParticipant}`, 'success');
       setScanResultMessage(`${targetScanParticipant.replace(/Participante_/i, 'Team ')} registered with ${pts} pts`);
       setTimeout(() => setScanResultMessage(null), 5000);
@@ -464,176 +487,310 @@ export default function App() {
           </View>
       )}
 
-      {/* CAMERA AND YOLO */}
-      {isScannerMode && (
-        !permission ? (
-          <View style={styles.connectionPanel}><Text>Loading camera permissions...</Text></View>
-        ) : !permission.granted ? (
-          <View style={styles.connectionPanel}>
-            <Text style={styles.label}>CAMERA AND YOLO SCANNER</Text>
-            <Text style={{ marginBottom: 10 }}>We need permission to use the camera</Text>
-            <TouchableOpacity style={[styles.button, styles.secondaryButton]} onPress={requestPermission}>
-              <Text style={styles.buttonText}>Grant Permission</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <ScannerCamera
-            cameraRef={cameraRef}
-            contandoActivo={contandoActivo}
-            maxCounts={maxCounts}
-            setMaxCounts={setMaxCounts}
-            detectedBalls={detectedBalls}
-            onScanOnce={escanearUnaVez}
-            onReset={reiniciarEscaneo}
-            onSaveScore={handleSaveScore}
-            onOpenGallery={abrirGaleria}
-            juezAsignado={participante}
-            checkpointEstablecido={checkpointInfo.id}
-            targetScanParticipant={targetScanParticipant !== "Desconocido" ? targetScanParticipant : null}
-            checkpointConfirmado={checkpointConfirmado}
-            scanResultMessage={scanResultMessage}
-          />
-        )
-      )}
+      {/* JUDGE/SCANNER LAYOUT */}
+      {isScannerMode ? (() => {
+        const totalPts = (maxCounts.Rojo * 3) + (maxCounts.Blanco * 1) + (maxCounts.Negro * 5);
+        let scannerStatusText = "Waiting connection...";
+        if (showCheckpointConfirmMessage) {
+          scannerStatusText = checkpointInfo.id === 'Home-Base' ? 'Home-Base confirmed!' : `Checkpoint ${checkpointInfo.id} confirmed!`;
+        } else if (participante) {
+          if (globalParticipante) {
+            const cleanJudge = globalParticipante.replace('Judge_', '');
+            scannerStatusText = `Judge: ${cleanJudge}`;
+            
+            let cpName = checkpointInfo.id ? getCheckpointLabel(checkpointInfo.id) : (checkpointInfo.label !== 'Not selected' ? checkpointInfo.label : null);
+            if (cpName) {
+              scannerStatusText += `, Checkpoint: ${cpName}`;
+            }
+            if (targetScanParticipant && targetScanParticipant !== "Desconocido") {
+              const cleanTeam = targetScanParticipant.replace('Participante_', 'Team ');
+              scannerStatusText += `, Team: ${cleanTeam}`;
+            }
+          }
+        }
 
-      {/* SERVER AND REGISTRATION */}
-      <View style={styles.connectionPanel}>
-        {!isScannerMode ? (
+        return (
           <>
-            <Text style={styles.label}>Server URL</Text>
-            <TextInput
-              style={styles.input}
-              value={serverUrl}
-              onChangeText={setServerUrl}
-              placeholder="https://...trycloudflare.com"
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!activo}
-            />
-            <Text style={styles.label}>PARTICIPANT / DEVICE NAME</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: '#e2e8f0', color: '#475569' }]}
-              value={participante}
-              onChangeText={setParticipante}
-              placeholder="Automatic assignment..."
-              editable={false}
-            />
-            <TouchableOpacity style={[styles.button, !!participante && styles.disabledButton]} onPress={registerParticipant} disabled={!!participante}>
-              <Text style={styles.buttonText}>{!!participante ? 'Connected & Registered' : 'Connect & Register'}</Text>
-            </TouchableOpacity>
-          </>
-        ) : (
-          <>
-            <Text style={styles.label}>Participant to Scan</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginTop: 10, marginBottom: 10 }}>
-              {Array.from({ length: 15 }, (_, i) => i + 1).map(num => {
-                const teamId = `Participante_${num}`;
-                const isSelected = targetScanParticipant === teamId;
-                return (
-                  <TouchableOpacity
-                    key={teamId}
-                    style={{
-                      width: 45,
-                      height: 45,
-                      borderRadius: 25,
-                      backgroundColor: isSelected ? '#007BFF' : '#E0E0E0',
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      borderWidth: 2,
-                      borderColor: isSelected ? '#0056b3' : '#bbb',
-                      margin: 5
-                    }}
-                    onPress={async () => {
-                      setTargetScanParticipant(teamId);
-                      reiniciarEscaneo();
-                      setScanResultMessage(null); // Limpiar mensaje anterior
+            {/* BLOCK 1: WAITING / WARNING ZONE */}
+            <View style={styles.connectionPanel}>
+              <Text style={styles.label}>WAITING ZONE</Text>
+              <View style={{ padding: 10, backgroundColor: '#f0fdf4', borderRadius: 8, borderWidth: 1, borderColor: '#bbf7d0', alignItems: 'center', marginBottom: 15 }}>
+                <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#166534' }}>{scannerStatusText}</Text>
+              </View>
 
-                      if (serverUrl && checkpointInfo.id !== 4 && checkpointInfo.id !== "4") {
-                        try {
-                           const sUrl = serverUrl.endsWith('/') ? serverUrl.slice(0, -1) : serverUrl;
-                           const resp = await fetch(`${sUrl}/api/estado_participante/${teamId}`);
-                           if (resp.ok) {
-                             const data = await resp.json();
-                             if (data.carga_kg !== undefined && data.carga_kg > 0) {
-                               setScanResultMessage(`Participant previously had ${data.carga_kg} pts`);
-                             }
-                           }
-                        } catch (e) {
-                           console.log('Error fetching status', e);
-                        }
-                      }
-                    }}
-                  >
-                    <Text style={{ 
-                      color: isSelected ? '#FFF' : '#333', 
-                      fontWeight: 'bold',
-                      fontSize: 18
-                    }}>
-                      {num}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+              <Text style={styles.label}>WARNING ZONE</Text>
+              {scanResultMessage ? (
+                <View style={{ padding: 10, backgroundColor: '#dbeafe', borderRadius: 8, borderWidth: 1, borderColor: '#bfdbfe', alignItems: 'center' }}>
+                  <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1e40af' }}>{scanResultMessage}</Text>
+                </View>
+              ) : (
+                <View style={{ padding: 10, backgroundColor: '#f1f5f9', borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', alignItems: 'center' }}>
+                  <Text style={{ fontSize: 14, color: '#64748b' }}>No warnings</Text>
+                </View>
+              )}
+
+              {totalPts === 10 && (
+                 <View style={{ marginTop: 15, padding: 10, backgroundColor: '#fef3c7', borderRadius: 8, borderWidth: 1, borderColor: '#fde68a', alignItems: 'center' }}>
+                   <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#d97706' }}>Limit reached ({totalPts} pts)</Text>
+                 </View>
+              )}
+
+              {totalPts > 10 && (
+                 <View style={{ marginTop: 15, padding: 10, backgroundColor: '#fee2e2', borderRadius: 8, borderWidth: 1, borderColor: '#fecaca', alignItems: 'center' }}>
+                   <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#dc2626' }}>Limit exceeded ({totalPts} pts)</Text>
+                 </View>
+              )}
             </View>
 
-            <Text style={styles.label}>Select Checkpoint (Judge)</Text>
-            <select
-              style={{ ...styles.input, height: 40, padding: 8 }}
-              value={checkpointInfo.id ? checkpointInfo.id.toString() : ""}
-              onChange={(e) => {
-                const rawVal = e.target.value;
-                if (!rawVal) {
-                  setCheckpointInfo(prev => ({ ...prev, id: null }));
-                  StorageService.setCheckpoint("");
-                  globalCheckpoint = null;
-                } else {
-                  const val = parseInt(rawVal, 10);
-                  setCheckpointInfo(prev => ({ ...prev, id: val }));
-                  StorageService.setCheckpoint(val.toString());
-                  globalCheckpoint = val;
-                }
-                setCheckpointConfirmado(false);
-              }}
-              disabled={checkpointConfirmado}
-            >
-              <option value="">-- Select Checkpoint --</option>
-              <option value="4">Home-Base (Descarga)</option>
-              <option value="1">Checkpoint 1</option>
-              <option value="2">Checkpoint 2</option>
-              <option value="3">Checkpoint 3</option>
-              <option value="5">Checkpoint 5</option>
-              <option value="6">Checkpoint 6</option>
-              <option value="7">Checkpoint 7</option>
-              <option value="8">Checkpoint 8</option>
-              <option value="9">Checkpoint 9</option>
-              <option value="10">Checkpoint 10</option>
-            </select>
-            
-            <TouchableOpacity
-              style={[styles.button, { backgroundColor: '#f59e0b', marginBottom: 15 }, (checkpointConfirmado || !checkpointInfo.id) && styles.disabledButton]}
-              onPress={confirmarCheckpoint}
-              disabled={checkpointConfirmado || !checkpointInfo.id}
-            >
-              <Text style={styles.buttonText}>{checkpointConfirmado ? 'Checkpoint Confirmed' : 'Confirm Checkpoint'}</Text>
-            </TouchableOpacity>
+            {/* BLOCK 2: CAMERA AND YOLO */}
+            <View style={styles.connectionPanel}>
+              <Text style={[styles.label, { fontSize: 16, textAlign: 'center', marginBottom: 15 }]}>CAMERA</Text>
+              {!permission ? (
+                <Text>Loading camera permissions...</Text>
+              ) : !permission.granted ? (
+                <>
+                  <Text style={{ marginBottom: 10 }}>We need permission to use the camera</Text>
+                  <TouchableOpacity style={[styles.button, styles.secondaryButton]} onPress={requestPermission}>
+                    <Text style={styles.buttonText}>Grant Permission</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <ScannerCamera
+                  cameraRef={cameraRef}
+                  contandoActivo={contandoActivo}
+                  detectedBalls={detectedBalls}
+                  onScanOnce={escanearUnaVez}
+                  onOpenGallery={abrirGaleria}
+                />
+              )}
+            </View>
 
-            <Text style={styles.label}>Server URL</Text>
-            <TextInput
-              style={styles.input}
-              value={serverUrl}
-              onChangeText={setServerUrl}
-              placeholder="https://...trycloudflare.com"
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!activo}
-            />
+            {/* BLOCK 3: COUNTERS (W, R, B) */}
+            <View style={styles.connectionPanel}>
+              <View style={styles.countersContainer}>
+                <View style={styles.counterPanel}>
+                  <View style={[styles.counterCircle, { backgroundColor: 'white', borderWidth: 1, borderColor: '#ccc' }]}>
+                    <Text style={styles.counterTextBlack}>W</Text>
+                  </View>
+                  <View style={styles.stepperContainer}>
+                    <TextInput
+                      style={styles.manualInputStepper}
+                      keyboardType="numeric"
+                      placeholder="0"
+                      value={maxCounts.Blanco === 0 ? "" : maxCounts.Blanco.toString()}
+                      onChangeText={(val) => {
+                        const num = parseInt(val) || 0;
+                        setMaxCounts(prev => ({ ...prev, Blanco: num }));
+                      }}
+                    />
+                  </View>
+                </View>
 
-            <TouchableOpacity style={[styles.button, !!participante && styles.disabledButton]} onPress={registerParticipant} disabled={!!participante}>
-              <Text style={styles.buttonText}>{!!participante ? 'Connected & Registered' : 'Connect & Register'}</Text>
-            </TouchableOpacity>
+                <View style={styles.counterPanel}>
+                  <View style={[styles.counterCircle, { backgroundColor: '#ef4444' }]}>
+                    <Text style={styles.counterTextWhite}>R</Text>
+                  </View>
+                  <View style={styles.stepperContainer}>
+                    <TextInput
+                      style={styles.manualInputStepper}
+                      keyboardType="numeric"
+                      placeholder="0"
+                      value={maxCounts.Rojo === 0 ? "" : maxCounts.Rojo.toString()}
+                      onChangeText={(val) => {
+                        const num = parseInt(val) || 0;
+                        setMaxCounts(prev => ({ ...prev, Rojo: num }));
+                      }}
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.counterPanel}>
+                  <View style={[styles.counterCircle, { backgroundColor: '#111111' }]}>
+                    <Text style={styles.counterTextWhite}>B</Text>
+                  </View>
+                  <View style={styles.stepperContainer}>
+                    <TextInput
+                      style={styles.manualInputStepper}
+                      keyboardType="numeric"
+                      placeholder="0"
+                      value={maxCounts.Negro === 0 ? "" : maxCounts.Negro.toString()}
+                      onChangeText={(val) => {
+                        const num = parseInt(val) || 0;
+                        setMaxCounts(prev => ({ ...prev, Negro: num }));
+                      }}
+                    />
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.scoreContainer}>
+                <Text style={styles.scoreLabel}>Load Scanner</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+                  <Text style={styles.scoreValue}>{totalPts}</Text>
+                  <Text style={[styles.scoreValue, { marginLeft: 4 }]}>pts</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* BLOCK 4: PARTICIPANT TO SCAN, RESET, SAVE SCORE, SELECT CHECKPOINT */}
+            <View style={styles.connectionPanel}>
+              <Text style={styles.label}>Participant to scan</Text>
+              <View style={{ marginBottom: 15, padding: 10, backgroundColor: '#f8fafc', borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#334155' }}>
+                  {targetScanParticipant !== "Desconocido" ? targetScanParticipant.replace(/Participante_/i, 'Team ') : "000 000 00 00 ..."}
+                </Text>
+                <TouchableOpacity onPress={() => setTargetScanParticipant("Desconocido")} style={{ padding: 5 }}>
+                  <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#94a3b8' }}>ⓧ</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginBottom: 15 }}>
+                {Array.from({ length: 15 }, (_, i) => i + 1).map(num => {
+                  const teamId = `Participante_${num}`;
+                  const isSelected = targetScanParticipant === teamId;
+                  return (
+                    <TouchableOpacity
+                      key={teamId}
+                      style={{
+                        width: 45,
+                        height: 45,
+                        borderRadius: 25,
+                        backgroundColor: isSelected ? '#007BFF' : '#E0E0E0',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        borderWidth: 2,
+                        borderColor: isSelected ? '#0056b3' : '#bbb',
+                        margin: 5
+                      }}
+                      onPress={async () => {
+                        setTargetScanParticipant(teamId);
+                        reiniciarEscaneo();
+                        setScanResultMessage(null);
+
+                        if (serverUrl && checkpointInfo.id !== 4 && checkpointInfo.id !== "4") {
+                          try {
+                             const sUrl = serverUrl.endsWith('/') ? serverUrl.slice(0, -1) : serverUrl;
+                             const resp = await fetch(`${sUrl}/api/estado_participante/${teamId}`);
+                             if (resp.ok) {
+                               const data = await resp.json();
+                               if (data.carga_kg !== undefined && data.carga_kg > 0) {
+                                 setScanResultMessage(`Participant previously had ${data.carga_kg} pts`);
+                               }
+                             }
+                          } catch (e) {
+                             console.log('Error fetching status', e);
+                          }
+                        }
+                      }}
+                    >
+                      <Text style={{ 
+                        color: isSelected ? '#FFF' : '#333', 
+                        fontWeight: 'bold',
+                        fontSize: 18
+                      }}>
+                        {num}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* ACTION BUTTONS: Reset, Save Score */}
+              <View style={{ flexDirection: 'row', marginBottom: 15 }}>
+                <TouchableOpacity style={[styles.button, styles.dangerButton, { flex: 1, marginRight: 5, marginBottom: 0 }]} onPress={reiniciarEscaneo}>
+                  <Text style={styles.buttonText}>Reset</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.button, { flex: 1, backgroundColor: '#059669', marginLeft: 5, alignItems: 'center', marginBottom: 0 }]} onPress={handleSaveScore}>
+                  <Text style={styles.buttonText}>Save Score</Text>
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.label}>Select Checkpoint</Text>
+              <select
+                style={{ ...styles.input, height: 40, padding: 8, marginBottom: 15 }}
+                value={checkpointInfo.id ? checkpointInfo.id.toString() : ""}
+                onChange={(e) => {
+                  const rawVal = e.target.value;
+                  if (!rawVal) {
+                    setCheckpointInfo(prev => ({ ...prev, id: null }));
+                    StorageService.setCheckpoint("");
+                    globalCheckpoint = null;
+                  } else {
+                    const val = rawVal === "Home-Base" ? "Home-Base" : parseInt(rawVal, 10);
+                    setCheckpointInfo(prev => ({ ...prev, id: val }));
+                    StorageService.setCheckpoint(val.toString());
+                    globalCheckpoint = val;
+                  }
+                  setCheckpointConfirmado(false);
+                }}
+                disabled={checkpointConfirmado}
+              >
+                <option value="">-- Select Checkpoint --</option>
+                <option value="Home-Base">Home-Base (Descarga)</option>
+                <option value="1">Checkpoint 1</option>
+                <option value="2">Checkpoint 2</option>
+                <option value="3">Checkpoint 3</option>
+                <option value="5">Checkpoint 5</option>
+                <option value="6">Checkpoint 6</option>
+                <option value="7">Checkpoint 7</option>
+                <option value="8">Checkpoint 8</option>
+                <option value="9">Checkpoint 9</option>
+                <option value="10">Checkpoint 10</option>
+              </select>
+              
+              <TouchableOpacity
+                style={[styles.button, { backgroundColor: '#f59e0b', marginBottom: 0 }, (checkpointConfirmado || !checkpointInfo.id) && styles.disabledButton]}
+                onPress={confirmarCheckpoint}
+                disabled={checkpointConfirmado || !checkpointInfo.id}
+              >
+                <Text style={styles.buttonText}>{checkpointConfirmado ? 'Checkpoint Confirmed' : 'Confirm Checkpoint'}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* BLOCK 5: SERVER URL */}
+            <View style={styles.connectionPanel}>
+              <Text style={styles.label}>Server URL</Text>
+              <TextInput
+                style={styles.input}
+                value={serverUrl}
+                onChangeText={setServerUrl}
+                placeholder="https://...trycloudflare.com"
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!activo}
+              />
+
+              <TouchableOpacity style={[styles.button, !!participante && styles.disabledButton, {marginBottom: 0}]} onPress={registerParticipant} disabled={!!participante}>
+                <Text style={styles.buttonText}>{!!participante ? 'Connected & Registered' : 'Connect & Register'}</Text>
+              </TouchableOpacity>
+            </View>
           </>
-        )}
-      </View>
+        );
+      })() : (
+        <View style={styles.connectionPanel}>
+          <Text style={styles.label}>Server URL</Text>
+          <TextInput
+            style={styles.input}
+            value={serverUrl}
+            onChangeText={setServerUrl}
+            placeholder="https://...trycloudflare.com"
+            autoCapitalize="none"
+            autoCorrect={false}
+            editable={!activo}
+          />
+          <Text style={styles.label}>PARTICIPANT / DEVICE NAME</Text>
+          <TextInput
+            style={[styles.input, { backgroundColor: '#e2e8f0', color: '#475569' }]}
+            value={participante}
+            onChangeText={setParticipante}
+            placeholder="Automatic assignment..."
+            editable={false}
+          />
+          <TouchableOpacity style={[styles.button, !!participante && styles.disabledButton]} onPress={registerParticipant} disabled={!!participante}>
+            <Text style={styles.buttonText}>{!!participante ? 'Connected & Registered' : 'Connect & Register'}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
 
 
@@ -680,16 +837,16 @@ export default function App() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8fafc' },
-  content: { padding: 20, paddingTop: 58, paddingBottom: 40, width: '100%', maxWidth: 700, alignSelf: 'center' },
-  title: { color: '#0f172a', fontSize: 30, fontWeight: '800', marginBottom: 6, textAlign: 'center' },
-  subtitle: { color: '#475569', fontSize: 14, lineHeight: 20, marginBottom: 18, textAlign: 'center' },
-  connectionPanel: { backgroundColor: '#ffffff', borderColor: '#e2e8f0', borderRadius: 12, borderWidth: 1, marginBottom: 16, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
-  input: { backgroundColor: '#f1f5f9', borderColor: '#e2e8f0', borderRadius: 8, borderWidth: 1, color: '#0f172a', fontSize: 15, marginBottom: 10, paddingHorizontal: 12, paddingVertical: 12 },
-  button: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 8, marginBottom: 10, paddingHorizontal: 16, paddingVertical: 15 },
+  content: { padding: 16, paddingTop: 50, paddingBottom: 36, width: '100%', maxWidth: 700, alignSelf: 'center' },
+  title: { color: '#0f172a', fontSize: 28, fontWeight: '800', marginBottom: 6, textAlign: 'center' },
+  subtitle: { color: '#475569', fontSize: 13, lineHeight: 18, marginBottom: 16, textAlign: 'center' },
+  connectionPanel: { backgroundColor: '#ffffff', borderColor: '#e2e8f0', borderRadius: 12, borderWidth: 1, marginBottom: 14, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
+  input: { backgroundColor: '#f1f5f9', borderColor: '#e2e8f0', borderRadius: 8, borderWidth: 1, color: '#0f172a', fontSize: 14, marginBottom: 8, paddingHorizontal: 10, paddingVertical: 10 },
+  button: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 8, marginBottom: 8, paddingHorizontal: 14, paddingVertical: 12 },
   secondaryButton: { backgroundColor: '#0f766e' },
   dangerButton: { backgroundColor: '#dc2626' },
   disabledButton: { backgroundColor: '#93c5fd' },
-  buttonText: { color: '#ffffff', fontSize: 16, fontWeight: 'bold', fontFamily: 'Times New Roman', textAlign: 'center' },
+  buttonText: { color: '#ffffff', fontSize: 15, fontWeight: 'bold', fontFamily: 'Times New Roman', textAlign: 'center' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: 4 },
   cardFull: { backgroundColor: '#ffffff', borderColor: '#e2e8f0', borderRadius: 8, borderWidth: 1, marginBottom: 10, minHeight: 104, padding: 12, width: '100%' },
   label: { color: '#64748b', fontSize: 12, fontWeight: '700', marginBottom: 6, textTransform: 'uppercase' },
@@ -701,5 +858,15 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 14, lineHeight: 20, textAlign: 'left' },
   statusText_neutral: { color: '#334155' },
   statusText_ok: { color: '#166534' },
-  statusText_error: { color: '#991b1b' }
+  statusText_error: { color: '#991b1b' },
+  countersContainer: { flexDirection: 'row', justifyContent: 'space-around', backgroundColor: '#f8fafc', padding: 10, borderRadius: 8 },
+  counterPanel: { alignItems: 'center', backgroundColor: '#ffffff', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', width: '30%', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 },
+  counterCircle: { width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
+  counterTextWhite: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+  counterTextBlack: { color: 'black', fontWeight: 'bold', fontSize: 16 },
+  stepperContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', width: '100%' },
+  manualInputStepper: { borderWidth: 1, borderColor: '#ccc', borderRadius: 5, padding: 5, width: 40, textAlign: 'center', marginHorizontal: 5, fontSize: 16, backgroundColor: '#fff' },
+  scoreContainer: { backgroundColor: 'white', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', marginTop: 15 },
+  scoreLabel: { fontSize: 12, color: '#64748b', marginBottom: 4 },
+  scoreValue: { fontSize: 20, fontWeight: '800', color: '#0f172a' }
 });

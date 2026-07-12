@@ -8,7 +8,10 @@ export const cleanServerUrl = (value) => value.trim().replace(/\/+$/, '');
 
 export const getCheckpointLabel = (checkpoint) => {
   if (!checkpoint) return '--';
-  return checkpoint.nombre || `Checkpoint ${checkpoint.id}`;
+  if (typeof checkpoint === 'object' && checkpoint.nombre) {
+    return checkpoint.nombre;
+  }
+  return `Checkpoint ${checkpoint.id || checkpoint}`;
 };
 
 export const createDeviceLabel = (deviceId) => {

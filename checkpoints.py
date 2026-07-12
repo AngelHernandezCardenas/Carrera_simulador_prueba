@@ -12,14 +12,12 @@ CHECKPOINTS = [
     {"id": 1, "nombre": "Biotecnologia-Centrales", "lat": 25.651133, "lon": -100.288352, "radio_m": 5.0},
     #esquina de bilbio entre biblio y aulas 4
     {"id": 2, "nombre": "Bilio-Aulas4", "lat": 25.6505742, "lon": -100.2903096, "radio_m": 5.0},
-    #rectoria
-    {"id": 4, "nombre": "Rectoria-Descarga", "lat": 25.651464, "lon": -100.291149, "radio_m": 5.0},
+    {"id": "Home-Base", "nombre": "Rectoria-Descarga", "lat": 25.651464, "lon": -100.291149, "radio_m": 5.0},
 ]
 
 MAX_PERSONAS_POR_CHECKPOINT = 4
-UNLIMITED_OCCUPANCY_CHECKPOINT_IDS = {4}
-CHECKPOINT_DESCARGA_ID = 4
-
+UNLIMITED_OCCUPANCY_CHECKPOINT_IDS = {"Home-Base"}
+CHECKPOINT_DESCARGA_ID = "Home-Base"
 
 def haversine_distance_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Calcula distancia entre dos coordenadas GPS usando Haversine."""

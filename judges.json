@@ -1,10 +1,30 @@
 {
-  "app-mrf8u77g-sqzitdcc": {
-    "nombre": "Judge_1",
+  "app-mrg1t834-io7msifq": {
+    "nombre": "Home-Base",
+    "checkpoint_id": "Home-Base"
+  },
+  "app-mrg37zam-x89kdonj": {
+    "nombre": "Judge_2",
     "checkpoint_id": 1
   },
-  "app-mrf8udti-kiwqq8tf": {
-    "nombre": "Judge_2",
-    "checkpoint_id": 2
+  "app-mrg70cct-o3t06trv": {
+    "nombre": "Home-Base",
+    "checkpoint_id": "Home-Base"
+  },
+  "app-mrg749uh-6df4tcwv": {
+    "nombre": "Judge_4",
+    "checkpoint_id": 5
+  },
+  "app-mrg7zkbm-s9xibgin": {
+    "nombre": "Judge_5",
+    "checkpoint_id": 10
+  },
+  "app-mrgy7q46-r86p6fjv": {
+    "nombre": "Home-Base",
+    "checkpoint_id": "Home-Base"
+  },
+  "app-mrgyem55-ohk7a5fg": {
+    "nombre": "Judge_7",
+    "checkpoint_id": 5
   }
 }

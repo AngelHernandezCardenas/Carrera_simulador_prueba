@@ -1,6 +1,7 @@
 import hashlib
 import math
 import random
+import re
 import threading
 import time
 import base64
@@ -704,15 +705,79 @@ def estado_participante(participante_id):
 def registrar_peso():
     data = request.json or {}
     participante = data.get("participante")
-    peso_kg = data.get("peso_kg")
+    peso_kg_input = data.get("peso_kg")
     
-    if not participante or peso_kg is None:
+    if not participante or peso_kg_input is None:
         return jsonify({"status": "error", "msg": "Participante y peso son requeridos"}), 400
         
     try:
-        peso_kg = float(peso_kg)
+        peso_agregado = float(peso_kg_input)
     except ValueError:
         return jsonify({"status": "error", "msg": "Peso inválido"}), 400
+
+    target_device = None
+    nuevo_peso_total = peso_agregado
+    nuevo_peso_entregado = 0.0
+    action_name = "update_loads"
+    # Verificar si es juez de Home-Base (checkpoint 4 / "Rectoria-Descarga")
+    checkpoint_id = str(data.get("checkpoint", ""))
+    checkpoint_num_match = re.search(r'\d+', checkpoint_id)
+    checkpoint_num = checkpoint_num_match.group() if checkpoint_num_match else None
+    is_home_base = (checkpoint_num == "4" or "home" in checkpoint_id.lower())
+    print(f"DEBUG: checkpoint_id='{checkpoint_id}', checkpoint_num='{checkpoint_num}', is_home_base={is_home_base}, data={data}")
+    
+    with participants_lock:
+        # Buscar participante por nombre o equipo
+        for dev_id, entry in participants_cache.items():
+            if isinstance(entry, dict) and entry.get("nombre") == participante:
+                target_device = dev_id
+                break
+                
+        if not target_device:
+            import time
+            target_device = f"manual-{participante}"
+            participants_cache[target_device] = {
+                "nombre": participante,
+                "peso_kg": 0.0,
+                "carga_kg": 0.0,
+                "peso_entregado_kg": 0.0,
+                "ultima_actualizacion": time.time(),
+                "checkpoints_visitados": []
+            }
+                
+        if target_device:
+            participant_entry = participants_cache[target_device]
+            peso_previo = participant_entry.get("peso_kg", 0.0)
+            peso_entregado_previo = participant_entry.get("peso_entregado_kg", 0.0)
+            
+            if is_home_base:
+                # Juez de Home-Base: Suma TODO (Current load + escaneado actual) a "Load at Home"
+                nuevo_peso_entregado = peso_entregado_previo + peso_previo + peso_agregado
+                participant_entry["peso_entregado_kg"] = nuevo_peso_entregado
+                
+                # REINICIAR (vaciar) Current Load
+                nuevo_peso_total = 0.0
+                participant_entry["peso_kg"] = nuevo_peso_total
+                participant_entry["carga_kg"] = nuevo_peso_total
+                
+                action_name = "update_home_base"
+            else:
+                # Juez normal: SOLO suma a "Current load"
+                nuevo_peso_total = peso_previo + peso_agregado
+                participant_entry["peso_kg"] = nuevo_peso_total
+                participant_entry["carga_kg"] = nuevo_peso_total
+                
+                # NO se modifica Load at Home
+                nuevo_peso_entregado = peso_entregado_previo
+                
+                action_name = "update_loads"
+                
+            save_participants(participants_cache)
+            
+            socketio.emit("update_peso", {
+                "participante": participante,
+                "peso_kg": nuevo_peso_total
+            })
 
     # --- Integración con Google Sheets Webhook ---
     try:
@@ -728,15 +793,28 @@ def registrar_peso():
             juez = data.get("juez", "Desconocido").replace("Judge_", "").replace("juez_", "")
             checkpoint_slug = data.get("checkpoint", "")
             
+            if is_home_base:
+                checkpoint_slug = 99
+                juez = "Home-Base"
+            
             # Formatear datos para el webhook
+            equipo_raw = participante.replace("Participante_", "") if participante else ""
+            team_match = re.search(r'\d+', equipo_raw)
+            team_number = int(team_match.group()) if team_match else None
+
             payload = {
                 "hora": datetime.now().strftime("%H:%M:%S"),
                 "juez": juez,
                 "checkpoint": checkpoint_slug,
-                "equipo": participante.replace("Participante_", "") if participante else "",
+                "equipo": equipo_raw,
                 "blanca": counts.get("Blanco", 0),
                 "roja": counts.get("Rojo", 0),
-                "negra": counts.get("Negro", 0)
+                "negra": counts.get("Negro", 0),
+                "action": action_name,
+                "team_number": team_number,
+                "added_points": peso_agregado,
+                "current_load": nuevo_peso_total,
+                "load_at_home": nuevo_peso_entregado
             }
             
             # Función para enviar en segundo plano a Google Sheets
@@ -765,7 +843,10 @@ def registrar_peso():
                 except Exception as e:
                     print(f"Error enviando webhook a Google Sheets: {e}")
             
-            # Iniciar hilo para no bloquear la respuesta
+            with open("webhook_debug.log", "a") as f:
+                f.write(f"SENDING TO APPS SCRIPT: {payload}\n")
+                
+            # Iniciar hilo para no bloquear la respuesta (Loading sheet y Loads sheet)
             threading.Thread(target=send_webhook, args=(GOOGLE_APPS_SCRIPT_WEBHOOK_URL, payload), daemon=True).start()
             
         # GUARDAR LOCALMENTE EN CSV SIEMPRE (Por si fallan las extensiones de Google)
@@ -792,7 +873,7 @@ def registrar_peso():
                     counts.get("Blanco", 0),
                     counts.get("Rojo", 0),
                     counts.get("Negro", 0),
-                    peso_kg
+                    nuevo_peso_total
                 ])
         except Exception as e:
             print(f"Error guardando CSV local: {e}")
@@ -800,25 +881,6 @@ def registrar_peso():
     except Exception as e:
         print(f"Error procesando webhook/CSV local: {e}")
     # ---------------------------------------------
-
-    target_device = None
-    with participants_lock:
-        # Buscar participante por nombre o equipo
-        for dev_id, entry in participants_cache.items():
-            if isinstance(entry, dict) and entry.get("nombre") == participante:
-                target_device = dev_id
-                break
-                
-        if target_device:
-            participant_entry = participants_cache[target_device]
-            participant_entry["peso_kg"] = peso_kg
-            participant_entry["carga_kg"] = peso_kg
-            save_participants(participants_cache)
-            
-            socketio.emit("update_peso", {
-                "participante": participante,
-                "peso_kg": peso_kg
-            })
             
     # Siempre retornamos OK para simular que se guardó exitosamente y se envió al excel
     return jsonify({"status": "ok"})
@@ -964,10 +1026,14 @@ def set_judge_checkpoint():
         return jsonify({"status": "error", "msg": "Datos incompletos"}), 400
         
     try:
-        checkpoint_id = int(checkpoint_id)
+        # Solo lo convertimos a int si es un número, para no romper IDs como "Home-Base"
+        if isinstance(checkpoint_id, str) and checkpoint_id.isdigit():
+            checkpoint_id = int(checkpoint_id)
+        elif isinstance(checkpoint_id, (int, float)):
+            checkpoint_id = int(checkpoint_id)
     except ValueError:
-        return jsonify({"status": "error", "msg": "Checkpoint ID inválido"}), 400
-
+        return jsonify({"status": "error", "msg": "ID de checkpoint inválido."}), 400
+        
     from config import judges_lock, MAX_JUECES_POR_CHECKPOINT
     from judges import judges_cache, save_judges, get_or_create_judge
 
@@ -975,19 +1041,21 @@ def set_judge_checkpoint():
         # Primero aseguramos que el juez existe
         nombre_juez = get_or_create_judge(device_id)
         if not nombre_juez:
-            return jsonify({"status": "error", "msg": "No se pudo registrar como juez"}), 403
-
+            return jsonify({"status": "error", "msg": "No se pudo registrar/obtener el juez."}), 400
+            
         # Contar cuántos jueces ya están en este checkpoint
         jueces_en_cp = 0
         for j_id, j_data in judges_cache.items():
             if j_id != device_id and j_data.get("checkpoint_id") == checkpoint_id:
                 jueces_en_cp += 1
                 
-        limite = 3 if checkpoint_id == 4 else MAX_JUECES_POR_CHECKPOINT
+        limite = 3 if checkpoint_id == "Home-Base" else MAX_JUECES_POR_CHECKPOINT
         if jueces_en_cp >= limite:
             return jsonify({"status": "error", "msg": f"El Checkpoint {checkpoint_id} ya tiene el máximo de {limite} jueces asignados."}), 403
             
         judges_cache[device_id]["checkpoint_id"] = checkpoint_id
+        if checkpoint_id == "Home-Base":
+            judges_cache[device_id]["nombre"] = "Home-Base"
         save_judges(judges_cache)
         
     return jsonify({"status": "ok", "msg": "Checkpoint confirmado correctamente."})

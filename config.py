@@ -12,7 +12,7 @@ MAX_JUECES_POR_CHECKPOINT = 2
 
 # --- Integración con Google Sheets Webhook ---
 # Debes llenar esta variable con la URL que obtengas al implementar tu script
-GOOGLE_APPS_SCRIPT_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwcRWtZNa6_tv3r3i22esWhdYdQ9A-7aP4z1y6hInwM9gqclwdRJbNyQzrdsn5Vtuxk/exec"
+GOOGLE_APPS_SCRIPT_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwoLgg7Yw-5dubc277vMcpzeRNUdA-aSsWbGoDxdyGFacMpQ9zecxfxXuCLLxodwWXZ/exec"
 
 # --- Duración de la sesión ---
 DURACION = 24 * 60 * 60  # 24 horas en segundos

@@ -195,7 +195,9 @@ def actualizar_estado_corredor(
         lon,
     )
 
-    scores_dict = corredor.get("scores_dict", {})
+    # /api/score persiste las calificaciones en "scores". Se conserva el
+    # fallback para aceptar estados antiguos que usaban "scores_dict".
+    scores_dict = corredor.get("scores", corredor.get("scores_dict", {}))
     blocked_by_challenge = False
     for cid in visited_ids:
         if cid == CHECKPOINT_DESCARGA_ID:

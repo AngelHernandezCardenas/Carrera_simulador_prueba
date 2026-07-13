@@ -13,7 +13,13 @@ from flask_socketio import SocketIO
 import cv2
 import numpy as np
 
-from checkpoints import CHECKPOINTS, actualizar_estado_corredor, clasificar_corredores, haversine_distance_m
+from checkpoints import (
+    CHECKPOINTS,
+    CHECKPOINT_DESCARGA_ID,
+    actualizar_estado_corredor,
+    clasificar_corredores,
+    haversine_distance_m,
+)
 from config import DURACION, MAX_PARTICIPANTES, participants_lock
 from geojson_store import append_feature
 from participants import get_or_create_participant, participants_cache, reset_participants, save_participants
@@ -80,7 +86,7 @@ _last_gps_saved_by_device: dict[str, float] = {}
 _gps_dedupe_lock = threading.Lock()
 device_trackers: dict[str, dict] = {}
 MIN_GPS_SAVE_INTERVAL_SECONDS = 1.5
-PESO_RESET_CHECKPOINT_ID = 4
+PESO_RESET_CHECKPOINT_ID = CHECKPOINT_DESCARGA_ID
 PESO_RESET_DISTANCE_METERS = 15.0
 # Pesos asignados por la detección de pelotas
 COLOR_WEIGHTS_KG = {"Rojo": 3.0, "Blanco": 1.0, "Negro": 5.0}
@@ -264,9 +270,24 @@ def get_checkpoint_rank_from_snapshot(device_id: str, runners_snapshot: dict) ->
     return competition_rank(ranked_runners, target_runner, get_checkpoint_rank_value)
 
 
-def get_checkpoint_by_id(checkpoint_id: int) -> dict | None:
+def normalize_checkpoint_id(checkpoint_id) -> int:
+    if str(checkpoint_id).strip().lower() == "home-base":
+        return CHECKPOINT_DESCARGA_ID
+    return int(checkpoint_id)
+
+
+def get_checkpoint_by_id(checkpoint_id: int | str) -> dict | None:
+    try:
+        target_id = normalize_checkpoint_id(checkpoint_id)
+    except (TypeError, ValueError):
+        return None
+
     for checkpoint in CHECKPOINTS:
-        if int(checkpoint["id"]) == checkpoint_id:
+        try:
+            current_id = normalize_checkpoint_id(checkpoint["id"])
+        except (TypeError, ValueError):
+            continue
+        if current_id == target_id:
             return checkpoint
     return None
 
@@ -635,6 +656,7 @@ def api_score():
     checkpoint_id = data.get("checkpoint_id")
     equipo = data.get("equipo")
     puntaje = data.get("puntaje")
+    requested_device_id = data.get("device_id")
     
     if not checkpoint_id or not equipo or puntaje is None:
         return jsonify({"status": "error", "msg": "Faltan datos"}), 400
@@ -647,10 +669,18 @@ def api_score():
 
     target_device = None
     with participants_lock:
-        for dev_id, entry in participants_cache.items():
-            if isinstance(entry, dict) and entry.get("nombre") == equipo:
-                target_device = dev_id
-                break
+        requested_entry = participants_cache.get(requested_device_id)
+        if (
+            requested_device_id
+            and isinstance(requested_entry, dict)
+            and requested_entry.get("nombre") == equipo
+        ):
+            target_device = requested_device_id
+        else:
+            for dev_id, entry in participants_cache.items():
+                if isinstance(entry, dict) and entry.get("nombre") == equipo:
+                    target_device = dev_id
+                    break
                 
         if target_device:
             participant_entry = participants_cache[target_device]

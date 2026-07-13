@@ -290,6 +290,7 @@ def get_checkpoint_by_id(checkpoint_id: int | str) -> dict | None:
         if current_id == target_id:
             return checkpoint
     return None
+    return None
 
 
 def get_checkpoint_name(checkpoint: dict | None) -> str:
@@ -952,33 +953,28 @@ def estado_mapa():
         for dev_id, state in participants_cache.items():
             if isinstance(state, dict):
                 if "last_coord" not in state:
-                    if CHECKPOINTS:
-                        state["last_coord"] = (CHECKPOINTS[0]["lat"], CHECKPOINTS[0]["lon"])
-                    else:
-                        state["last_coord"] = (0.0, 0.0)
-                
+                    # No real GPS data yet — do NOT place on map
+                    continue
+
                 name = state.get("nombre") or "Desconocido"
                 resolved_team_name = get_team_name(name)
                 if resolved_team_name in ("Unknown", "unknown", name, None):
                     resolved_team_name = state.get("device_label") or name
-                
+
                 from Puntaje import get_scoreboard_rank
                 rank = get_scoreboard_rank(name)
-                
+
                 runners_snapshot[name] = {
                     **state,
                     "device_id": dev_id,
                     "device_label": state.get("device_label") or name,
                     "team_name": resolved_team_name,
+                    "latitude": state["last_coord"][0],
+                    "longitude": state["last_coord"][1],
+                    "carga_kg": state.get("peso_kg", 0),
                     "posicion": rank if rank is not None and rank != 99 else "--"
                 }
-        
-        # Add latitude and longitude to match expected structure
-        for state in runners_snapshot.values():
-            if "last_coord" in state:
-                state["latitude"] = state["last_coord"][0]
-                state["longitude"] = state["last_coord"][1]
-                state["carga_kg"] = state.get("peso_kg", 0)
+
         
     judges_list = []
     from judges import judges_cache
@@ -1191,6 +1187,7 @@ def gps():
         participant_entry["nombre"] = participante
         participant_entry["device_label"] = data.get("device_label") or f"Dispositivo-{device_id[:8]}"
         participant_entry["last_coord"] = (latitude, longitude)
+        participant_entry["last_update_ts"] = time.time()
 
         estado_anterior = participant_entry.get("estado", "corriendo")
         actualizar_estado_corredor(participant_entry, latitude, longitude, corredores=participants_cache)

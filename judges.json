@@ -1,10 +1,14 @@
 {
-  "app-mrid6nxm-8pzz74kz": {
-    "nombre": "Home-Base",
-    "checkpoint_id": 1
-  },
-  "app-mrid2foz-dk2fd9jf": {
+  "app-mrjdjyve-fn6lwdbc": {
     "nombre": "Home-Base",
     "checkpoint_id": "Home-Base"
+  },
+  "app-mrjeks0l-rbvui0zl": {
+    "nombre": "Judge_2",
+    "checkpoint_id": 2
+  },
+  "app-mrjelmlw-9bomfzrs": {
+    "nombre": "Judge_3",
+    "checkpoint_id": 1
   }
 }

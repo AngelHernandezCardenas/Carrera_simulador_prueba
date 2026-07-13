@@ -102,7 +102,7 @@
         .dashboard.expanded .runner-info {
             width: 100%;
             display: grid;
-            grid-template-columns: 50px 1.5fr 1.2fr 1.5fr 1fr 1fr 1fr 1fr 1.2fr 1fr 1fr;
+            grid-template-columns: 1.5fr 1.2fr 1.5fr 1fr 1fr 1fr 1fr 1.2fr 1fr 1fr;
             align-items: center;
             gap: 12px;
         }
@@ -445,7 +445,7 @@
         .table-header {
             display: none;
             padding: 10px 14px 0 14px;
-            grid-template-columns: 50px 1.5fr 1.2fr 1.5fr 1fr 1fr 1fr 1fr 1.2fr 1fr 1fr;
+            grid-template-columns: 1.5fr 1.2fr 1.5fr 1fr 1fr 1fr 1fr 1.2fr 1fr 1fr;
             gap: 12px;
             font-size: 11px;
             color: var(--text-muted);
@@ -854,7 +854,6 @@
                 </h1>
                 <div style="display: flex; gap: 8px;" id="header-buttons">
                     <button id="btn-3d" class="btn-3d active" onclick="event.stopPropagation(); toggle3D()">3D: ON</button>
-                    <button id="btn-photos" class="btn-3d" onclick="togglePhotoPanel(event)">Registro fotos</button>
                 </div>
             </div>
             <div class="stats">
@@ -869,7 +868,6 @@
             </div>
         </div>
         <div class="table-header">
-            <div>Pos</div>
             <div>Participante</div>
             <div>Visited</div>
             <div>Checkpoint</div>
@@ -1825,7 +1823,6 @@
 
                 card.innerHTML = `
                     <div class="runner-info">
-                        <div class="runner-avatar" id="posicion-${id}" style="background: ${assignedColor}; color: #fff; box-shadow: 0 2px 8px ${assignedColor}50;">${posicion}</div>
                         <div class="runner-details">
                             <div class="runner-name" id="name-${id}">${data.team_name || id}</div>
                             <div class="runner-stat-col"><span class="runner-stat-label">Visited: </span><span id="visitados-${id}" class="checkpoint-list">${visitedInfo.label}</span></div>
@@ -1928,7 +1925,6 @@
 
                 document.getElementById('visitados-' + id).textContent = visitedInfo.label;
                 document.getElementById('checkpoint-state-' + id).innerHTML = getCheckpointStatusHtml(data, runner);
-                document.getElementById(`posicion-${id}`).textContent = data.posicion ?? '--';
                 const nameEl = document.getElementById('name-' + id);
                 if (nameEl) nameEl.textContent = data.team_name || id;
                 applyWeightClass(runner.card, peso);
@@ -1944,11 +1940,8 @@
 
                 // Reordenar DOM basado en puntos y luego distancia
                 let cards = Array.from(listContainer.children);
-                cards.sort((a, b) => {
-                    let posA = parseInt(a.querySelector('[id^="posicion-"]').textContent);
-                    let posB = parseInt(b.querySelector('[id^="posicion-"]').textContent);
-                    return (Number.isFinite(posA) ? posA : 9999) - (Number.isFinite(posB) ? posB : 9999);
-                });
+                // cards.sort logic removed since 'posicion' is no longer in the DOM
+                // if you need sorting, you'd sort by points/distance directly from the data.
                 cards.forEach(c => listContainer.appendChild(c)); // Mueve en el DOM sin recrear
 
                 // Si este es el corredor que estamos siguiendo, mover la cámara con él

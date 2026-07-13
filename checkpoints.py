@@ -12,7 +12,7 @@ CHECKPOINTS = [
     {"id": 1, "nombre": "Biotecnologia-Centrales", "lat": 25.651133, "lon": -100.288352, "radio_m": 5.0},
     #esquina de bilbio entre biblio y aulas 4
     {"id": 2, "nombre": "Bilio-Aulas4", "lat": 25.6505742, "lon": -100.2903096, "radio_m": 5.0},
-    {"id": "Home-Base", "nombre": "Rectoria-Descarga", "lat": 25.651464, "lon": -100.291149, "radio_m": 5.0},
+    {"id": "Home-Base", "nombre": "Rectoria-Descarga", "lat": 25.652299, "lon": -100.292580, "radio_m": 5.0},
 ]
 
 MAX_PERSONAS_POR_CHECKPOINT = 4

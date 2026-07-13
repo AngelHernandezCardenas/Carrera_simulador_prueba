@@ -478,7 +478,7 @@ def enrich_gallery_item(item: dict) -> dict:
 
     checkpoint_id = enriched.get("checkpoint_id")
     if checkpoint_id and not enriched.get("checkpoint_nombre"):
-        checkpoint = get_checkpoint_by_id(int(checkpoint_id))
+        checkpoint = get_checkpoint_by_id(checkpoint_id)
         if checkpoint:
             enriched["checkpoint_nombre"] = get_checkpoint_name(checkpoint)
     if checkpoint_id and not enriched.get("checkpoint_slug"):
@@ -978,9 +978,19 @@ def estado_mapa():
         
     judges_list = []
     from judges import judges_cache
+    judges_keys = list(judges_cache.keys())
     for j_id, j_data in judges_cache.items():
+        nombre = j_data.get("nombre", "Juez")
+        if nombre == "Home-Base":
+            try:
+                idx = judges_keys.index(j_id) + 1
+            except ValueError:
+                idx = len(judges_keys) + 1
+            nombre = f"Judge_{idx}"
+        
         judges_list.append({
-            "nombre": j_data.get("nombre", "Juez"),
+            "id": j_id,
+            "nombre": nombre,
             "checkpoint_id": j_data.get("checkpoint_id")
         })
 

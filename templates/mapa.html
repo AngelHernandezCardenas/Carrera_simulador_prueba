@@ -1135,7 +1135,18 @@
                 `).join('')
                 : '<div class="popup-stat" style="margin-top: 8px; color: #fca5a5;">No hay participantes en este checkpoint.</div>';
 
-            const judgesEnCheckpoint = judgesList.filter(j => String(j.checkpoint_id) === String(checkpointId)).map(j => escapeHtml(j.nombre));
+            const judgesEnCheckpoint = judgesList
+                .filter(j => String(j.checkpoint_id) === String(checkpointId))
+                .map((j, index) => {
+                    let nom = j.nombre;
+                    if (nom === "Home-Base") {
+                        let idx = judgesList.findIndex(x => x.id === j.id);
+                        nom = `Judge: ${idx !== -1 ? idx + 1 : index + 1}`;
+                    } else if (nom.startsWith("Judge_")) {
+                        nom = nom.replace("Judge_", "Judge: ");
+                    }
+                    return escapeHtml(nom);
+                });
             const judgesText = judgesEnCheckpoint.length > 0 ? judgesEnCheckpoint.join(', ') : 'None';
 
             return `

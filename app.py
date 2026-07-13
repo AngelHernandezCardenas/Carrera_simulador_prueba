@@ -82,6 +82,7 @@ device_trackers: dict[str, dict] = {}
 MIN_GPS_SAVE_INTERVAL_SECONDS = 1.5
 PESO_RESET_CHECKPOINT_ID = 4
 PESO_RESET_DISTANCE_METERS = 15.0
+last_telemetry_webhook_time = {}
 # Pesos asignados por la detección de pelotas
 COLOR_WEIGHTS_KG = {"Rojo": 3.0, "Blanco": 1.0, "Negro": 5.0}
 PESO_ALERTA_KG = 10.0
@@ -1434,6 +1435,33 @@ def gps():
         "scores_dict": checkpoint_state["scores_dict"],
     }
     
+    # --- Enviar telemetria a Google Sheets (Throttled) ---
+    if data.get("soc") is not None or data.get("ah_consumidos") is not None:
+        equipo_raw = participante.replace("Participante_", "") if participante else ""
+        team_match = re.search(r'\d+', equipo_raw)
+        team_number = int(team_match.group()) if team_match else None
+        
+        if team_number:
+            now = time.time()
+            if now - last_telemetry_webhook_time.get(team_number, 0) > 15:
+                last_telemetry_webhook_time[team_number] = now
+                from config import GOOGLE_APPS_SCRIPT_WEBHOOK_URL
+                if GOOGLE_APPS_SCRIPT_WEBHOOK_URL:
+                    telemetry_payload = {
+                        "action": "update_telemetry",
+                        "team_number": team_number,
+                        "bateria": data.get("soc"),
+                        "energia": data.get("ah_consumidos"),
+                        "hora": time.strftime("%H:%M:%S")
+                    }
+                    def send_telemetry(url, p_data):
+                        try:
+                            import requests
+                            requests.post(url, json=p_data, timeout=5, allow_redirects=True)
+                        except Exception as e:
+                            pass
+                    threading.Thread(target=send_telemetry, args=(GOOGLE_APPS_SCRIPT_WEBHOOK_URL, telemetry_payload), daemon=True).start()
+
     # Send telemetry to RelieVeasy Web App
     try:
         import urllib.request

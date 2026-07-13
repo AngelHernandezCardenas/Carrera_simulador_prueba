@@ -60,6 +60,28 @@ function doPost(e) {
         }
       }
     }
+    
+    // === TELEMETRÍA (Raspberry Pi) ===
+    if (data.action === "update_telemetry") {
+      var sheetEnergy = ss.getSheetByName("Energy");
+      if (sheetEnergy) {
+        var teamNumber = Number(data.team_number);
+        if (teamNumber >= 1 && teamNumber <= 15) {
+          var targetRow = 11 + teamNumber; // Row 12 is Team 1
+          
+          if (data.hora !== undefined) {
+            sheetEnergy.getRange(targetRow, 3).setValue(data.hora); // Col C: Time
+          }
+          if (data.energia !== undefined && data.energia !== null) {
+            sheetEnergy.getRange(targetRow, 4).setValue(Number(data.energia)); // Col D: Energy Wh
+          }
+          if (data.bateria !== undefined && data.bateria !== null) {
+            sheetEnergy.getRange(targetRow, 6).setValue(Number(data.bateria) / 100.0); // Col F: % (as decimal for Sheets)
+          }
+        }
+      }
+      return ContentService.createTextOutput(JSON.stringify({ status: "ok", action: "update_telemetry" })).setMimeType(ContentService.MimeType.JSON);
+    }
 
     // 3. Historial en "Loading" (AMBOS JUECES se guardan aquí)
     var sheetLoading = ss.getSheetByName("Loading");

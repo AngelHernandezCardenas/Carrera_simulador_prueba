@@ -895,6 +895,23 @@
         let photoGallery = JSON.parse(document.getElementById('gallery-data').textContent);
         let judgesList = [];
 
+        function normalizeCheckpointId(value) {
+            const text = String(value ?? '').trim().toLowerCase();
+            if (text === 'home-base' || text.includes('home')) return 99;
+            const id = Number(value);
+            return Number.isFinite(id) ? id : null;
+        }
+
+        const VALID_CHECKPOINTS = CHECKPOINTS.filter((checkpoint) =>
+            Number.isFinite(Number(checkpoint.lat)) && Number.isFinite(Number(checkpoint.lon))
+        );
+        const INITIAL_MAP_CENTER = VALID_CHECKPOINTS.length
+            ? [
+                VALID_CHECKPOINTS.reduce((sum, checkpoint) => sum + Number(checkpoint.lon), 0) / VALID_CHECKPOINTS.length,
+                VALID_CHECKPOINTS.reduce((sum, checkpoint) => sum + Number(checkpoint.lat), 0) / VALID_CHECKPOINTS.length
+            ]
+            : [-100.3706, 25.7735];
+
         function getPhotoCheckpointId(photo) {
             const rawId = photo.checkpoint_id || photo.checkpoint_mas_cercano_id || (photo.checkpoint && photo.checkpoint.id);
             const id = Number(rawId);
@@ -903,7 +920,7 @@
 
         function getPhotoCheckpointName(photo) {
             const checkpointId = getPhotoCheckpointId(photo);
-            const checkpoint = CHECKPOINTS.find((item) => Number(item.id) === checkpointId);
+            const checkpoint = CHECKPOINTS.find((item) => normalizeCheckpointId(item.id) === checkpointId);
             return photo.checkpoint_nombre || (checkpoint ? getCheckpointName(checkpoint) : 'Sin checkpoint');
         }
 
@@ -1077,7 +1094,7 @@
                 const distance = distanceMeters(lat, lon, Number(checkpoint.lat), Number(checkpoint.lon));
                 const radius = Number(checkpoint.radio_m || 5);
                 if (distance <= radius && (!current || distance < current.distance)) {
-                    current = { id: Number(checkpoint.id), distance };
+                    current = { id: normalizeCheckpointId(checkpoint.id), distance };
                 }
             });
             return current ? current.id : null;
@@ -1164,7 +1181,8 @@
             CHECKPOINTS.forEach((checkpoint) => {
                 const el = document.getElementById(`cp-marker-${checkpoint.id}`);
                 if (!el) return;
-                const judgesEnCheckpoint = judgesList.filter(j => j.checkpoint_id === Number(checkpoint.id));
+                const checkpointId = normalizeCheckpointId(checkpoint.id);
+                const judgesEnCheckpoint = judgesList.filter(j => normalizeCheckpointId(j.checkpoint_id) === checkpointId);
                 const existingBadge = el.querySelector('.judge-badge');
                 
                 if (judgesEnCheckpoint.length > 0) {
@@ -1181,16 +1199,16 @@
             });
         }
         function addCheckpointMarkers() {
-            CHECKPOINTS.forEach((checkpoint) => {
-                const isNonScoring = NON_SCORING_CHECKPOINT_IDS.has(Number(checkpoint.id));
+            VALID_CHECKPOINTS.forEach((checkpoint) => {
+                const checkpointId = normalizeCheckpointId(checkpoint.id);
+                const isNonScoring = NON_SCORING_CHECKPOINT_IDS.has(checkpointId);
                 const el = document.createElement('div');
                 el.className = `checkpoint-marker${isNonScoring ? ' non-scoring' : ''}`;
                 el.id = `cp-marker-${checkpoint.id}`;
-                el.textContent = checkpoint.id;
+                el.textContent = checkpointId === 99 ? 'H' : checkpoint.id;
                 el.title = getCheckpointName(checkpoint);
 
                 const popup = new maplibregl.Popup({ offset: 18 }).setHTML(buildCheckpointPopupHtml(checkpoint, isNonScoring));
-                const checkpointId = Number(checkpoint.id);
 
                 el.addEventListener('click', () => {
                     popup.setHTML(buildCheckpointPopupHtml(checkpoint, isNonScoring));
@@ -1210,7 +1228,7 @@
         const map = new maplibregl.Map({
             container: 'map',
             style: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json', // Default: Light style
-            center: [-100.3706, 25.7735], // [Longitud, Latitud]
+            center: INITIAL_MAP_CENTER, // Calculado desde checkpoints.py
             zoom: 15,
             pitch: 60, // Inclinacion 3D inicial
             bearing: -15, // Rotacion inicial
@@ -1218,6 +1236,20 @@
         });
 
         map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
+
+        map.once('load', () => {
+            if (VALID_CHECKPOINTS.length === 1) {
+                map.jumpTo({ center: INITIAL_MAP_CENTER, zoom: 16 });
+                return;
+            }
+            if (VALID_CHECKPOINTS.length > 1) {
+                const bounds = new maplibregl.LngLatBounds();
+                VALID_CHECKPOINTS.forEach((checkpoint) => {
+                    bounds.extend([Number(checkpoint.lon), Number(checkpoint.lat)]);
+                });
+                map.fitBounds(bounds, { padding: 80, maxZoom: 16, duration: 0 });
+            }
+        });
 
         const STYLE_DARK = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
         const STYLE_LIGHT = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';

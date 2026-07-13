@@ -7,12 +7,17 @@ import math
 # Cambia lat/lon por las coordenadas reales de tu carrera.
 # radio_m es el radio de deteccion en metros para marcar el checkpoint.
 CHECKPOINTS = [
-    #SON PARA HACER PRUEBAS DE CARRERA REAL, PARA IR A COMER SERA UNA LINEA RECTA
-    #lirucisa
-    {"id": 1, "nombre": "Biotecnologia-Centrales", "lat": 25.651133, "lon": -100.288352, "radio_m": 5.0},
-    #esquina de bilbio entre biblio y aulas 4
-    {"id": 2, "nombre": "Bilio-Aulas4", "lat": 25.6505742, "lon": -100.2903096, "radio_m": 5.0},
-    {"id": "Home-Base", "nombre": "Rectoria-Descarga", "lat": 25.652299, "lon": -100.292580, "radio_m": 5.0},
+    {"id": 1, "nombre": "Stadium/Cows", "lat": 38.5356448, "lon": -121.7637157, "radio_m": 5.0},
+    {"id": 2, "nombre": "Library", "lat": 38.5390871, "lon": -121.7505179, "radio_m": 5.0},
+    {"id": 3, "nombre": "California Hall", "lat": 38.540881, "lon": -121.752520, "radio_m": 5.0},
+    {"id": 4, "nombre": "Bike Barn", "lat": 38.538265, "lon": -121.752016, "radio_m": 5.0},
+    {"id": 5, "nombre": "Jungerman", "lat": 38.536674, "lon": -121.753297, "radio_m": 5.0},
+    {"id": 6, "nombre": "Quad", "lat": 38.541567, "lon": -121.750653, "radio_m": 5.0},
+    {"id": 7, "nombre": "Sprocket Bikeway", "lat": 38.542634, "lon": -121.752203, "radio_m": 5.0},
+    {"id": 8, "nombre": "Arboretum East", "lat": 38.5365767, "lon": -121.7474686, "radio_m": 5.0},
+    {"id": 9, "nombre": "East Field", "lat": 38.542088, "lon": -121.747253, "radio_m": 5.0},
+    {"id": 10, "nombre": "Hickey Gym", "lat": 38.543334, "lon": -121.748275, "radio_m": 5.0},
+    {"id": "Home-Base", "nombre": "Headquarters", "lat": 38.541112, "lon": -121.759354, "radio_m": 5.0},
 ]
 
 MAX_PERSONAS_POR_CHECKPOINT = 4

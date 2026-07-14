@@ -13,7 +13,13 @@ from flask_socketio import SocketIO
 import cv2
 import numpy as np
 
-from checkpoints import CHECKPOINTS, actualizar_estado_corredor, clasificar_corredores, haversine_distance_m
+from checkpoints import (
+    CHECKPOINTS,
+    CHECKPOINT_DESCARGA_ID,
+    actualizar_estado_corredor,
+    clasificar_corredores,
+    haversine_distance_m,
+)
 from config import DURACION, MAX_PARTICIPANTES, participants_lock
 from geojson_store import append_feature
 from participants import get_or_create_participant, participants_cache, reset_participants, save_participants
@@ -80,7 +86,7 @@ _last_gps_saved_by_device: dict[str, float] = {}
 _gps_dedupe_lock = threading.Lock()
 device_trackers: dict[str, dict] = {}
 MIN_GPS_SAVE_INTERVAL_SECONDS = 1.5
-PESO_RESET_CHECKPOINT_ID = 4
+PESO_RESET_CHECKPOINT_ID = CHECKPOINT_DESCARGA_ID
 PESO_RESET_DISTANCE_METERS = 15.0
 last_telemetry_webhook_time = {}
 # Pesos asignados por la detección de pelotas
@@ -265,10 +271,26 @@ def get_checkpoint_rank_from_snapshot(device_id: str, runners_snapshot: dict) ->
     return competition_rank(ranked_runners, target_runner, get_checkpoint_rank_value)
 
 
-def get_checkpoint_by_id(checkpoint_id: int) -> dict | None:
+def normalize_checkpoint_id(checkpoint_id) -> int:
+    if str(checkpoint_id).strip().lower() == "home-base":
+        return CHECKPOINT_DESCARGA_ID
+    return int(checkpoint_id)
+
+
+def get_checkpoint_by_id(checkpoint_id: int | str) -> dict | None:
+    try:
+        target_id = normalize_checkpoint_id(checkpoint_id)
+    except (TypeError, ValueError):
+        return None
+
     for checkpoint in CHECKPOINTS:
-        if int(checkpoint["id"]) == checkpoint_id:
+        try:
+            current_id = normalize_checkpoint_id(checkpoint["id"])
+        except (TypeError, ValueError):
+            continue
+        if current_id == target_id:
             return checkpoint
+    return None
     return None
 
 
@@ -636,6 +658,7 @@ def api_score():
     checkpoint_id = data.get("checkpoint_id")
     equipo = data.get("equipo")
     puntaje = data.get("puntaje")
+    requested_device_id = data.get("device_id")
     
     if not checkpoint_id or not equipo or puntaje is None:
         return jsonify({"status": "error", "msg": "Faltan datos"}), 400
@@ -648,10 +671,18 @@ def api_score():
 
     target_device = None
     with participants_lock:
-        for dev_id, entry in participants_cache.items():
-            if isinstance(entry, dict) and entry.get("nombre") == equipo:
-                target_device = dev_id
-                break
+        requested_entry = participants_cache.get(requested_device_id)
+        if (
+            requested_device_id
+            and isinstance(requested_entry, dict)
+            and requested_entry.get("nombre") == equipo
+        ):
+            target_device = requested_device_id
+        else:
+            for dev_id, entry in participants_cache.items():
+                if isinstance(entry, dict) and entry.get("nombre") == equipo:
+                    target_device = dev_id
+                    break
                 
         if target_device:
             participant_entry = participants_cache[target_device]
@@ -923,39 +954,44 @@ def estado_mapa():
         for dev_id, state in participants_cache.items():
             if isinstance(state, dict):
                 if "last_coord" not in state:
-                    if CHECKPOINTS:
-                        state["last_coord"] = (CHECKPOINTS[0]["lat"], CHECKPOINTS[0]["lon"])
-                    else:
-                        state["last_coord"] = (0.0, 0.0)
-                
+                    # No real GPS data yet — do NOT place on map
+                    continue
+
                 name = state.get("nombre") or "Desconocido"
                 resolved_team_name = get_team_name(name)
                 if resolved_team_name in ("Unknown", "unknown", name, None):
                     resolved_team_name = state.get("device_label") or name
-                
+
                 from Puntaje import get_scoreboard_rank
                 rank = get_scoreboard_rank(name)
-                
+
                 runners_snapshot[name] = {
                     **state,
                     "device_id": dev_id,
                     "device_label": state.get("device_label") or name,
                     "team_name": resolved_team_name,
+                    "latitude": state["last_coord"][0],
+                    "longitude": state["last_coord"][1],
+                    "carga_kg": state.get("peso_kg", 0),
                     "posicion": rank if rank is not None and rank != 99 else "--"
                 }
-        
-        # Add latitude and longitude to match expected structure
-        for state in runners_snapshot.values():
-            if "last_coord" in state:
-                state["latitude"] = state["last_coord"][0]
-                state["longitude"] = state["last_coord"][1]
-                state["carga_kg"] = state.get("peso_kg", 0)
+
         
     judges_list = []
     from judges import judges_cache
+    judges_keys = list(judges_cache.keys())
     for j_id, j_data in judges_cache.items():
+        nombre = j_data.get("nombre", "Juez")
+        if nombre == "Home-Base":
+            try:
+                idx = judges_keys.index(j_id) + 1
+            except ValueError:
+                idx = len(judges_keys) + 1
+            nombre = f"Judge_{idx}"
+        
         judges_list.append({
-            "nombre": j_data.get("nombre", "Juez"),
+            "id": j_id,
+            "nombre": nombre,
             "checkpoint_id": j_data.get("checkpoint_id")
         })
 
@@ -1162,6 +1198,7 @@ def gps():
         participant_entry["nombre"] = participante
         participant_entry["device_label"] = data.get("device_label") or f"Dispositivo-{device_id[:8]}"
         participant_entry["last_coord"] = (latitude, longitude)
+        participant_entry["last_update_ts"] = time.time()
 
         estado_anterior = participant_entry.get("estado", "corriendo")
         actualizar_estado_corredor(participant_entry, latitude, longitude, corredores=participants_cache)

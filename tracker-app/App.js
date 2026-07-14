@@ -591,7 +591,7 @@ export default function App() {
               <View style={styles.countersContainer}>
                 <View style={styles.counterPanel}>
                   <View style={[styles.counterCircle, { backgroundColor: 'white', borderWidth: 1, borderColor: '#ccc' }]}>
-                    <Text style={styles.counterTextBlack}>W</Text>
+                    <Text style={styles.counterTextBlack}>White</Text>
                   </View>
                   <View style={styles.stepperContainer}>
                     <TextInput
@@ -609,7 +609,7 @@ export default function App() {
 
                 <View style={styles.counterPanel}>
                   <View style={[styles.counterCircle, { backgroundColor: '#ef4444' }]}>
-                    <Text style={styles.counterTextWhite}>R</Text>
+                    <Text style={styles.counterTextWhite}>Red</Text>
                   </View>
                   <View style={styles.stepperContainer}>
                     <TextInput
@@ -627,7 +627,7 @@ export default function App() {
 
                 <View style={styles.counterPanel}>
                   <View style={[styles.counterCircle, { backgroundColor: '#111111' }]}>
-                    <Text style={styles.counterTextWhite}>B</Text>
+                    <Text style={styles.counterTextWhite}>Black</Text>
                   </View>
                   <View style={styles.stepperContainer}>
                     <TextInput

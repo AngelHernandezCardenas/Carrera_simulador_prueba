@@ -28,6 +28,7 @@ from Puntaje import get_puntaje_retos_detalle, refrescar_puntajes_retos, sincron
 from colores.vision_backend import procesar_frame_yolo_api
 from ultralytics import YOLO
 import os
+SAVE_TO_EXCEL = False  # Set to False to disable CSV/Excel logging
 
 modelo_yolo_global = None
 ruta_modelo = os.path.join(os.path.dirname(__file__), "colores", "detección", "best.pt")
@@ -884,37 +885,37 @@ def registrar_peso():
             # Iniciar hilo para no bloquear la respuesta (Loading sheet y Loads sheet)
             threading.Thread(target=send_webhook, args=(GOOGLE_APPS_SCRIPT_WEBHOOK_URL, payload), daemon=True).start()
             
-        # GUARDAR LOCALMENTE EN CSV SIEMPRE (Por si fallan las extensiones de Google)
-        import csv
-        import os
-        csv_file = BASE_DIR / "registros_loading.csv"
-        file_exists = os.path.isfile(csv_file)
+        if SAVE_TO_EXCEL:
+            import csv
+            import os
+            csv_file = BASE_DIR / "registros_loading.csv"
+            file_exists = os.path.isfile(csv_file)
         
-        try:
-            with open(csv_file, mode='a', newline='', encoding='utf-8') as f:
-                counts = data.get("counts", {})
-                juez = data.get("juez", "Desconocido").replace("Judge_", "").replace("juez_", "")
-                equipo_nom = participante.replace("Participante_", "") if participante else ""
+            try:
+                    with open(csv_file, mode='a', newline='', encoding='utf-8') as f:
+                            counts = data.get("counts", {})
+                            juez = data.get("juez", "Desconocido").replace("Judge_", "").replace("juez_", "")
+                            equipo_nom = participante.replace("Participante_", "") if participante else ""
                 
-                writer = csv.writer(f)
-                if not file_exists:
-                    writer.writerow(["Fecha", "Hora", "Juez", "Checkpoint", "Equipo", "Blanca", "Roja", "Negra", "Carga_Kg"])
-                writer.writerow([
-                    datetime.now().strftime("%Y-%m-%d"),
-                    datetime.now().strftime("%H:%M:%S"),
-                    juez,
-                    data.get("checkpoint", ""),
-                    equipo_nom,
-                    counts.get("Blanco", 0),
-                    counts.get("Rojo", 0),
-                    counts.get("Negro", 0),
-                    nuevo_peso_total
-                ])
-        except Exception as e:
-            print(f"Error guardando CSV local: {e}")
+                            writer = csv.writer(f)
+                            if not file_exists:
+                                    writer.writerow(["Fecha", "Hora", "Juez", "Checkpoint", "Equipo", "Blanca", "Roja", "Negra", "Carga_Kg"])
+                            writer.writerow([
+                                    datetime.now().strftime("%Y-%m-%d"),
+                                    datetime.now().strftime("%H:%M:%S"),
+                                    juez,
+                                    data.get("checkpoint", ""),
+                                    equipo_nom,
+                                    counts.get("Blanco", 0),
+                                    counts.get("Rojo", 0),
+                                    counts.get("Negro", 0),
+                                    nuevo_peso_total
+                            ])
+            except Exception as e:
+                    print(f"Error guardando CSV local: {e}")
             
     except Exception as e:
-        print(f"Error procesando webhook/CSV local: {e}")
+            print(f"Error procesando webhook/CSV local: {e}")
     # ---------------------------------------------
             
     # Siempre retornamos OK para simular que se guardó exitosamente y se envió al excel

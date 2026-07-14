@@ -47,7 +47,7 @@ def after_request(response):
     response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
     return response
 
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
 reset_participants()
 try:
@@ -1503,7 +1503,6 @@ def gps():
     try:
         import urllib.request
         import json
-        import threading
         
         telemetry_payload = {
             "device_id": device_id,

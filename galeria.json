@@ -1222,5 +1222,39 @@
         "checkpoint_nombre": "Bilio-Aulas4",
         "checkpoint_slug": "checkpoint_2",
         "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_1_checkpoint_2_1784046006.jpg",
+        "timestamp": 1784046006,
+        "device_id": "app-mrkubztd-17nz3h8t",
+        "participante": "Participante_1",
+        "fecha_hora": "2026-07-14 10:20:06",
+        "juez": "Judge_3",
+        "detections": {
+            "Rojo": 1,
+            "Blanco": 0,
+            "Negro": 1
+        },
+        "checkpoint_id": 2,
+        "checkpoint_nombre": "Bilio-Aulas4",
+        "checkpoint_slug": "checkpoint_2",
+        "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_2_checkpoint_2_1784046236.jpg",
+        "timestamp": 1784046236,
+        "device_id": "app-mrkubztd-17nz3h8t",
+        "participante": "Participante_2",
+        "fecha_hora": "2026-07-14 10:23:56",
+        "juez": "Judge_3",
+        "detections": {
+            "Rojo": 3,
+            "Blanco": 1,
+            "Negro": 0
+        },
+        "checkpoint_id": 2,
+        "checkpoint_nombre": "Bilio-Aulas4",
+        "checkpoint_slug": "checkpoint_2",
+        "distancia_checkpoint_m": 0.0
     }
 ]

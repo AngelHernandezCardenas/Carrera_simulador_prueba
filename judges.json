@@ -1,18 +1,1 @@
-{
-  "app-mrksvc32-3jqldkit": {
-    "nombre": "Judge_1",
-    "checkpoint_id": 3
-  },
-  "app-mrkua676-appux5wc": {
-    "nombre": "Home-Base",
-    "checkpoint_id": "Home-Base"
-  },
-  "app-mrkubztd-17nz3h8t": {
-    "nombre": "Judge_3",
-    "checkpoint_id": 2
-  },
-  "app-mrkufpbq-miza266h": {
-    "nombre": "Judge_4",
-    "checkpoint_id": 1
-  }
-}
+{}

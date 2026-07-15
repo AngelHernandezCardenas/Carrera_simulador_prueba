@@ -1256,5 +1256,73 @@
         "checkpoint_nombre": "Bilio-Aulas4",
         "checkpoint_slug": "checkpoint_2",
         "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Desconocido_manual_1784049813.jpg",
+        "timestamp": 1784049813,
+        "device_id": "app-mrkx6myh-3fgf6kmt",
+        "participante": "Desconocido",
+        "fecha_hora": "2026-07-14 11:23:33",
+        "juez": "Judge_5",
+        "detections": {
+            "Rojo": 1,
+            "Blanco": 1,
+            "Negro": 2
+        },
+        "checkpoint_id": 0,
+        "checkpoint_nombre": "Manual / Sin GPS",
+        "checkpoint_slug": "manual",
+        "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_1_manual_1784049865.jpg",
+        "timestamp": 1784049865,
+        "device_id": "app-mrkx6myh-3fgf6kmt",
+        "participante": "Participante_1",
+        "fecha_hora": "2026-07-14 11:24:25",
+        "juez": "Judge_5",
+        "detections": {
+            "Rojo": 1,
+            "Blanco": 1,
+            "Negro": 2
+        },
+        "checkpoint_id": 0,
+        "checkpoint_nombre": "Manual / Sin GPS",
+        "checkpoint_slug": "manual",
+        "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_1_manual_1784049896.jpg",
+        "timestamp": 1784049896,
+        "device_id": "app-mrkx6myh-3fgf6kmt",
+        "participante": "Participante_1",
+        "fecha_hora": "2026-07-14 11:24:56",
+        "juez": "Judge_5",
+        "detections": {
+            "Rojo": 1,
+            "Blanco": 1,
+            "Negro": 5
+        },
+        "checkpoint_id": 0,
+        "checkpoint_nombre": "Manual / Sin GPS",
+        "checkpoint_slug": "manual",
+        "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_1_checkpoint_1_1784049917.jpg",
+        "timestamp": 1784049917,
+        "device_id": "app-mrkx6myh-3fgf6kmt",
+        "participante": "Participante_1",
+        "fecha_hora": "2026-07-14 11:25:17",
+        "juez": "Judge_5",
+        "detections": {
+            "Rojo": 1,
+            "Blanco": 1,
+            "Negro": 5
+        },
+        "checkpoint_id": 1,
+        "checkpoint_nombre": "Biotecnologia-Centrales",
+        "checkpoint_slug": "checkpoint_1",
+        "distancia_checkpoint_m": 0.0
     }
 ]

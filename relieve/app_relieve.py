@@ -21,7 +21,7 @@ from flask_socketio import SocketIO
 # Pon BRIDGE_ENABLED = True para que los datos de la Rasp aparezcan
 # también en el mapa de corredores (localhost:5000/mapa).
 BRIDGE_ENABLED    = True
-BRIDGE_GPS_URL    = os.environ.get("BRIDGE_GPS_URL", "http://localhost:5000/gps")
+BRIDGE_GPS_URL    = os.environ.get("BRIDGE_GPS_URL", "http://localhost:8000/gps")
 BRIDGE_PARTICIPANTE = "Raspberry_Relieve"   # nombre que aparecerá en el mapa
 
 
@@ -767,7 +767,7 @@ def on_connect():
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    port = int(os.environ.get("RELIEVE_PORT", 5001))
+    port = int(os.environ.get("RELIEVE_PORT", 8001))
     print("=" * 60)
     print("  ️  Relieve Monitor — Servidor de Raspberry Pi")
     print("=" * 60)

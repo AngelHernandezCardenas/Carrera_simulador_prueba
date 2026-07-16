@@ -1,3 +1,5 @@
+import eventlet
+eventlet.monkey_patch()
 import hashlib
 import math
 import random
@@ -48,7 +50,7 @@ def after_request(response):
     response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
     return response
 
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="eventlet")
 
 reset_participants()
 try:
@@ -1850,4 +1852,4 @@ if __name__ == "__main__":
     # Iniciar la sincronización de puntajes en segundo plano para reflejar los cambios del excel
     threading.Thread(target=sincronizar_puntajes, daemon=True).start()
     
-    socketio.run(app, host="0.0.0.0", port=8000, debug=False, allow_unsafe_werkzeug=True)
+    socketio.run(app, host="0.0.0.0", port=5000, debug=False)

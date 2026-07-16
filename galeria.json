@@ -1324,5 +1324,124 @@
         "checkpoint_nombre": "Biotecnologia-Centrales",
         "checkpoint_slug": "checkpoint_1",
         "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_2_checkpoint_1_1784141397.jpg",
+        "timestamp": 1784141397,
+        "device_id": "app-mrmfkn3a-ja5qx36j",
+        "participante": "Participante_2",
+        "fecha_hora": "2026-07-15 12:49:57",
+        "juez": "Judge_1",
+        "detections": {
+            "Rojo": 1,
+            "Blanco": 0,
+            "Negro": 3
+        },
+        "checkpoint_id": 1,
+        "checkpoint_nombre": "Biotecnologia-Centrales",
+        "checkpoint_slug": "checkpoint_1",
+        "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_2_checkpoint_1_1784141410.jpg",
+        "timestamp": 1784141410,
+        "device_id": "app-mrmfkn3a-ja5qx36j",
+        "participante": "Participante_2",
+        "fecha_hora": "2026-07-15 12:50:10",
+        "juez": "Judge_1",
+        "detections": {
+            "Rojo": 1,
+            "Blanco": 0,
+            "Negro": 3
+        },
+        "checkpoint_id": 1,
+        "checkpoint_nombre": "Biotecnologia-Centrales",
+        "checkpoint_slug": "checkpoint_1",
+        "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_2_checkpoint_1_1784141418.jpg",
+        "timestamp": 1784141418,
+        "device_id": "app-mrmfkn3a-ja5qx36j",
+        "participante": "Participante_2",
+        "fecha_hora": "2026-07-15 12:50:18",
+        "juez": "Judge_1",
+        "detections": {
+            "Rojo": 1,
+            "Blanco": 0,
+            "Negro": 3
+        },
+        "checkpoint_id": 1,
+        "checkpoint_nombre": "Biotecnologia-Centrales",
+        "checkpoint_slug": "checkpoint_1",
+        "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_2_checkpoint_1_1784141429.jpg",
+        "timestamp": 1784141429,
+        "device_id": "app-mrmfkn3a-ja5qx36j",
+        "participante": "Participante_2",
+        "fecha_hora": "2026-07-15 12:50:29",
+        "juez": "Judge_1",
+        "detections": {
+            "Rojo": 1,
+            "Blanco": 1,
+            "Negro": 3
+        },
+        "checkpoint_id": 1,
+        "checkpoint_nombre": "Biotecnologia-Centrales",
+        "checkpoint_slug": "checkpoint_1",
+        "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Desconocido_checkpoint_1_1784141606.jpg",
+        "timestamp": 1784141606,
+        "device_id": "app-mrmfkn3a-ja5qx36j",
+        "participante": "Desconocido",
+        "fecha_hora": "2026-07-15 12:53:26",
+        "juez": "Judge_1",
+        "detections": {
+            "Rojo": 1,
+            "Blanco": 0,
+            "Negro": 2
+        },
+        "checkpoint_id": 1,
+        "checkpoint_nombre": "Biotecnologia-Centrales",
+        "checkpoint_slug": "checkpoint_1",
+        "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_2_checkpoint_1_1784141626.jpg",
+        "timestamp": 1784141626,
+        "device_id": "app-mrmfkn3a-ja5qx36j",
+        "participante": "Participante_2",
+        "fecha_hora": "2026-07-15 12:53:46",
+        "juez": "Judge_1",
+        "detections": {
+            "Rojo": 1,
+            "Blanco": 1,
+            "Negro": 5
+        },
+        "checkpoint_id": 1,
+        "checkpoint_nombre": "Biotecnologia-Centrales",
+        "checkpoint_slug": "checkpoint_1",
+        "distancia_checkpoint_m": 0.0
+    },
+    {
+        "filename": "captura_Participante_2_checkpoint_1_1784141645.jpg",
+        "timestamp": 1784141645,
+        "device_id": "app-mrmfkn3a-ja5qx36j",
+        "participante": "Participante_2",
+        "fecha_hora": "2026-07-15 12:54:05",
+        "juez": "Judge_1",
+        "detections": {
+            "Rojo": 1,
+            "Blanco": 1,
+            "Negro": 5
+        },
+        "checkpoint_id": 1,
+        "checkpoint_nombre": "Biotecnologia-Centrales",
+        "checkpoint_slug": "checkpoint_1",
+        "distancia_checkpoint_m": 0.0
     }
 ]

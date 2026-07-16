@@ -79,8 +79,8 @@ def _reenviar_al_mapa(datos: dict) -> None:
         "latitude":     lat,
         "longitude":    lon,
         "device_id":    datos.get("dispositivo_id", "rasp"),
-        "device_label": "Bicicleta Relieve",
-        "participante": "bicicleta_relieve",
+        "device_label": f"Bicicleta {datos.get('dispositivo_id', 'rasp')}",
+        "participante": f"bicicleta_{datos.get('dispositivo_id', 'rasp')}",
         "speed_kmh":    None,
         # Batería principal
         "voltaje":          datos.get("voltaje"),

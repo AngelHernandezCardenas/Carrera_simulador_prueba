@@ -1173,8 +1173,16 @@ def gps():
                 "msg": "GPS ignorado para jueces"
             })
         else:
-            participante = get_or_create_participant(device_id) 
-
+            if client_participante:
+                participante = client_participante
+                if device_id not in participants_cache:
+                    participants_cache[device_id] = {"nombre": participante}
+                    from participants import save_participants
+                    save_participants(participants_cache)
+                else:
+                    participants_cache[device_id]["nombre"] = participante
+            else:
+                participante = get_or_create_participant(device_id)
     if not participante:
         return jsonify({
             "status": "limite_participantes",
@@ -1200,8 +1208,27 @@ def gps():
         participant_entry["device_id"] = device_id
         participant_entry["nombre"] = participante
         participant_entry["device_label"] = data.get("device_label") or f"Dispositivo-{device_id[:8]}"
+        
+        # PRIORIDAD DE GPS: 
+        # Si es la Raspberry, registramos su tiempo de actividad.
+        is_raspberry = str(device_id).startswith("Raspberry")
+        now = time.time()
+        
+        if is_raspberry:
+            participant_entry["rasp_active_ts"] = now
+        else:
+            # Es el celular (web app). Si la Raspberry estuvo activa hace menos de 30 segundos, lo ignoramos.
+            rasp_last_seen = participant_entry.get("rasp_active_ts", 0)
+            if now - rasp_last_seen < 30:
+                return jsonify({
+                    "status": "ok",
+                    "participante": participante,
+                    "skipped": True,
+                    "msg": "GPS del celular ignorado; la Raspberry tiene el control de la ubicación."
+                })
+
         participant_entry["last_coord"] = (latitude, longitude)
-        participant_entry["last_update_ts"] = time.time()
+        participant_entry["last_update_ts"] = now
 
         estado_anterior = participant_entry.get("estado", "corriendo")
         actualizar_estado_corredor(participant_entry, latitude, longitude, corredores=participants_cache)

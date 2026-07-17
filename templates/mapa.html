@@ -1949,10 +1949,15 @@
                 });
                 document.getElementById('lider-distancia').textContent = liderDist.toFixed(3);
 
-                // Reordenar DOM basado en puntos y luego distancia
+                // Reordenar DOM basado en el nombre del equipo (para que queden Team 1, Team 2, ..., Team 10, etc.)
                 let cards = Array.from(listContainer.children);
-                // cards.sort logic removed since 'posicion' is no longer in the DOM
-                // if you need sorting, you'd sort by points/distance directly from the data.
+                cards.sort((a, b) => {
+                    const idA = a.id.replace('card-', '');
+                    const idB = b.id.replace('card-', '');
+                    const nameA = state.runners[idA] ? (state.runners[idA].latestData.team_name || idA) : idA;
+                    const nameB = state.runners[idB] ? (state.runners[idB].latestData.team_name || idB) : idB;
+                    return nameA.localeCompare(nameB, undefined, {numeric: true});
+                });
                 cards.forEach(c => listContainer.appendChild(c)); // Mueve en el DOM sin recrear
 
                 // Si este es el corredor que estamos siguiendo, mover la cámara con él

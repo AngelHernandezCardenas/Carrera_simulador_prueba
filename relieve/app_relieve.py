@@ -75,12 +75,32 @@ def _reenviar_al_mapa(datos: dict) -> None:
     if lat is None or lon is None:
         return
 
+    device_id_raw = datos.get("dispositivo_id", "rasp")
+    
+    # Mapeo automático: si la rasp se llama "Raspberry_Relieve1", la asigna al equipo "participante_01"
+    mapeo_equipos = {
+        "Raspberry_Relieve1": "participante_01",
+        "Raspberry_Relieve2": "participante_02",
+        "Raspberry_Relieve3": "participante_03",
+        "Raspberry_Relieve4": "participante_04",
+        "Raspberry_Relieve5": "participante_05",
+        "Raspberry_Relieve6": "participante_06",
+        "Raspberry_Relieve7": "participante_07",
+        "Raspberry_Relieve8": "participante_08",
+        "Raspberry_Relieve9": "participante_09",
+        "Raspberry_Relieve10": "participante_10",
+        "Raspberry_Relieve11": "participante_11",
+        "Raspberry_Relieve12": "participante_12",
+    }
+    
+    participante_oficial = mapeo_equipos.get(device_id_raw, f"bicicleta_{device_id_raw}")
+
     payload = {
         "latitude":     lat,
         "longitude":    lon,
-        "device_id":    datos.get("dispositivo_id", "rasp"),
-        "device_label": f"Bicicleta {datos.get('dispositivo_id', 'rasp')}",
-        "participante": f"bicicleta_{datos.get('dispositivo_id', 'rasp')}",
+        "device_id":    device_id_raw,
+        "device_label": f"Bicicleta {device_id_raw}",
+        "participante": participante_oficial,
         "speed_kmh":    None,
         # Batería principal
         "voltaje":          datos.get("voltaje"),
